@@ -1,0 +1,63 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ableton-live12-mcp"
+version = "1.0.0"
+description = "Full-coverage Model Context Protocol (MCP) server and Control Surface bridge for Ableton Live 12.4.6 Suite"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT OR Apache-2.0" }
+authors = [
+    { name = "Juan Cruz Muñoz Albelo", email = "juancruzmunozalbelo@gmail.com" }
+]
+keywords = [
+    "ableton",
+    "ableton-live-12",
+    "mcp",
+    "model-context-protocol",
+    "antigravity",
+    "daw",
+    "music-production",
+    "midi",
+    "dsp"
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Other Audience",
+    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: MacOS :: MacOS X",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Multimedia :: Sound/Audio",
+    "Topic :: Multimedia :: Sound/Audio :: MIDI"
+]
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0"
+]
+
+[project.urls]
+Homepage = "https://github.com/juancruzmunozalbelo/ableton-live12-mcp"
+Documentation = "https://juancruzmunozalbelo.github.io/ableton-live12-mcp/"
+Repository = "https://github.com/juancruzmunozalbelo/ableton-live12-mcp.git"
+Issues = "https://github.com/juancruzmunozalbelo/ableton-live12-mcp/issues"
+
+[project.scripts]
+ableton-live12-mcp = "ableton_live12_mcp.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-v"

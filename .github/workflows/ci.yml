@@ -1,0 +1,48 @@
+name: Ableton Live 12 MCP CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Test (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+
+      - name: Verify Python bytecode compilation (Clean Syntax)
+        run: |
+          python -m py_compile src/live12_bridge/*.py src/ableton_live12_mcp/*.py src/ableton_live12_mcp/tools/*.py
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pytest-cov
+
+      - name: Validate MCP Tool Catalog & Schemas
+        run: |
+          PYTHONPATH=src python -c "
+          from ableton_live12_mcp.tools import get_tool_catalog
+          cat = get_tool_catalog()
+          print(f'Validated MCP Tool Catalog: {len(cat)} tools registered')
+          assert len(cat) >= 61, 'Tool catalog incomplete'
+          "
+
+      - name: Run automated test suite
+        run: |
+          PYTHONPATH=src pytest tests/ -v --cov=ableton_live12_mcp --cov-report=term-missing

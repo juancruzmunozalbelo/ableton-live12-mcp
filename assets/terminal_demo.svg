@@ -1,0 +1,113 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 540" width="100%" height="100%">
+  <defs>
+    <filter id="win-shadow" x="-5%" y="-5%" width="110%" height="115%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#000000" flood-opacity="0.8"/>
+    </filter>
+    <style>
+      @keyframes blink {
+        0%, 49% { opacity: 1; }
+        50%, 100% { opacity: 0; }
+      }
+      @keyframes line1 { 0%, 5% { opacity: 0; } 7%, 100% { opacity: 1; } }
+      @keyframes resp1 { 0%, 13% { opacity: 0; } 15%, 100% { opacity: 1; } }
+      @keyframes line2 { 0%, 23% { opacity: 0; } 25%, 100% { opacity: 1; } }
+      @keyframes resp2 { 0%, 33% { opacity: 0; } 35%, 100% { opacity: 1; } }
+      @keyframes line3 { 0%, 43% { opacity: 0; } 45%, 100% { opacity: 1; } }
+      @keyframes resp3 { 0%, 53% { opacity: 0; } 55%, 100% { opacity: 1; } }
+      @keyframes line4 { 0%, 63% { opacity: 0; } 65%, 100% { opacity: 1; } }
+      @keyframes resp4 { 0%, 73% { opacity: 0; } 75%, 100% { opacity: 1; } }
+      @keyframes line5 { 0%, 83% { opacity: 0; } 85%, 100% { opacity: 1; } }
+      @keyframes resp5 { 0%, 91% { opacity: 0; } 93%, 100% { opacity: 1; } }
+      @keyframes cycleAnim {
+        0% { opacity: 0; }
+        2% { opacity: 1; }
+        98% { opacity: 1; }
+        100% { opacity: 0; }
+      }
+
+      .term-container {
+        animation: cycleAnim 16s infinite;
+        font-family: 'SF Mono', 'Fira Code', Menlo, Monaco, Consolas, monospace;
+      }
+      .cursor {
+        animation: blink 0.9s infinite;
+        fill: #ffbe00;
+      }
+      .c-prompt { fill: #00d2ff; font-weight: 600; }
+      .c-cmd { fill: #ffffff; font-weight: 500; }
+      .c-arg { fill: #ffbe00; }
+      .c-str { fill: #00ff88; }
+      .c-dim { fill: #6b778c; }
+      .c-json { fill: #a5b4fc; }
+      .c-success { fill: #00ff88; font-weight: bold; }
+    </style>
+  </defs>
+
+  <!-- Background Canvas -->
+  <rect width="920" height="540" fill="#040507"/>
+
+  <!-- Terminal Window Frame -->
+  <g transform="translate(30, 25)" filter="url(#win-shadow)">
+    <!-- Main Window Background -->
+    <rect width="860" height="490" rx="10" fill="#090b10" stroke="#1e222d" stroke-width="1.5"/>
+
+    <!-- Window Titlebar -->
+    <path d="M 0 10 C 0 4.477 4.477 0 10 0 L 850 0 C 855.523 0 860 4.477 860 10 L 860 38 L 0 38 Z" fill="#13161f" stroke="#1e222d" stroke-width="1.5"/>
+
+    <!-- macOS Traffic Light Window Controls -->
+    <circle cx="22" cy="19" r="6" fill="#ff5f56" stroke="#e0443e" stroke-width="0.5"/>
+    <circle cx="42" cy="19" r="6" fill="#ffbd2e" stroke="#dea125" stroke-width="0.5"/>
+    <circle cx="62" cy="19" r="6" fill="#27c93f" stroke="#1aab29" stroke-width="0.5"/>
+
+    <!-- Window Title -->
+    <text x="430" y="23" fill="#8e99a8" font-size="12" font-family="-apple-system, sans-serif" font-weight="600" text-anchor="middle">
+      juancruz@studio-macbook: ~/ableton-live12-mcp — agy mcp live12 — 88×26
+    </text>
+
+    <!-- Terminal Content Area -->
+    <g class="term-container" transform="translate(25, 65)" font-size="12.5" xml:space="preserve">
+      <!-- Step 1: Health & Song State -->
+      <g style="animation: line1 16s infinite;">
+        <text x="0" y="0"><tspan class="c-prompt">studio ❯</tspan> <tspan class="c-cmd">agy mcp call</tspan> <tspan class="c-arg">live12_song_get_state</tspan></text>
+      </g>
+      <g style="animation: resp1 16s infinite;">
+        <text x="0" y="20"><tspan class="c-dim">➜</tspan> <tspan class="c-json">{"tempo": 124.0, "signature": "4/4", "scale": "Minor", "root_note": "C", "playing": false}</tspan></text>
+      </g>
+
+      <!-- Step 2: Track Creation -->
+      <g style="animation: line2 16s infinite;">
+        <text x="0" y="55"><tspan class="c-prompt">studio ❯</tspan> <tspan class="c-cmd">agy mcp call</tspan> <tspan class="c-arg">live12_track_create</tspan> <tspan class="c-dim">type=</tspan><tspan class="c-str">"midi"</tspan> <tspan class="c-dim">name=</tspan><tspan class="c-str">"Acid Bass"</tspan></text>
+      </g>
+      <g style="animation: resp2 16s infinite;">
+        <text x="0" y="75"><tspan class="c-dim">➜</tspan> <tspan class="c-json">{"track_index": 0, "name": "Acid Bass", "arm": true, "status": "created"}</tspan></text>
+      </g>
+
+      <!-- Step 3: Browser Load Drift Synth -->
+      <g style="animation: line3 16s infinite;">
+        <text x="0" y="110"><tspan class="c-prompt">studio ❯</tspan> <tspan class="c-cmd">agy mcp call</tspan> <tspan class="c-arg">live12_browser_load_item</tspan> <tspan class="c-dim">track_index=</tspan><tspan class="c-str">0</tspan> <tspan class="c-dim">uri=</tspan><tspan class="c-str">"query:devices#Drift"</tspan></text>
+      </g>
+      <g style="animation: resp3 16s infinite;">
+        <text x="0" y="130"><tspan class="c-dim">➜</tspan> <tspan class="c-json">{"device_index": 0, "name": "Drift", "class_name": "DriftDevice", "loaded": true}</tspan></text>
+      </g>
+
+      <!-- Step 4: Inject Live 12 Extended MIDI Notes -->
+      <g style="animation: line4 16s infinite;">
+        <text x="0" y="165"><tspan class="c-prompt">studio ❯</tspan> <tspan class="c-cmd">agy mcp call</tspan> <tspan class="c-arg">live12_clip_add_notes</tspan> <tspan class="c-dim">track_index=</tspan><tspan class="c-str">0</tspan> <tspan class="c-dim">slot_index=</tspan><tspan class="c-str">0</tspan> \</text>
+        <text x="20" y="185"><tspan class="c-dim">notes=[</tspan><tspan class="c-json">{"pitch": 36, "time": 0.0, "prob": 0.95, "vel_dev": 12, "mute": false}</tspan><tspan class="c-dim">, ...]</tspan></text>
+      </g>
+      <g style="animation: resp4 16s infinite;">
+        <text x="0" y="205"><tspan class="c-dim">➜</tspan> <tspan class="c-json">{"notes_added": 16, "extended_lom_spec": true, "note_ids": [101, 102, 103, 104, 105...]}</tspan></text>
+      </g>
+
+      <!-- Step 5: Start Transport & Live Playback -->
+      <g style="animation: line5 16s infinite;">
+        <text x="0" y="240"><tspan class="c-prompt">studio ❯</tspan> <tspan class="c-cmd">agy mcp call</tspan> <tspan class="c-arg">live12_transport_play</tspan></text>
+      </g>
+      <g style="animation: resp5 16s infinite;">
+        <text x="0" y="260"><tspan class="c-success">✔ LIVE 12 TRANSPORT PLAYING</tspan> <tspan class="c-dim">|</tspan> <tspan class="c-str">124.0 BPM</tspan> <tspan class="c-dim">|</tspan> <tspan class="c-arg">C Minor</tspan> <tspan class="c-dim">|</tspan> <tspan class="c-json">Bar 1.1.1 ➔ 1.2.1</tspan></text>
+        <text x="0" y="285" fill="#5865f2"><tspan>⚡ Bridge: 5ms Live.Base.Timer scheduler active | Latency: 4.8ms | Log.txt: 0 errors</tspan></text>
+        <text x="0" y="315"><tspan class="c-prompt">studio ❯</tspan> <rect x="85" y="303" width="8" height="15" class="cursor"/></text>
+      </g>
+    </g>
+  </g>
+</svg>
