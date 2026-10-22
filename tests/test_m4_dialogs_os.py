@@ -255,6 +255,12 @@ class TestDialogsOSPathValidation:
 class TestMockedSubprocessOSAutomation:
     """Verifies subprocess.run monkeypatching for osascript error modes and edge cases."""
 
+    @pytest.fixture(autouse=True)
+    def setup_mock_platform(self, monkeypatch, request):
+        if request.node.name != "test_non_darwin_platform_rejection":
+            monkeypatch.setattr(dialogs, "is_macos", lambda: True)
+            monkeypatch.setattr(platform, "system", lambda: "Darwin")
+
     def test_save_set_osascript_success(self, monkeypatch, tmp_path: Path):
         target_path = str(tmp_path / "mocked_save.als")
 
@@ -360,6 +366,7 @@ class TestMockedSubprocessOSAutomation:
     def test_non_darwin_platform_rejection(self, monkeypatch, tmp_path: Path):
         target_path = str(tmp_path / "linux_test.als")
         monkeypatch.setattr(platform, "system", lambda: "Linux")
+        monkeypatch.setattr(dialogs, "is_macos", lambda: False)
 
         if hasattr(dialogs, "save_set"):
             try:
