@@ -2453,6 +2453,7 @@ class Live12TestClient:
         assert not res.is_error, f"Failed to create scene: {res.data}"
         s_idx = res.get("scene_index")
         assert s_idx is not None
+        self.call_tool("live12_scene_set_properties", {"scene_index": s_idx, "name": name})
         self.session_scenes.append(s_idx)
         return s_idx, name
 
@@ -2495,13 +2496,97 @@ class Live12TestClient:
                     s for s in self._mock_bridge.scenes
                     if not s.name.startswith("__agy_test_")
                 ]
+                self._mock_bridge.cue_points.clear()
             else:
-                # Live mode cleanup via tools
-                for t_idx in sorted(self.session_tracks, reverse=True):
-                    try:
-                        self.call_tool("live12_track_delete", {"track_index": t_idx})
-                    except Exception:
-                        pass
+                # Live mode cleanup: dynamically query tracks and scenes to prevent index drift
+                # 1. Clean up tracks dynamically
+                try:
+                    lom_tracks = self.call_tool("live12_lom_get", {
+                        "target_path": "song",
+                        "property_name": "tracks",
+                    })
+                    if not lom_tracks.is_error and isinstance(lom_tracks.data, dict):
+                        tr_list = lom_tracks.data.get("value", [])
+                        indices_to_delete = []
+                        for idx, tr in enumerate(tr_list):
+                            name = tr.get("name", "") if isinstance(tr, dict) else ""
+                            if name.startswith("__agy_test_"):
+                                indices_to_delete.append(idx)
+                        for s_idx in self.session_tracks:
+                            if 0 <= s_idx < len(tr_list) and s_idx not in indices_to_delete:
+                                indices_to_delete.append(s_idx)
+                        for idx in sorted(set(indices_to_delete), reverse=True):
+                            self.call_tool("live12_track_delete", {"track_index": idx})
+                    else:
+                        for t_idx in sorted(set(self.session_tracks), reverse=True):
+                            try:
+                                self.call_tool("live12_track_delete", {"track_index": t_idx})
+                            except Exception:
+                                pass
+                except Exception as e:
+                    sys.stderr.write(f"Track cleanup error: {e}\n")
+
+                # 2. Clean up scenes dynamically
+                try:
+                    lom_scenes = self.call_tool("live12_lom_get", {
+                        "target_path": "song",
+                        "property_name": "scenes",
+                    })
+                    if not lom_scenes.is_error and isinstance(lom_scenes.data, dict):
+                        sc_list = lom_scenes.data.get("value", [])
+                        scenes_to_delete = []
+                        for idx, sc in enumerate(sc_list):
+                            sc_name = sc.get("name", "") if isinstance(sc, dict) else ""
+                            if sc_name.startswith("__agy_test_") or sc_name == "Drop 1":
+                                scenes_to_delete.append(idx)
+                        for s_idx in self.session_scenes:
+                            if 0 <= s_idx < len(sc_list) and s_idx not in scenes_to_delete:
+                                scenes_to_delete.append(s_idx)
+                        for idx in sorted(set(scenes_to_delete), reverse=True):
+                            self.call_tool("live12_lom_call", {
+                                "target_path": "song",
+                                "method_name": "delete_scene",
+                                "args": [idx],
+                            })
+                    elif self.session_scenes:
+                        for s_idx in sorted(set(self.session_scenes), reverse=True):
+                            self.call_tool("live12_lom_call", {
+                                "target_path": "song",
+                                "method_name": "delete_scene",
+                                "args": [s_idx],
+                            })
+                except Exception as e:
+                    sys.stderr.write(f"Scene cleanup error: {e}\n")
+
+                # 3. Clean up cue points
+                try:
+                    cues_res = self.call_tool("live12_cue_point_control", {"action": "list"})
+                    if not cues_res.is_error and isinstance(cues_res.data, dict):
+                        cps = cues_res.data.get("cue_points", [])
+                        for cp in reversed(cps):
+                            t = cp.get("time", 0.0) if isinstance(cp, dict) else 0.0
+                            self.call_tool("live12_lom_set", {
+                                "target_path": "song",
+                                "property_name": "current_song_time",
+                                "value": t,
+                            })
+                            self.call_tool("live12_lom_call", {
+                                "target_path": "song",
+                                "method_name": "set_or_delete_cue",
+                            })
+                        self.call_tool("live12_lom_set", {
+                            "target_path": "song",
+                            "property_name": "current_song_time",
+                            "value": 0.0,
+                        })
+                except Exception as e:
+                    sys.stderr.write(f"Cue cleanup error: {e}\n")
+
+                # 4. Always reset scale to Major
+                try:
+                    self.call_tool("live12_song_set_scale", {"root_note": 0, "scale_name": "Major"})
+                except Exception:
+                    pass
 
             # Cleanup temp export files
             for tmp_f in glob.glob(f"/tmp/__agy_test_{self.run_id}*"):

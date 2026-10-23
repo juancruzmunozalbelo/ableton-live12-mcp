@@ -141,3 +141,11 @@ Specifically:
 USER REQUIREMENT UPDATE:
 The user explicitly emphasized: "ojo que quiero hacer todo no solo qque el free permite, por las dudas yo tengo el ableton suite" (They own Ableton Live 12 Suite and want 100% of Ableton Live 12 Suite capabilities covered and tested — never restricted to Lite/Intro/free limits: full Suite devices like `Meld`, `Roar`, `Wavetable`, `Sampler`, `Operator`, `Spectral Resonator`, `Drift`, `MaxDevice` / Max for Live, unlimited tracks/scenes/returns, etc.).
 Also note: `xattr -cr "/Applications/Ableton Live 12 Suite.app"` has been executed so macOS Gatekeeper does not run the app under `AppTranslocation`.
+
+
+## Follow-up — 2026-10-23T01:01:03Z
+
+USER UPDATE — ABLETON LIVE 12 SUITE LICENSE IS NOW ACTIVE (`Unlock.json` present at `/Users/juancruz/Library/Application Support/Ableton/Live 12.4.6/Unlock/Unlock.json`):
+1. Ableton Live 12 Suite is officially licensed and unlocked, listening on `localhost:11246` with `Live12Bridge` loaded.
+2. Note from `Log.txt`: avoid concurrent test processes against the same live session to eliminate track-index race conditions (`IndexError: Track index 15 out of range [0, 15)`), and restart Live if needed to cleanly ingest `Unlock.json` with unlimited Suite tracks.
+3. Ensure the Orchestrator and Victory Auditor execute `./scripts/run_live_tests.sh --live` sequentially (one runner at a time, clean `Log.txt` with zero tracebacks), and push any final test/handler adjustments to `origin/main`.

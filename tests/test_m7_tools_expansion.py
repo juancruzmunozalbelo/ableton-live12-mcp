@@ -116,7 +116,7 @@ class TestM7Domain2TracksAndScenes:
     @pytest.fixture
     def harness(self):
         h = Live12TestClient(mode="mock")
-        h.call_tool("live12_track_create", {"type": "midi"})
+        h.create_sandboxed_track("midi", "m7_d2_tr")
         yield h
         h.teardown()
 
@@ -157,7 +157,7 @@ class TestM7Domain3ClipsAndMIDI:
     @pytest.fixture
     def harness(self):
         h = Live12TestClient(mode="mock")
-        h.call_tool("live12_track_create", {"type": "midi"})
+        h.create_sandboxed_track("midi", "m7_d3_tr")
         h.call_tool("live12_clip_create", {"track_index": 0, "slot_index": 0, "length_beats": 4.0})
         h.call_tool("live12_clip_add_notes", {
             "track_index": 0, "slot_index": 0,
@@ -289,7 +289,7 @@ class TestM7Domain4DevicesAndBrowser:
     @pytest.fixture
     def harness(self):
         h = Live12TestClient(mode="mock")
-        h.call_tool("live12_track_create", {"type": "midi"})
+        h.create_sandboxed_track("midi", "m7_d4_tr")
         h.call_tool("live12_browser_load_item", {"track_index": 0, "browser_item_uri": "query:Instrument Rack"})
         yield h
         h.teardown()

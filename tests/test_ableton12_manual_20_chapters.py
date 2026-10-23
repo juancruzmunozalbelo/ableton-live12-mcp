@@ -122,10 +122,8 @@ class TestChapter02SessionViewAndScenes:
     """
 
     def test_session_scene_lifecycle(self, client: Live12TestClient):
-        # 1. Create scene
-        res_scene = client.call_tool("live12_scene_create", {})
-        assert not res_scene.is_error
-        s_idx = res_scene.get("scene_index", 0)
+        # 1. Create scene (exercises "live12_scene_create" via sandboxing)
+        s_idx, _ = client.create_sandboxed_scene("drop_1")
 
         # 2. Set scene properties
         res_props = client.call_tool("live12_scene_set_properties", {
@@ -167,12 +165,8 @@ class TestChapter03TrackHierarchyAndGrouping:
     """
 
     def test_track_hierarchy_and_management(self, client: Live12TestClient):
-        # Create tracks
-        res_t1 = client.call_tool("live12_track_create", {"type": "midi"})
-        assert not res_t1.is_error
-        t1 = res_t1.get("track_index", 0)
-        client.session_tracks.append(t1)
-
+        # Create tracks (exercises "live12_track_create" via sandboxing)
+        t1, _ = client.create_sandboxed_track("midi", "synth_1")
         t2, _ = client.create_sandboxed_track("midi", "synth_2")
 
         # Set properties
@@ -196,9 +190,10 @@ class TestChapter03TrackHierarchyAndGrouping:
         # Duplicate track
         res_dup = client.call_tool("live12_track_duplicate", {"track_index": t1})
         assert not res_dup.is_error
+        dup_idx = res_dup.get("track_index", t1 + 1)
+        client.session_tracks.append(dup_idx)
 
         # Delete track
-        dup_idx = res_dup.get("track_index", t1 + 1)
         res_del = client.call_tool("live12_track_delete", {"track_index": dup_idx})
         assert not res_del.is_error
 

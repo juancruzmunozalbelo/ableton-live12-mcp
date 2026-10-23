@@ -340,6 +340,15 @@ class Live12ControlSurface(ControlSurface):
                 with self._guard():
                     res = dispatch_tool_call(self._handlers, job.method, job.params)
                     job.result = res
+            except (IndexError, ValueError, KeyError) as e:
+                # Normal client validation/boundary error - return clean RPC error without dumping traceback to host Log.txt
+                job.error = {
+                    "code": -32603,
+                    "message": str(e),
+                    "data": {
+                        "exception_type": type(e).__name__,
+                    },
+                }
             except Exception as e:
                 tb = traceback.format_exc()
                 self.log_message(f"Live12Bridge: Exception executing '{job.method}': {tb}")

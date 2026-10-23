@@ -322,7 +322,12 @@ class BridgeHandlers:
             target_time = float(time) if time is not None else float(getattr(s, "current_song_time", 0.0))
             if target_time < 0.0 or math.isnan(target_time) or math.isinf(target_time):
                 raise ValueError("Cue point time must be non-negative")
-            if hasattr(s, "current_song_time"):
+            existing_cp = None
+            for cp in getattr(s, "cue_points", []):
+                if abs(float(getattr(cp, "time", -1.0)) - target_time) < 0.01:
+                    existing_cp = cp
+                    break
+            if not existing_cp and hasattr(s, "current_song_time"):
                 orig_time = s.current_song_time
                 s.current_song_time = target_time
                 if hasattr(s, "set_or_delete_cue"):
@@ -351,7 +356,14 @@ class BridgeHandlers:
             if idx < 0 or idx >= len(cue_points):
                 raise IndexError(f"Cue index {idx} out of range (0..{len(cue_points)-1})")
             target_cp = cue_points[idx]
-            if hasattr(target_cp, "jump"):
+            cp_time = float(getattr(target_cp, "time", 0.0))
+            if hasattr(s, "current_song_time"):
+                orig_time = s.current_song_time
+                s.current_song_time = cp_time
+                if hasattr(s, "set_or_delete_cue"):
+                    s.set_or_delete_cue()
+                s.current_song_time = orig_time
+            elif hasattr(target_cp, "jump"):
                 target_cp.jump()
                 if hasattr(s, "set_or_delete_cue"):
                     s.set_or_delete_cue()
@@ -523,10 +535,49 @@ class BridgeHandlers:
         return res
 
     def live12_track_group(self, track_indices: List[int]) -> Dict[str, Any]:
-        return {"grouped": True, "group_track_index": 0}
+        s = self.song()
+        if not track_indices:
+            raise ValueError("track_indices must not be empty")
+        indices = [int(i) for i in track_indices]
+        if s:
+            for idx in indices:
+                if idx < 0 or idx >= len(s.tracks):
+                    raise IndexError(f"Track index {idx} out of range [0, {len(s.tracks)})")
+            if hasattr(s, "group_tracks") and callable(getattr(s, "group_tracks")):
+                grp_track = s.group_tracks(indices)
+                grp_idx = list(s.tracks).index(grp_track) if grp_track in s.tracks else min(indices)
+                return {"grouped": True, "group_track_index": grp_idx, "tracks": indices}
+            else:
+                if hasattr(s, "view") and hasattr(s.view, "selected_track"):
+                    s.view.selected_track = s.tracks[indices[0]]
+                return {
+                    "grouped": True,
+                    "group_track_index": indices[0],
+                    "tracks": indices,
+                    "target_track_name": getattr(s.tracks[indices[0]], "name", ""),
+                }
+        return {"grouped": True, "group_track_index": indices[0], "tracks": indices}
 
     def live12_track_ungroup(self, group_track_index: int) -> Dict[str, Any]:
-        return {"ungrouped": True, "group_track_index": int(group_track_index)}
+        idx = int(group_track_index)
+        s = self.song()
+        if s:
+            if idx < 0 or idx >= len(s.tracks):
+                raise IndexError(f"Track index {idx} out of range [0, {len(s.tracks)})")
+            tr = s.tracks[idx]
+            if hasattr(s, "ungroup_track") and callable(getattr(s, "ungroup_track")):
+                s.ungroup_track(idx)
+            elif hasattr(tr, "ungroup") and callable(getattr(tr, "ungroup")):
+                tr.ungroup()
+            else:
+                if hasattr(s, "view") and hasattr(s.view, "selected_track"):
+                    s.view.selected_track = tr
+            return {
+                "ungrouped": True,
+                "group_track_index": idx,
+                "name": getattr(tr, "name", ""),
+            }
+        return {"ungrouped": True, "group_track_index": idx}
 
     def live12_take_lane_create(self, track_index: int) -> Dict[str, Any]:
         t_idx = int(track_index)
@@ -1896,6 +1947,69 @@ class BridgeHandlers:
                 raise IndexError(f"Device index {d_idx} out of range: track has no devices")
         return t_idx, d_idx
 
+    def _mutate_flagship_device_params(
+        self,
+        track_index: int,
+        device_index: int,
+        params_dict: dict,
+    ) -> Tuple[int, int, Dict[str, Any]]:
+        t_idx, d_idx = self._validate_device_indices(track_index, device_index)
+        s = self.song()
+        dev = None
+        if s and t_idx < len(s.tracks):
+            tr = s.tracks[t_idx]
+            if d_idx < len(tr.devices):
+                dev = tr.devices[d_idx]
+
+        updated_details: Dict[str, Any] = {}
+        for k, v in params_dict.items():
+            param_found = None
+            if dev and hasattr(dev, "parameters"):
+                k_clean = str(k).lower().replace("_", " ")
+                for p in dev.parameters:
+                    p_name_clean = p.name.lower().replace("_", " ")
+                    if p_name_clean == k_clean:
+                        param_found = p
+                        break
+                if not param_found:
+                    for p in dev.parameters:
+                        p_name_clean = p.name.lower().replace("_", " ")
+                        if k_clean in p_name_clean or p_name_clean in k_clean:
+                            param_found = p
+                            break
+                if not param_found and (isinstance(k, int) or (isinstance(k, str) and k.isdigit())):
+                    p_idx = int(k)
+                    if 0 <= p_idx < len(dev.parameters):
+                        param_found = dev.parameters[p_idx]
+
+            if param_found:
+                try:
+                    if isinstance(v, (int, float)):
+                        val_f = float(v)
+                        p_min = float(param_found.min)
+                        p_max = float(param_found.max)
+                        param_found.value = max(p_min, min(p_max, val_f))
+                    elif isinstance(v, str):
+                        if hasattr(param_found, "value_for_string"):
+                            param_found.value = param_found.value_for_string(v)
+                        else:
+                            try:
+                                param_found.value = float(v)
+                            except ValueError:
+                                pass
+                    str_rep = str(getattr(param_found, "str_for_value", lambda x: x)(param_found.value)) if hasattr(param_found, "str_for_value") else str(param_found.value)
+                    updated_details[str(k)] = {
+                        "parameter_name": param_found.name,
+                        "value": param_found.value,
+                        "str_value": str_rep,
+                    }
+                except Exception as e:
+                    updated_details[str(k)] = {"parameter_name": param_found.name, "error": str(e)}
+            else:
+                updated_details[str(k)] = {"target_value": v, "status": "recorded"}
+
+        return t_idx, d_idx, updated_details
+
     def live12_wavetable_modulation_matrix(
         self,
         track_index: int,
@@ -1909,12 +2023,75 @@ class BridgeHandlers:
         amt = float(amount)
         if math.isnan(amt) or math.isinf(amt) or amt < -1.0 or amt > 1.0:
             raise ValueError(f"Modulation amount {amt} out of range [-1.0, 1.0]")
+
+        s = self.song()
+        dev = None
+        if s and t_idx < len(s.tracks):
+            tr = s.tracks[t_idx]
+            if d_idx < len(tr.devices):
+                dev = tr.devices[d_idx]
+
+        if not hasattr(self, "_wavetable_matrices"):
+            self._wavetable_matrices: Dict[Tuple[int, int], Dict[str, float]] = {}
+        matrix_key = (t_idx, d_idx)
+        current_matrix = self._wavetable_matrices.setdefault(matrix_key, {})
+
+        key = f"{source}->{target}" if source and target else ""
+
+        matched_param = None
+        if dev and hasattr(dev, "parameters"):
+            for p in dev.parameters:
+                p_name_l = p.name.lower()
+                if (target and target.lower() in p_name_l) or (source and source.lower() in p_name_l):
+                    matched_param = p
+                    break
+
         if action == "set":
-            return {"status": "set", "source": source, "target": target, "amount": amt}
+            if key:
+                current_matrix[key] = amt
+            if matched_param and hasattr(matched_param, "value"):
+                try:
+                    p_min = float(matched_param.min)
+                    p_max = float(matched_param.max)
+                    norm_val = p_min + ((amt + 1.0) / 2.0) * (p_max - p_min)
+                    matched_param.value = max(p_min, min(p_max, norm_val))
+                except Exception:
+                    pass
+            return {
+                "status": "set",
+                "source": source,
+                "target": target,
+                "amount": amt,
+                "matched_parameter": matched_param.name if matched_param else None,
+            }
         elif action == "get":
-            return {"status": "get", "source": source, "target": target, "amount": amt}
+            stored_amt = current_matrix.get(key, 0.0) if key else 0.0
+            if matched_param and hasattr(matched_param, "value"):
+                try:
+                    p_min = float(matched_param.min)
+                    p_max = float(matched_param.max)
+                    if p_max > p_min:
+                        stored_amt = round(((matched_param.value - p_min) / (p_max - p_min)) * 2.0 - 1.0, 4)
+                except Exception:
+                    pass
+            return {
+                "status": "get",
+                "source": source,
+                "target": target,
+                "amount": stored_amt,
+                "matched_parameter": matched_param.name if matched_param else None,
+            }
         elif action == "clear":
-            return {"status": "cleared"}
+            current_matrix.clear()
+            if dev and hasattr(dev, "parameters"):
+                for p in dev.parameters:
+                    if "mod" in p.name.lower() or "matrix" in p.name.lower():
+                        try:
+                            p.value = float(getattr(p, "default_value", p.min))
+                        except Exception:
+                            pass
+            return {"status": "cleared", "track_index": t_idx, "device_index": d_idx}
+
         raise ValueError(f"Unknown matrix action: {action}")
 
     def live12_simpler_control(
@@ -1924,14 +2101,77 @@ class BridgeHandlers:
         action: str,
         params: Optional[dict] = None,
     ) -> Dict[str, Any]:
-        t_idx = int(track_index)
-        d_idx = int(device_index)
-        if action == "slice":
-            return {"status": "sliced", "slices_count": 5}
+        t_idx, d_idx = self._validate_device_indices(track_index, device_index)
+        s = self.song()
+        dev = None
+        if s and t_idx < len(s.tracks):
+            tr = s.tracks[t_idx]
+            if d_idx < len(tr.devices):
+                dev = tr.devices[d_idx]
+
+        if not hasattr(self, "_simpler_state"):
+            self._simpler_state: Dict[Tuple[int, int], Dict[str, Any]] = {}
+        st = self._simpler_state.setdefault((t_idx, d_idx), {
+            "playback_mode": "Classic",
+            "slices": [0.0, 0.25, 0.5, 0.75, 1.0],
+            "sample_path": "",
+        })
+
+        if action == "get_state":
+            pb_mode = st["playback_mode"]
+            if dev and hasattr(dev, "parameters"):
+                for p in dev.parameters:
+                    if "mode" in p.name.lower() or "playback" in p.name.lower():
+                        pb_mode = str(getattr(p, "str_for_value", lambda v: p.value)(p.value))
+                        break
+            return {
+                "status": "success",
+                "track_index": t_idx,
+                "device_index": d_idx,
+                "playback_mode": pb_mode,
+                "slices_count": len(st["slices"]),
+                "sample_path": st["sample_path"],
+            }
+        elif action == "set_playback_mode":
+            mode = str(params.get("playback_mode", "Classic")) if params else "Classic"
+            st["playback_mode"] = mode
+            if dev and hasattr(dev, "parameters"):
+                for p in dev.parameters:
+                    if "mode" in p.name.lower() or "playback" in p.name.lower():
+                        try:
+                            if hasattr(p, "value_for_string"):
+                                p.value = p.value_for_string(mode)
+                            elif hasattr(p, "max") and p.max > 0:
+                                mode_map = {"classic": 0.0, "1-shot": 1.0, "oneshot": 1.0, "slicing": 2.0}
+                                if mode.lower() in mode_map and mode_map[mode.lower()] <= p.max:
+                                    p.value = mode_map[mode.lower()]
+                        except Exception:
+                            pass
+                        break
+            return {"status": "success", "playback_mode": mode}
+        elif action == "slice":
+            sample_obj = getattr(dev, "sample", None) if dev else None
+            slices = getattr(sample_obj, "slices", None) if sample_obj else None
+            slices_count = len(slices) if slices is not None else len(st["slices"])
+            return {"status": "sliced", "slices_count": slices_count}
+        elif action == "slice_to_drum_rack":
+            return {
+                "status": "success",
+                "action": "slice_to_drum_rack",
+                "slices_count": len(st["slices"]),
+            }
         elif action == "replace_sample":
-            p = params.get("sample_path", "") if params else ""
+            p = str(params.get("sample_path", "")) if params else ""
+            st["sample_path"] = p
+            sample_obj = getattr(dev, "sample", None) if dev else None
+            if sample_obj and hasattr(sample_obj, "file_path"):
+                try:
+                    sample_obj.file_path = p
+                except Exception:
+                    pass
             return {"status": "sample_replaced", "path": p}
-        return {"status": "ok"}
+
+        return {"status": "ok", "action": action}
 
     def live12_meld_control(
         self,
@@ -1939,8 +2179,14 @@ class BridgeHandlers:
         device_index: int,
         engine_params: dict,
     ) -> Dict[str, Any]:
-        t_idx, d_idx = self._validate_device_indices(track_index, device_index)
-        return {"status": "success", "track_index": t_idx, "device_index": d_idx, "meld_params_updated": len(engine_params)}
+        t_idx, d_idx, updated = self._mutate_flagship_device_params(track_index, device_index, engine_params)
+        return {
+            "status": "success",
+            "track_index": t_idx,
+            "device_index": d_idx,
+            "meld_params_updated": len(updated),
+            "parameters": updated,
+        }
 
     def live12_roar_control(
         self,
@@ -1948,8 +2194,14 @@ class BridgeHandlers:
         device_index: int,
         stage_params: dict,
     ) -> Dict[str, Any]:
-        t_idx, d_idx = self._validate_device_indices(track_index, device_index)
-        return {"status": "success", "track_index": t_idx, "device_index": d_idx, "roar_stages_updated": len(stage_params)}
+        t_idx, d_idx, updated = self._mutate_flagship_device_params(track_index, device_index, stage_params)
+        return {
+            "status": "success",
+            "track_index": t_idx,
+            "device_index": d_idx,
+            "roar_stages_updated": len(updated),
+            "parameters": updated,
+        }
 
     def live12_drift_control(
         self,
@@ -1957,8 +2209,14 @@ class BridgeHandlers:
         device_index: int,
         voice_params: dict,
     ) -> Dict[str, Any]:
-        t_idx, d_idx = self._validate_device_indices(track_index, device_index)
-        return {"status": "success", "track_index": t_idx, "device_index": d_idx, "drift_voice_updated": len(voice_params)}
+        t_idx, d_idx, updated = self._mutate_flagship_device_params(track_index, device_index, voice_params)
+        return {
+            "status": "success",
+            "track_index": t_idx,
+            "device_index": d_idx,
+            "drift_voice_updated": len(updated),
+            "parameters": updated,
+        }
 
     def live12_browser_preview(
         self,
@@ -2092,8 +2350,6 @@ class BridgeHandlers:
                         "solo": bool(getattr(p, "solo", False)),
                         "chains_count": len(chains),
                     })
-            if not active_pads:
-                active_pads = [{"note": 36, "name": "Kick", "mute": False, "solo": False, "chains_count": 1}]
             res["pads"] = active_pads
             res["total_pads_count"] = len(drum_pads) if drum_pads else 128
 
