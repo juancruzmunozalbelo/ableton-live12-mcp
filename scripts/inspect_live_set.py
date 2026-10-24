@@ -22,10 +22,15 @@ from ableton_live12_mcp.client import Live12Client  # noqa: E402
 
 
 def _norm_to_db(norm: float) -> float:
-    """Live normalized mixer volume (0..1) -> approximate dB (unity at 0.766)."""
+    """Live normalized mixer volume -> dB.
+
+    Live's volume curve is `normalized = 0.85 * 10 ** (dB / 40)`, i.e. 0.85 is
+    unity (the Main track sits exactly there), so the inverse is
+    `dB = 40 * log10(normalized / 0.85)`.
+    """
     if norm is None or norm <= 0.0:
         return -120.0
-    return round(20.0 * math.log10(norm / 0.766), 1)
+    return round(40.0 * math.log10(norm / 0.85), 1)
 
 
 def _mixer(client: Live12Client, track_index: int, prop: str):

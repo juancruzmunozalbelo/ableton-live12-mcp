@@ -79,8 +79,18 @@ Checklist, in order:
    ps -Ao pid,%cpu,comm | sort -k2 -rn | head -5
    ```
    Stop the emulator/VM (or set its audio to *none*) and restart Live.
-4. **Live 12.4.7 is pending** on this machine (`Downloading Live 12.4.7` in the status bar);
+4. **Force an engine re-init**: `Options ▸ Audio Engine On` (toggle it off and on) restarts
+   Ableton's audio engine without restarting the app. It is the quickest way to recover a
+   device that was swapped while Live was running.
+5. **Live 12.4.7 is pending** on this machine (`Downloading Live 12.4.7` in the status bar);
    the release notes mention audio fixes that may be required on recent macOS versions.
+
+### Reading mixer levels correctly
+
+Live's mixer volume is a normalized parameter with the curve
+`normalized = 0.85 * 10 ** (dB / 40)` — **0.85 is unity** (the Main track sits exactly there).
+The inverse is `dB = 40 * log10(normalized / 0.85)`; using `20 * log10(normalized / 0.766)`
+(as many "volume → dB" snippets do) reports every track ~2 dB too hot.
 
 ---
 
