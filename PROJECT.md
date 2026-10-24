@@ -126,7 +126,13 @@ Remote Script Destination:
 | M2 | Control Surface Bridge (`Live12Bridge`) | Build & install Remote Script in User Library, `Live.Base.Timer` dispatch, TCP IPC, dynamic LOM engine | M1 interface specs | DONE |
 | M3 | MCP Server Core & Tool Suite | Pure Python stdlib MCP server (61 tools across 6 domains), Antigravity config registration | M2 | DONE |
 | M4 | OS Automation & Hybrid Dialog Engine | In-LOM dialog inspector + AppleScript/System Events for native sheets | M3 | DONE |
-| M5 | Final Live Verification & Hardening | Phase 1: 100% E2E test pass on live Ableton 12.4.6; Phase 2: Tier 5 adversarial hardening | M1, M2, M3, M4, Test Track | IN_PROGRESS |
+| M5 | Initial Live Verification & Hardening | 100% E2E test pass on live Ableton 12.4.6; Tier 5 adversarial hardening | M1, M2, M3, M4, Test Track | DONE |
+| M6 | 20-Domain Manual Audit & Spec | Map 20 manual chapters, identify gaps, specify 14 new dedicated MCP tools | M5 | DONE |
+| M7 | Core Bridge & MCP Tool Expansion | Implement 14 new tools (75 total), update LOM bridge handlers and mock harness | M6 | DONE |
+| M8 | 20-Chapter Manual E2E Test Suite | Automated test suite covering all 20 chapters, 100% mock & live suite pass | M7 | DONE |
+| M9 | Multimedia Asset Production | Generate demo video, animated GIF, vector diagrams, showcase audio & manifest | M8 | DONE |
+| M10 | Governance, Interactive Docs & Release | Clean-room dual licensing, docs site, GitHub Pages, CI green across Py3.11-3.13 | M9 | DONE |
+| M11 | Live Hardening, Masterclasses & Producer Skill | Palette-color fix (`color_index`), `live12_clip_delete_arrangement`, bridge timer CPU fix, Space 92 / Joris Voorn builds, grid organizer + HTML map, `ableton-techno-producer` skill, troubleshooting docs | M10 | DONE |
 
 ## Parallel Track: E2E Testing Track
 - **Owner**: E2E Testing Orchestrator

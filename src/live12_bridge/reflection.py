@@ -100,7 +100,7 @@ def serialize_lom_value(val: Any, depth: int = 0) -> Any:
             return str(val)
         return val
 
-    if isinstance(val, (list, tuple, set)) or type(val).__name__ == "Vector":
+    if isinstance(val, (list, tuple, set)) or "Vector" in type(val).__name__:
         # For long lists of complex objects, summarize or serialize items
         return [serialize_lom_value(item, depth + 1) for item in val]
 

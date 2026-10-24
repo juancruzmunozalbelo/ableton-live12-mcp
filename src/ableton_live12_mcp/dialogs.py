@@ -21,6 +21,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 logger = logging.getLogger("ableton_live12_mcp.dialogs")
 
 DEFAULT_APP_NAME = "Ableton Live 12 Suite"
+DEFAULT_APP_PATH = "/Applications/Ableton Live 12 Suite.app"
 BUNDLE_ID = "com.ableton.live"
 DEFAULT_POLL_INTERVAL = 0.1  # 100ms
 DEFAULT_SAVE_TIMEOUT = 10.0
@@ -322,13 +323,16 @@ def save_set(
                 -- Wait for sheet or Save dialog window
                 set saveWindow to missing value
                 repeat 30 times
-                    if (count of sheets of window 1) > 0 then
-                        set saveWindow to sheet 1 of window 1
-                        exit repeat
-                    else if (count of windows) > 1 then
+                    if (count of windows) > 1 then
                         set saveWindow to window 1
                         exit repeat
                     end if
+                    try
+                        if (count of sheets of window 1) > 0 then
+                            set saveWindow to sheet 1 of window 1
+                            exit repeat
+                        end if
+                    end try
                     delay 0.1
                 end repeat
 
@@ -338,10 +342,20 @@ def save_set(
                         click menu item "Save Live Set As..." of menu "File" of menu bar 1
                     end try
                     delay 0.5
-                    if (count of sheets of window 1) > 0 then
-                        set saveWindow to sheet 1 of window 1
-                    else
+                    if (count of windows) > 1 then
                         set saveWindow to window 1
+                    else
+                        try
+                            if (count of sheets of window 1) > 0 then
+                                set saveWindow to sheet 1 of window 1
+                            else
+                                set saveWindow to window 1
+                            end if
+                        on error
+                            try
+                                set saveWindow to window 1
+                            end try
+                        end try
                     end if
                 end if
 
@@ -354,7 +368,15 @@ def save_set(
                     set gotoSheet to sheet 1 of saveWindow
                     set value of text field 1 of gotoSheet to targetFolder
                     delay 0.1
-                    click button "Go" of gotoSheet
+                    try
+                        click button "Go" of gotoSheet
+                    on error
+                        try
+                            click button "Ir" of gotoSheet
+                        on error
+                            keystroke return
+                        end try
+                    end try
                     delay 0.3
                 end if
 
@@ -368,7 +390,11 @@ def save_set(
                 try
                     click button "Save" of saveWindow
                 on error
-                    keystroke return
+                    try
+                        click button "Guardar" of saveWindow
+                    on error
+                        keystroke return
+                    end try
                 end try
                 delay 0.4
 
@@ -376,6 +402,12 @@ def save_set(
                 if (count of sheets of saveWindow) > 0 then
                     try
                         click button "Replace" of sheet 1 of saveWindow
+                    on error
+                        try
+                            click button "Reemplazar" of sheet 1 of saveWindow
+                        on error
+                            keystroke return
+                        end try
                     end try
                 end if
             end tell
@@ -441,8 +473,10 @@ def open_set(
             f"macOS UI Automation requires Darwin; current system is '{platform.system()}'."
         )
 
-    # Primary: open via bundle ID
-    cmd = ["/usr/bin/open", "-b", BUNDLE_ID, abs_path]
+    # Primary: open via explicit /Applications bundle path to prevent LaunchServices from launching DMG/translocated copies
+    app_target = DEFAULT_APP_PATH if os.path.exists(DEFAULT_APP_PATH) else BUNDLE_ID
+    flag = "-a" if os.path.exists(DEFAULT_APP_PATH) else "-b"
+    cmd = ["/usr/bin/open", flag, app_target, abs_path]
     try:
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_sec)
         if proc.returncode == 0:
@@ -546,9 +580,14 @@ def export_audio(
                 -- Wait for Export dialog window
                 set exportDlg to missing value
                 repeat 30 times
-                    if (count of windows) > 1 or (count of sheets of window 1) > 0 then
+                    if (count of windows) > 1 then
                         exit repeat
                     end if
+                    try
+                        if (count of sheets of window 1) > 0 then
+                            exit repeat
+                        end if
+                    end try
                     delay 0.1
                 end repeat
 
@@ -559,13 +598,16 @@ def export_audio(
                 -- Wait for Cocoa NSSavePanel
                 set saveWindow to missing value
                 repeat 30 times
-                    if (count of sheets of window 1) > 0 then
-                        set saveWindow to sheet 1 of window 1
-                        exit repeat
-                    else if (count of windows) > 1 then
+                    if (count of windows) > 1 then
                         set saveWindow to window 1
                         exit repeat
                     end if
+                    try
+                        if (count of sheets of window 1) > 0 then
+                            set saveWindow to sheet 1 of window 1
+                            exit repeat
+                        end if
+                    end try
                     delay 0.1
                 end repeat
 
@@ -577,7 +619,15 @@ def export_audio(
                     set gotoSheet to sheet 1 of saveWindow
                     set value of text field 1 of gotoSheet to targetFolder
                     delay 0.1
-                    click button "Go" of gotoSheet
+                    try
+                        click button "Go" of gotoSheet
+                    on error
+                        try
+                            click button "Ir" of gotoSheet
+                        on error
+                            keystroke return
+                        end try
+                    end try
                     delay 0.3
                 end if
 
@@ -591,7 +641,11 @@ def export_audio(
                 try
                     click button "Save" of saveWindow
                 on error
-                    keystroke return
+                    try
+                        click button "Guardar" of saveWindow
+                    on error
+                        keystroke return
+                    end try
                 end try
                 delay 0.4
 
@@ -599,6 +653,12 @@ def export_audio(
                 if (count of sheets of saveWindow) > 0 then
                     try
                         click button "Replace" of sheet 1 of saveWindow
+                    on error
+                        try
+                            click button "Reemplazar" of sheet 1 of saveWindow
+                        on error
+                            keystroke return
+                        end try
                     end try
                 end if
             end tell

@@ -1,0 +1,594 @@
+{
+  "module_name": "HOLO Master Class — Módulo 4: Bases Armónicas y Melódicas",
+  "class_name": "holo_m4_bases_armonicas_melodicas",
+  "instructor": "Tomas Otero (Holo Audio / RESONANT)",
+  "genre": "Melodic Techno",
+  "tempo": 126.0,
+  "time_signature": [
+    4,
+    4
+  ],
+  "scale": {
+    "name": "Minor",
+    "root_note": "C",
+    "mode": "Natural Minor / Aeolian",
+    "scale_intervals": [
+      0,
+      2,
+      3,
+      5,
+      7,
+      8,
+      10
+    ],
+    "scale_notes": [
+      "C",
+      "D",
+      "Eb",
+      "F",
+      "G",
+      "Ab",
+      "Bb"
+    ]
+  },
+  "duration_bars": 180,
+  "locators": [
+    {
+      "name": "INTRO",
+      "time_bars": 1.0,
+      "time_beats": 0.0,
+      "length_bars": 16.0,
+      "description": "Atmospheric DJ intro with kick, sub rumble, filtered shaker, and subtle background drone."
+    },
+    {
+      "name": "ARMADO",
+      "time_bars": 17.1,
+      "time_beats": 64.0,
+      "length_bars": 16.0,
+      "description": "Build 1: Claps enter on beats 2 and 4, 16th hats introduced, lead synth motif teased."
+    },
+    {
+      "name": "PUENTE",
+      "time_bars": 33.1,
+      "time_beats": 128.0,
+      "length_bars": 16.0,
+      "description": "Bridge 1: Percussion strips back, lead synth filter begins opening, snare roll riser."
+    },
+    {
+      "name": "DROP 1",
+      "time_bars": 49.1,
+      "time_beats": 192.0,
+      "length_bars": 16.0,
+      "description": "First peak impact: Full kick, sub rumble, drum racks, unfiltered main synth hook."
+    },
+    {
+      "name": "PUENTE 2",
+      "time_bars": 65.1,
+      "time_beats": 256.0,
+      "length_bars": 16.0,
+      "description": "Bridge 2: Introduction of secondary melodic element, variation in hats and perc layers."
+    },
+    {
+      "name": "DROP 2",
+      "time_bars": 81.1,
+      "time_beats": 320.0,
+      "length_bars": 16.0,
+      "description": "High energy driving section: Maximum rhythmic syncopation and rolling triplet basslines."
+    },
+    {
+      "name": "PUENTE 3",
+      "time_bars": 97.1,
+      "time_beats": 384.0,
+      "length_bars": 16.0,
+      "description": "Bridge 3: Transition toward breakdown; drum layers thin out, low-cut filter sweeps up."
+    },
+    {
+      "name": "BREAK",
+      "time_bars": 113.1,
+      "time_beats": 448.0,
+      "length_bars": 16.0,
+      "description": "Breakdown: Kick and sub cut completely! Lush chord progression and pads fully exposed."
+    },
+    {
+      "name": "PREDROP",
+      "time_bars": 129.1,
+      "time_beats": 512.0,
+      "length_bars": 16.0,
+      "description": "Buildup 2: Snare roll acceleration, pitch riser, white noise sweep, utility gain ducking in bar 144."
+    },
+    {
+      "name": "MAIN DROP",
+      "time_bars": 145.1,
+      "time_beats": 576.0,
+      "length_bars": 16.0,
+      "description": "DROP :) Climax of track: All elements firing together (kick, sub, lead, chords, counter-melodies, crash)."
+    },
+    {
+      "name": "OUTRO",
+      "time_bars": 161.1,
+      "time_beats": 640.0,
+      "length_bars": 16.0,
+      "description": "Lead cuts, chords fade, percs strip back to kick and rumble for clean DJ outro mixing."
+    }
+  ],
+  "return_tracks": [
+    {
+      "index": 0,
+      "name": "CLA-76",
+      "type": "return",
+      "devices": [
+        {
+          "name": "Compressor",
+          "type": "Live.Compressor",
+          "mode": "Peak",
+          "parameters": {
+            "Attack": "0.02 ms",
+            "Release": "50.0 ms",
+            "Ratio": "4.0",
+            "Threshold": "-18.0 dB",
+            "Makeup": "4.5 dB",
+            "DryWet": "100%"
+          },
+          "function": "FET-style aggressive parallel drum bus compression (CLA-76 emulation)"
+        }
+      ]
+    },
+    {
+      "index": 1,
+      "name": "room",
+      "type": "return",
+      "devices": [
+        {
+          "name": "Reverb",
+          "type": "Live.Reverb",
+          "parameters": {
+            "DecayTime": "650 ms",
+            "PreDelay": "12.0 ms",
+            "HighCut": "4500 Hz",
+            "LowCut": "220 Hz",
+            "Diffusion": "75%",
+            "DryWet": "100%"
+          },
+          "function": "Short studio room ambience for drum cohesiveness"
+        }
+      ]
+    },
+    {
+      "index": 2,
+      "name": "PLate",
+      "type": "return",
+      "devices": [
+        {
+          "name": "Hybrid Reverb",
+          "type": "Live.Hybrid",
+          "parameters": {
+            "Algorithm": "Plate",
+            "DecayTime": "1800 ms",
+            "PreDelay": "20.0 ms",
+            "Damping": "5000 Hz",
+            "DryWet": "100%"
+          },
+          "function": "Dense metallic plate reverb for melodic stabs, percussions, and claps"
+        }
+      ]
+    },
+    {
+      "index": 3,
+      "name": "long rvbv",
+      "type": "return",
+      "devices": [
+        {
+          "name": "Reverb",
+          "type": "Live.Reverb",
+          "parameters": {
+            "DecayTime": "5200 ms",
+            "PreDelay": "35.0 ms",
+            "RoomSize": "90",
+            "LowCut": "180 Hz",
+            "DryWet": "100%"
+          },
+          "function": "Massive hall reverb for transition throws, breakdowns, and vocal tails"
+        }
+      ]
+    },
+    {
+      "index": 4,
+      "name": "SHIMMER",
+      "type": "return",
+      "devices": [
+        {
+          "name": "Hybrid Reverb Shimmer",
+          "type": "Live.Hybrid",
+          "parameters": {
+            "Algorithm": "Shimmer",
+            "PitchShift": "+12 st",
+            "DecayTime": "4500 ms",
+            "Feedback": "40%",
+            "DryWet": "100%"
+          },
+          "function": "Ethereal octave-up pitch-shifted reverb tail for melodic techno leads and chords"
+        }
+      ]
+    },
+    {
+      "index": 5,
+      "name": "Portal",
+      "type": "return",
+      "devices": [
+        {
+          "name": "Echo Granular",
+          "type": "Live.Echo",
+          "parameters": {
+            "LeftDelay": "3/16",
+            "RightDelay": "1/8",
+            "Feedback": "38%",
+            "Modulation": "Granular Wobble",
+            "DryWet": "100%"
+          },
+          "function": "Granular rhythmic stutter delay and spatial pitch fluctuations"
+        }
+      ]
+    }
+  ],
+  "harmonic_structure": {
+    "progression_chords": [
+      {
+        "bar_start": 1,
+        "bar_end": 4,
+        "chord": "Cm (i)",
+        "bass_root": "C1 (36)",
+        "voicing": [
+          "C3 (48)",
+          "Eb3 (51)",
+          "G3 (55)",
+          "D4 (62) - add9"
+        ]
+      },
+      {
+        "bar_start": 5,
+        "bar_end": 8,
+        "chord": "Ab (VI)",
+        "bass_root": "Ab0 (32)",
+        "voicing": [
+          "Ab2 (44)",
+          "C3 (48)",
+          "Eb3 (51)",
+          "Bb3 (58) - add9"
+        ]
+      },
+      {
+        "bar_start": 9,
+        "bar_end": 12,
+        "chord": "Fm (iv)",
+        "bass_root": "F0 (29)",
+        "voicing": [
+          "F2 (41)",
+          "Ab2 (44)",
+          "C3 (48)",
+          "G3 (55) - add9"
+        ]
+      },
+      {
+        "bar_start": 13,
+        "bar_end": 16,
+        "chord": "Gm (v)",
+        "bass_root": "G0 (31)",
+        "voicing": [
+          "G2 (43)",
+          "Bb2 (46)",
+          "D3 (50)",
+          "F3 (53) - m7"
+        ]
+      }
+    ],
+    "live12_extended_midi": {
+      "fit_to_scale": true,
+      "scale_mode": "InKey",
+      "probabilistic_ghost_notes": "Secondary 16th ghost notes programmed with probability 80-90%",
+      "velocity_deviation": "Natural humanization with +/- 8 to 12 velocity units deviation",
+      "release_velocity": "Set to 64 with decay damping control"
+    }
+  },
+  "tracks": [
+    {
+      "id": 0,
+      "name": "HARMONICS & MELODICS",
+      "type": "group",
+      "volume_db": -2.5,
+      "devices": [
+        {
+          "name": "Glue Compressor",
+          "type": "Live.GlueCompressor",
+          "parameters": {
+            "Attack": "30 ms",
+            "Release": "Auto",
+            "Ratio": "2",
+            "Threshold": "-15 dB"
+          }
+        }
+      ],
+      "sub_tracks": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ]
+    },
+    {
+      "id": 1,
+      "name": "Progression Chords & Pads",
+      "type": "midi",
+      "parent_group": "HARMONICS & MELODICS",
+      "volume_db": -7.0,
+      "midi_progression": {
+        "length_bars": 16,
+        "chords": [
+          "Cm(add9)",
+          "Ab(add9)",
+          "Fm(add9)",
+          "Gm7"
+        ]
+      },
+      "clips": [
+        {
+          "name": "Progression Chords Breakdown",
+          "start_bar": 113,
+          "end_bar": 145,
+          "notes_count": 64,
+          "pitch_range": "C3 to D4"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Rolling 16th Bass",
+      "type": "midi",
+      "parent_group": "HARMONICS & MELODICS",
+      "volume_db": -5.0,
+      "description": "Driving straight 16th rolling bassline locked to chord progression root and fifth notes.",
+      "clips": [
+        {
+          "name": "Rolling 16th Bass Drop 1",
+          "start_bar": 49,
+          "end_bar": 97,
+          "groove_params": {
+            "straight_16ths": true,
+            "accent_velocity": 110,
+            "ghost_velocity": 75,
+            "probability": 0.85
+          }
+        },
+        {
+          "name": "Rolling 16th Bass Main Drop",
+          "start_bar": 145,
+          "end_bar": 177
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "PC2 Triplet Bass Motif",
+      "type": "midi",
+      "parent_group": "HARMONICS & MELODICS",
+      "volume_db": -6.0,
+      "description": "3-3-2 triplet syncopated bass motif introducing high tension and polyrhythmic drive.",
+      "clips": [
+        {
+          "name": "Triplet Bass Pattern Puente 2",
+          "start_bar": 65,
+          "end_bar": 81
+        },
+        {
+          "name": "Triplet Bass Pattern Drop 2",
+          "start_bar": 81,
+          "end_bar": 97
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "name": "Main Melodic Theme (Lead)",
+      "type": "midi",
+      "parent_group": "HARMONICS & MELODICS",
+      "volume_db": -4.5,
+      "description": "Core Melodic Techno hook: C Minor emotional lead phrasing with pitch bends and call-and-response.",
+      "clips": [
+        {
+          "name": "Lead Theme Drop 1",
+          "start_bar": 49,
+          "end_bar": 65,
+          "pitches": [
+            "C4",
+            "Eb4",
+            "G4",
+            "Bb4",
+            "Ab4",
+            "G4",
+            "F4",
+            "D4"
+          ],
+          "velocity_deviation": "+/- 8",
+          "probability": 0.95
+        },
+        {
+          "name": "Lead Theme Main Drop",
+          "start_bar": 145,
+          "end_bar": 161
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "name": "Arpeggiated Counter-Melody",
+      "type": "midi",
+      "parent_group": "HARMONICS & MELODICS",
+      "volume_db": -8.0,
+      "description": "Fast cascading 16th arpeggios answering the main lead phrase.",
+      "clips": [
+        {
+          "name": "Counter Arp Drop 2",
+          "start_bar": 81,
+          "end_bar": 97
+        },
+        {
+          "name": "Counter Arp Main Drop",
+          "start_bar": 145,
+          "end_bar": 161
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "name": "Structural Fills & Turnarounds",
+      "type": "audio",
+      "parent_group": "HARMONICS & MELODICS",
+      "volume_db": -6.0,
+      "source_sample": {
+        "name": "TPS x CamelPhat - Fill 02 (124 BPM).wav",
+        "warped_bpm": 126.0
+      },
+      "clips": [
+        {
+          "name": "Fill Bar 48 Turnaround",
+          "start_bar": 48,
+          "end_bar": 49
+        },
+        {
+          "name": "Fill Bar 80 Turnaround",
+          "start_bar": 80,
+          "end_bar": 81
+        },
+        {
+          "name": "Fill Bar 144 Predrop",
+          "start_bar": 144,
+          "end_bar": 145
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "name": "Build Risers & Tension FX",
+      "type": "audio",
+      "parent_group": "HARMONICS & MELODICS",
+      "volume_db": -7.0,
+      "source_sample": {
+        "name": "TPS x CamelPhat - Riser 08 (124 BPM).wav",
+        "warped_bpm": 126.0
+      },
+      "clips": [
+        {
+          "name": "Riser Build Puente 1",
+          "start_bar": 41,
+          "end_bar": 49
+        },
+        {
+          "name": "Riser Build Predrop 2",
+          "start_bar": 137,
+          "end_bar": 145
+        }
+      ]
+    }
+  ],
+  "device_chains": {
+    "master": [
+      {
+        "name": "Utility",
+        "type": "Live.StereoGain",
+        "parameters": {
+          "Gain": "0.0 dB",
+          "BassMono": true,
+          "BassMonoCutoff": "120 Hz",
+          "Width": "100%"
+        }
+      },
+      {
+        "name": "Limiter",
+        "type": "Live.Limiter",
+        "parameters": {
+          "Ceiling": "-0.3 dB",
+          "Lookahead": "5.0 ms",
+          "Release": "100.0 ms"
+        }
+      }
+    ]
+  },
+  "routing": {
+    "melodics_bus": "Summed to HARMONICS & MELODICS group (id: 0)",
+    "returns": [
+      "CLA-76",
+      "room",
+      "PLate",
+      "long rvbv",
+      "SHIMMER",
+      "Portal"
+    ]
+  },
+  "clips": [
+    {
+      "track": "Progression Chords & Pads",
+      "name": "Progression Chords Breakdown",
+      "start_bar": 113,
+      "end_bar": 145,
+      "type": "midi"
+    },
+    {
+      "track": "Rolling 16th Bass",
+      "name": "Rolling 16th Bass Drop 1",
+      "start_bar": 49,
+      "end_bar": 97,
+      "type": "midi"
+    },
+    {
+      "track": "Rolling 16th Bass",
+      "name": "Rolling 16th Bass Main Drop",
+      "start_bar": 145,
+      "end_bar": 177,
+      "type": "midi"
+    },
+    {
+      "track": "PC2 Triplet Bass Motif",
+      "name": "Triplet Bass Pattern Drop 2",
+      "start_bar": 81,
+      "end_bar": 97,
+      "type": "midi"
+    },
+    {
+      "track": "Main Melodic Theme (Lead)",
+      "name": "Lead Theme Drop 1",
+      "start_bar": 49,
+      "end_bar": 65,
+      "type": "midi"
+    },
+    {
+      "track": "Main Melodic Theme (Lead)",
+      "name": "Lead Theme Main Drop",
+      "start_bar": 145,
+      "end_bar": 161,
+      "type": "midi"
+    },
+    {
+      "track": "Arpeggiated Counter-Melody",
+      "name": "Counter Arp Drop 2",
+      "start_bar": 81,
+      "end_bar": 97,
+      "type": "midi"
+    },
+    {
+      "track": "Structural Fills & Turnarounds",
+      "name": "Fill Bar 48 Turnaround",
+      "start_bar": 48,
+      "end_bar": 49,
+      "type": "audio"
+    },
+    {
+      "track": "Build Risers & Tension FX",
+      "name": "Riser Build Predrop 2",
+      "start_bar": 137,
+      "end_bar": 145,
+      "type": "audio"
+    }
+  ]
+}

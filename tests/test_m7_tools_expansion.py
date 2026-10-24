@@ -1,4 +1,4 @@
-"""Tests for Milestone 7: Expansion of Ableton Live 12 MCP catalog to 75 tools."""
+"""Tests for Milestone 7: Expansion of Ableton Live 12 MCP catalog (75 + arrangement clip tools)."""
 
 import pytest
 import jsonschema
@@ -34,10 +34,10 @@ NEW_14_TOOL_NAMES = [
 class TestM7CatalogIntegrity:
     """Verifies total count, schema correctness, and presence of all 14 new tools."""
 
-    def test_total_catalog_count_is_75(self):
-        assert len(ALL_TOOLS) == 75, f"Expected 75 tools in ALL_TOOLS, found {len(ALL_TOOLS)}"
+    def test_total_catalog_count_is_76(self):
+        assert len(ALL_TOOLS) == 76, f"Expected 76 tools in ALL_TOOLS, found {len(ALL_TOOLS)}"
         catalog = get_tool_catalog()
-        assert len(catalog) == 75, f"Expected 75 tools in get_tool_catalog(), found {len(catalog)}"
+        assert len(catalog) == 76, f"Expected 76 tools in get_tool_catalog(), found {len(catalog)}"
 
     def test_all_14_new_tools_present_and_valid_schema(self):
         catalog_map = {t["name"]: t for t in get_tool_catalog()}

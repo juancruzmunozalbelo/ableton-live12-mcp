@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-10-24
+
+### Added
+- **`live12_clip_delete_arrangement`**: removes Arrangement View clips by position on a track
+  (`live12_clip_delete` only handled Session View slots).
+- **`live12_track_set_properties` / `live12_scene_set_properties` palette support**: new
+  `color_index` (Live 12 palette slot, 0-69) and `color_rgb` parameters.
+- **`skills/ableton-techno-producer`**: model-invoked skill with three reference playbooks
+  (Space 92 *Gravity* psy-tech, Joris Voorn *Acid Flow / Trip to Galaxy*, techno theory +
+  pre-mix & master bus) for producing through this MCP server.
+- **`masterclasses/`**: Space 92 and Joris Voorn live builds, the grid organizer with
+  colour-coded sections and an interactive HTML arrangement map.
+- **`docs/TROUBLESHOOTING.md`**: live-set safety, bridge CPU, CoreAudio device issues and
+  GUI automation recipes.
+- **`scripts/inspect_live_set.py` / `scripts/measure_track_levels.py`**: live set snapshot and
+  per-track level metering utilities.
+
+### Fixed
+- **Track/scene colours now reach the GUI**: `live12_track_set_properties(color=...)` used to
+  assign the raw integer to Live's packed-RGB `color` property, which left every track on
+  the default palette slot 69. The value is now written to `color_index` (palette) or an
+  explicit RGB tuple.
+- **Bridge CPU usage**: the `Live.Base.Timer` ran at a 5 ms interval and kept Ableton's main
+  thread permanently scheduled (~60 % of a core). The interval is now 20 ms and configurable
+  through `LIVE12_BRIDGE_TIMER_MS`.
+- **Crash-recovery safe restarts**: `live12_os_open_set` now restores a saved set through the
+  native open panel, so a restarted Live can reload the production set without losing state.
+
 ## [1.0.0] - 2026-10-22
 
 ### Added

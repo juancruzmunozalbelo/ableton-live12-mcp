@@ -26,6 +26,7 @@ from .reflection import (
 
 VALID_TRACK_TYPES = ("midi", "audio", "return")
 VALID_MONITORING_STATES = ("in", "auto", "off")
+LIVE_COLOR_INDEX_MAX = 69  # Live 12 palette slots 0..69
 VALID_VIEW_NAMES = (
     "Session",
     "Arranger",
@@ -492,6 +493,8 @@ class BridgeHandlers:
         track_index: int,
         name: Optional[str] = None,
         color: Optional[int] = None,
+        color_index: Optional[int] = None,
+        color_rgb: Optional[List[int]] = None,
         solo: Optional[bool] = None,
         mute: Optional[bool] = None,
         arm: Optional[bool] = None,
@@ -505,8 +508,7 @@ class BridgeHandlers:
             tr = s.tracks[t_idx]
             if name is not None:
                 tr.name = str(name)
-            if color is not None:
-                tr.color = int(color)
+            color_state = self._apply_color(tr, color, color_index, color_rgb)
             if solo is not None:
                 tr.solo = bool(solo)
             if mute is not None:
@@ -521,6 +523,7 @@ class BridgeHandlers:
                 "mute": tr.mute,
                 "arm": getattr(tr, "arm", False),
             })
+            res.update(color_state)
         else:
             if name is not None:
                 res["name"] = name
@@ -532,6 +535,10 @@ class BridgeHandlers:
                 res["mute"] = mute
             if arm is not None:
                 res["arm"] = arm
+            if color_index is not None:
+                res["color_index"] = int(color_index)
+            if color_rgb is not None:
+                res["color_rgb"] = list(color_rgb)
         return res
 
     def live12_track_group(self, track_indices: List[int]) -> Dict[str, Any]:
@@ -637,6 +644,48 @@ class BridgeHandlers:
             "lane_index": l_idx,
             "start": st,
             "length": ln,
+        }
+
+    def live12_take_lane_create_audio_clip(
+        self,
+        track_index: int,
+        take_lane_index: int,
+        file_path: str,
+        time: float,
+    ) -> Dict[str, Any]:
+        t_idx = int(track_index)
+        l_idx = int(take_lane_index)
+        f_path = str(file_path)
+        t_time = float(time)
+        if math.isnan(t_time) or math.isinf(t_time) or t_time < 0.0:
+            raise ValueError(f"Clip time must be non-negative, got {t_time}")
+        if t_idx < 0:
+            raise IndexError(f"Track index {t_idx} out of range")
+        if l_idx < 0:
+            raise IndexError(f"Lane index {l_idx} out of range")
+
+        s = self.song()
+        clip_name = os.path.basename(f_path)
+        if s:
+            if t_idx >= len(s.tracks):
+                raise IndexError(f"Track index {t_idx} out of range [0, {len(s.tracks)})")
+            tr = s.tracks[t_idx]
+            take_lanes = getattr(tr, "take_lanes", [])
+            if l_idx >= len(take_lanes):
+                raise IndexError(f"Lane index {l_idx} out of range [0, {len(take_lanes)})")
+            lane = take_lanes[l_idx]
+            if hasattr(lane, "create_audio_clip"):
+                clip_obj = lane.create_audio_clip(f_path, t_time)
+                if clip_obj and hasattr(clip_obj, "name"):
+                    clip_name = clip_obj.name
+
+        return {
+            "status": "success",
+            "track_index": t_idx,
+            "take_lane_index": l_idx,
+            "file_path": f_path,
+            "time": t_time,
+            "clip_name": clip_name,
         }
 
     def live12_scene_create(self, index: int = -1) -> Dict[str, Any]:
@@ -789,11 +838,68 @@ class BridgeHandlers:
                 res["crossfader"] = crossfader
         return res
 
+    @staticmethod
+    def _apply_color(
+        obj: Any,
+        color: Optional[int],
+        color_index: Optional[int],
+        color_rgb: Optional[List[int]],
+    ) -> Dict[str, Any]:
+        """Apply a palette index (Live 12 `color_index`, 0..69) or an RGB color.
+
+        Live 12 exposes two distinct properties:
+          * `color_index` -> the 70-slot palette index used by the GUI (0..69).
+          * `color`       -> the packed RGB value of the current palette slot.
+
+        Historically this handler assigned the raw integer to `color`, which silently
+        did nothing in the GUI (every track kept the default palette slot 69).
+        `color` is therefore interpreted as a palette index when it fits in 0..69
+        and as a packed RGB integer otherwise; `color_rgb` sets an explicit RGB.
+        """
+        state: Dict[str, Any] = {}
+        idx_val = color_index if color_index is not None else (
+            int(color) if color is not None and 0 <= int(color) <= LIVE_COLOR_INDEX_MAX else None
+        )
+        if idx_val is not None:
+            idx_val = int(idx_val)
+            if idx_val < 0 or idx_val > LIVE_COLOR_INDEX_MAX:
+                raise ValueError(
+                    f"color_index {idx_val} out of range [0, {LIVE_COLOR_INDEX_MAX}]"
+                )
+            try:
+                obj.color_index = idx_val
+            except Exception:
+                obj.color = idx_val
+            state["color_index"] = getattr(obj, "color_index", idx_val)
+        if color_rgb is not None:
+            rgb = [int(v) for v in color_rgb]
+            if len(rgb) not in (3, 4):
+                raise ValueError("color_rgb must contain 3 (RGB) or 4 (RGBA) components")
+            for v in rgb[:3]:
+                if v < 0 or v > 255:
+                    raise ValueError(f"color_rgb component {v} out of range [0, 255]")
+            try:
+                obj.color = tuple(rgb)
+            except Exception:
+                obj.color = rgb
+            state["color_rgb"] = rgb
+        elif color is not None and not (0 <= int(color) <= LIVE_COLOR_INDEX_MAX):
+            packed = int(color)
+            rgb = ((packed >> 16) & 0xFF, (packed >> 8) & 0xFF, packed & 0xFF)
+            try:
+                obj.color = rgb
+            except Exception:
+                obj.color = packed
+            state["color_rgb"] = list(rgb)
+        return state
+
     def live12_scene_set_properties(
         self,
         scene_index: int,
         name: Optional[str] = None,
         color: Optional[int] = None,
+        color_index: Optional[int] = None,
+        color_rgb: Optional[List[int]] = None,
         tempo: Optional[float] = None,
         tempo_enabled: Optional[bool] = None,
         time_signature_numerator: Optional[int] = None,
@@ -809,8 +915,7 @@ class BridgeHandlers:
             scene = s.scenes[idx]
             if name is not None:
                 scene.name = str(name)
-            if color is not None:
-                scene.color = int(color)
+            color_state = self._apply_color(scene, color, color_index, color_rgb)
             if tempo is not None:
                 t_val = float(tempo)
                 if t_val < 20.0 or t_val > 999.0 or math.isnan(t_val) or math.isinf(t_val):
@@ -830,6 +935,7 @@ class BridgeHandlers:
                 scene.time_signature_denominator = ts_den
             if time_signature_enabled is not None:
                 scene.time_signature_enabled = bool(time_signature_enabled)
+            res.update(color_state)
             res.update({
                 "name": str(getattr(scene, "name", name or "")),
                 "color": int(getattr(scene, "color", color or 0)),
@@ -955,6 +1061,41 @@ class BridgeHandlers:
                 raise IndexError(f"Slot index {s_idx} out of range")
             tr.clip_slots[s_idx].delete_clip()
         return {"deleted": True, "track_index": t_idx, "slot_index": s_idx}
+
+    def live12_clip_delete_arrangement(
+        self,
+        track_index: int,
+        clip_index: int,
+    ) -> Dict[str, Any]:
+        """Deletes an Arrangement View clip by its position on the track.
+
+        `live12_clip_delete` only removes Session View slot clips; this handler
+        covers the Arrangement View, which is where every clip of a produced
+        track lives. Live's `Track.delete_clip(clip)` requires the clip object,
+        so it is resolved from `track.arrangement_clips` here.
+        """
+        t_idx = int(track_index)
+        c_idx = int(clip_index)
+        s = self.song()
+        if s:
+            if t_idx < 0 or t_idx >= len(s.tracks):
+                raise IndexError(f"Track index {t_idx} out of range")
+            tr = s.tracks[t_idx]
+            arr = list(getattr(tr, "arrangement_clips", []) or [])
+            if c_idx < 0 or c_idx >= len(arr):
+                raise IndexError(
+                    f"Arrangement clip index {c_idx} out of range [0, {len(arr)})"
+                )
+            entry = arr[c_idx]
+            clip = entry[0] if isinstance(entry, (tuple, list)) else entry
+            tr.delete_clip(clip)
+            return {
+                "deleted": True,
+                "track_index": t_idx,
+                "clip_index": c_idx,
+                "remaining_clips": len(list(getattr(tr, "arrangement_clips", []) or [])),
+            }
+        return {"deleted": True, "track_index": t_idx, "clip_index": c_idx}
 
     def live12_clip_fire(self, track_index: int, slot_index: int) -> Dict[str, Any]:
         t_idx = int(track_index)
@@ -1132,7 +1273,7 @@ class BridgeHandlers:
             clip.add_new_notes(tuple(specs))
             # Retrieve note IDs from clip
             try:
-                retrieved_notes = clip.get_notes_extended(0, 0, 65536, 128)
+                retrieved_notes = clip.get_notes_extended(0, 128, 0.0, 65536.0)
                 note_ids = [getattr(n, "note_id", i) for i, n in enumerate(retrieved_notes)]
             except Exception:
                 note_ids = list(range(added_count))
@@ -1199,7 +1340,7 @@ class BridgeHandlers:
             if not clip:
                 raise IndexError("Clip slot has no clip")
             # In Live 12, apply modifications via clip.apply_note_modifications
-            existing_notes = list(clip.get_notes_extended(0, 0, 65536, 128))
+            existing_notes = list(clip.get_notes_extended(0, 128, 0.0, 65536.0))
             modified_objs = []
             for mod in note_modifications:
                 mod_id = mod.get("note_id")
@@ -1576,6 +1717,27 @@ class BridgeHandlers:
                 step_val = float(value if value is not None else 1.0)
                 res["time"] = step_time
                 res["value"] = step_val
+                env = None
+                if target_param and hasattr(clip, "automation_envelope"):
+                    try:
+                        env = clip.automation_envelope(target_param)
+                    except Exception:
+                        env = None
+                    if env is None and hasattr(clip, "create_automation_envelope"):
+                        try:
+                            env = clip.create_automation_envelope(target_param)
+                        except Exception:
+                            env = None
+                if env is not None:
+                    if hasattr(env, "insert_step"):
+                        try:
+                            env.insert_step(step_time, 0.25, step_val)
+                        except Exception:
+                            if hasattr(env, "create_event"):
+                                env.create_event(step_time, step_val)
+                    elif hasattr(env, "create_event"):
+                        env.create_event(step_time, step_val)
+                    res["envelope_updated"] = True
             elif action == "clear":
                 if target_param and hasattr(clip, "clear_envelope"):
                     clip.clear_envelope(target_param)
@@ -1704,25 +1866,92 @@ class BridgeHandlers:
             "items": items,
         }
 
+    def _find_browser_item(self, browser: Any, target_uri: str, max_depth: int = 5) -> Any:
+        """Finds a loadable BrowserItem matching URI or name in the browser hierarchy."""
+        if not browser:
+            return None
+        roots = []
+        for cat in (
+            "instruments", "audio_effects", "midi_effects", "drums", "sounds",
+            "max_for_live", "plugins", "user_library", "packs", "samples", "clips", "current_project"
+        ):
+            if hasattr(browser, cat):
+                r = getattr(browser, cat)
+                if r:
+                    roots.append(r)
+
+        target_clean = str(target_uri).strip().lower()
+        short_target = target_clean.split(":")[-1].replace("_", " ")
+
+        queue = [(r, 0) for r in roots]
+        while queue:
+            item, depth = queue.pop(0)
+            item_uri = getattr(item, "uri", "") or ""
+            item_name = getattr(item, "name", "") or ""
+            if item_uri.lower() == target_clean or (short_target and item_name.lower() == short_target):
+                if getattr(item, "is_loadable", True):
+                    return item
+            if depth < max_depth and (getattr(item, "is_folder", False) or hasattr(item, "children")):
+                try:
+                    for child in getattr(item, "children", ()) or ():
+                        queue.append((child, depth + 1))
+                except Exception:
+                    pass
+        return None
+
     def live12_browser_load_item(
         self,
         track_index: int,
         browser_item_uri: str,
+        track_type: str = "regular",
         chain_index: int = -1,
         drum_pad_index: int = -1,
     ) -> Dict[str, Any]:
         t_idx = int(track_index)
         s = self.song()
+        target_track = None
         if s:
-            if t_idx < 0 or t_idx >= len(s.tracks):
+            if track_type == "master" or t_idx == -100:
+                target_track = s.master_track
+            elif track_type == "return":
+                if 0 <= t_idx < len(s.return_tracks):
+                    target_track = s.return_tracks[t_idx]
+                else:
+                    raise IndexError(f"Return track index {t_idx} out of range")
+            elif 0 <= t_idx < len(s.tracks):
+                target_track = s.tracks[t_idx]
+            else:
                 raise IndexError(f"Track index {t_idx} out of range")
+
+            if target_track and hasattr(s, "view") and hasattr(s.view, "selected_track"):
+                try:
+                    s.view.selected_track = target_track
+                except Exception:
+                    pass
             app = self.application()
             if app and hasattr(app, "browser") and hasattr(app.browser, "load_item"):
                 try:
-                    # In Live, loading browser item onto target track
-                    pass
-                except Exception:
-                    pass
+                    item = None
+                    if hasattr(browser_item_uri, "is_loadable"):
+                        item = browser_item_uri
+                    else:
+                        item = self._find_browser_item(app.browser, str(browser_item_uri))
+                    if item:
+                        app.browser.load_item(item)
+                    else:
+                        return {
+                            "status": "not_found",
+                            "track_index": t_idx,
+                            "browser_item_uri": browser_item_uri,
+                            "warning": f"Item '{browser_item_uri}' not found in browser",
+                        }
+                except Exception as e:
+                    return {
+                        "status": "error",
+                        "track_index": t_idx,
+                        "browser_item_uri": browser_item_uri,
+                        "error": str(e),
+                    }
         return {
             "status": "loaded",
             "track_index": t_idx,
@@ -2615,6 +2844,25 @@ class BridgeHandlers:
         kwargs: Optional[dict] = None,
     ) -> Dict[str, Any]:
         return lom_call(self.root_getter, target_path, method_name, args, kwargs)
+
+    def live12_bridge_reload(self) -> Dict[str, Any]:
+        """
+        Hot-reloads the Live12Bridge modules (reflection, handlers) in-memory
+        and updates the active handlers instance on the ControlSurface.
+        """
+        import importlib
+        from . import reflection as reflection_mod
+        from . import handlers as handlers_mod
+        importlib.reload(reflection_mod)
+        importlib.reload(handlers_mod)
+        new_handlers = handlers_mod.BridgeHandlers(self.cs)
+        if hasattr(self.cs, "_handlers"):
+            self.cs._handlers = new_handlers
+        return {
+            "status": "reloaded",
+            "message": "Live12Bridge modules reloaded successfully",
+            "handlers_count": len([m for m in dir(new_handlers) if m.startswith("live12_")]),
+        }
 
 
 def normalize_method_name(name: str) -> str:

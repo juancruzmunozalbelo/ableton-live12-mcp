@@ -18,6 +18,7 @@ from .clip_tools import CLIP_TOOLS
 from .device_tools import DEVICE_TOOLS
 from .lom_tools import LOM_TOOLS
 from .song_tools import SONG_TOOLS
+from .take_lane_tools import TAKE_LANE_TOOLS
 from .track_tools import TRACK_TOOLS
 from .validator import ValidationError, validate_argument_dict
 from .view_tools import VIEW_TOOLS
@@ -31,11 +32,15 @@ ALL_TOOLS: List[Dict[str, Any]] = (
     + LOM_TOOLS
 )
 
-TOOL_MAP: Dict[str, Dict[str, Any]] = {tool["name"]: tool for tool in ALL_TOOLS}
+EXTRA_TOOLS: List[Dict[str, Any]] = list(TAKE_LANE_TOOLS)
+
+TOOL_MAP: Dict[str, Dict[str, Any]] = {tool["name"]: tool for tool in (ALL_TOOLS + EXTRA_TOOLS)}
 
 
-def get_tool_catalog() -> List[Dict[str, Any]]:
-    """Returns the complete 75-tool MCP catalog with Draft-07 schemas."""
+def get_tool_catalog(include_extensions: bool = False) -> List[Dict[str, Any]]:
+    """Returns the MCP catalog with Draft-07 schemas."""
+    if include_extensions:
+        return list(ALL_TOOLS + EXTRA_TOOLS)
     return list(ALL_TOOLS)
 
 
@@ -66,4 +71,6 @@ __all__ = [
     "DEVICE_TOOLS",
     "VIEW_TOOLS",
     "LOM_TOOLS",
+    "TAKE_LANE_TOOLS",
+    "EXTRA_TOOLS",
 ]

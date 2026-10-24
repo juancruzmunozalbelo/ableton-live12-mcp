@@ -1,0 +1,1718 @@
+{
+  "module_name": "HOLO Master Class — Módulo 5: Arreglo Completo",
+  "class_name": "holo_m5_arreglo_completo",
+  "instructor": "Tomas Otero (Holo Audio / RESONANT)",
+  "genre": "Melodic Techno",
+  "tempo": 126.0,
+  "time_signature": [
+    4,
+    4
+  ],
+  "scale": {
+    "name": "Minor",
+    "root_note": "C",
+    "mode": "Natural Minor / Aeolian"
+  },
+  "duration_bars": 180,
+  "locators": [
+    {
+      "name": "INTRO",
+      "time_bars": 1.0,
+      "time_beats": 0.0,
+      "length_bars": 16.0,
+      "description": "Atmospheric DJ intro with kick, sub rumble, filtered shaker, and subtle background drone."
+    },
+    {
+      "name": "ARMADO",
+      "time_bars": 17.1,
+      "time_beats": 64.0,
+      "length_bars": 16.0,
+      "description": "Build 1: Claps enter on beats 2 and 4, 16th hats introduced, lead synth motif teased."
+    },
+    {
+      "name": "PUENTE",
+      "time_bars": 33.1,
+      "time_beats": 128.0,
+      "length_bars": 16.0,
+      "description": "Bridge 1: Percussion strips back, lead synth filter begins opening, snare roll riser."
+    },
+    {
+      "name": "DROP 1",
+      "time_bars": 49.1,
+      "time_beats": 192.0,
+      "length_bars": 16.0,
+      "description": "First peak impact: Full kick, sub rumble, drum racks, unfiltered main synth hook."
+    },
+    {
+      "name": "PUENTE 2",
+      "time_bars": 65.1,
+      "time_beats": 256.0,
+      "length_bars": 16.0,
+      "description": "Bridge 2: Introduction of secondary melodic element, variation in hats and perc layers."
+    },
+    {
+      "name": "DROP 2",
+      "time_bars": 81.1,
+      "time_beats": 320.0,
+      "length_bars": 16.0,
+      "description": "High energy driving section: Maximum rhythmic syncopation and rolling triplet basslines."
+    },
+    {
+      "name": "PUENTE 3",
+      "time_bars": 97.1,
+      "time_beats": 384.0,
+      "length_bars": 16.0,
+      "description": "Bridge 3: Transition toward breakdown; drum layers thin out, low-cut filter sweeps up."
+    },
+    {
+      "name": "BREAK",
+      "time_bars": 113.1,
+      "time_beats": 448.0,
+      "length_bars": 16.0,
+      "description": "Breakdown: Kick and sub cut completely! Lush chord progression and pads fully exposed."
+    },
+    {
+      "name": "PREDROP",
+      "time_bars": 129.1,
+      "time_beats": 512.0,
+      "length_bars": 16.0,
+      "description": "Buildup 2: Snare roll acceleration, pitch riser, white noise sweep, utility gain ducking in bar 144."
+    },
+    {
+      "name": "MAIN DROP",
+      "time_bars": 145.1,
+      "time_beats": 576.0,
+      "length_bars": 16.0,
+      "description": "DROP :) Climax of track: All elements firing together (kick, sub, lead, chords, counter-melodies, crash)."
+    },
+    {
+      "name": "OUTRO",
+      "time_bars": 161.1,
+      "time_beats": 640.0,
+      "length_bars": 16.0,
+      "description": "Lead cuts, chords fade, percs strip back to kick and rumble for clean DJ outro mixing."
+    }
+  ],
+  "return_tracks": [
+    {
+      "index": 0,
+      "name": "CLA-76",
+      "type": "return",
+      "devices": [
+        {
+          "name": "Compressor",
+          "type": "Live.Compressor",
+          "mode": "Peak",
+          "parameters": {
+            "Attack": "0.02 ms",
+            "Release": "50.0 ms",
+            "Ratio": "4.0",
+            "Threshold": "-18.0 dB",
+            "Makeup": "4.5 dB",
+            "DryWet": "100%"
+          },
+          "function": "FET-style aggressive parallel drum bus compression (CLA-76 emulation)"
+        }
+      ]
+    },
+    {
+      "index": 1,
+      "name": "room",
+      "type": "return",
+      "devices": [
+        {
+          "name": "Reverb",
+          "type": "Live.Reverb",
+          "parameters": {
+            "DecayTime": "650 ms",
+            "PreDelay": "12.0 ms",
+            "HighCut": "4500 Hz",
+            "LowCut": "220 Hz",
+            "Diffusion": "75%",
+            "DryWet": "100%"
+          },
+          "function": "Short studio room ambience for drum cohesiveness"
+        }
+      ]
+    },
+    {
+      "index": 2,
+      "name": "PLate",
+      "type": "return",
+      "devices": [
+        {
+          "name": "Hybrid Reverb",
+          "type": "Live.Hybrid",
+          "parameters": {
+            "Algorithm": "Plate",
+            "DecayTime": "1800 ms",
+            "PreDelay": "20.0 ms",
+            "Damping": "5000 Hz",
+            "DryWet": "100%"
+          },
+          "function": "Dense metallic plate reverb for melodic stabs, percussions, and claps"
+        }
+      ]
+    },
+    {
+      "index": 3,
+      "name": "long rvbv",
+      "type": "return",
+      "devices": [
+        {
+          "name": "Reverb",
+          "type": "Live.Reverb",
+          "parameters": {
+            "DecayTime": "5200 ms",
+            "PreDelay": "35.0 ms",
+            "RoomSize": "90",
+            "LowCut": "180 Hz",
+            "DryWet": "100%"
+          },
+          "function": "Massive hall reverb for transition throws, breakdowns, and vocal tails"
+        }
+      ]
+    },
+    {
+      "index": 4,
+      "name": "SHIMMER",
+      "type": "return",
+      "devices": [
+        {
+          "name": "Hybrid Reverb Shimmer",
+          "type": "Live.Hybrid",
+          "parameters": {
+            "Algorithm": "Shimmer",
+            "PitchShift": "+12 st",
+            "DecayTime": "4500 ms",
+            "Feedback": "40%",
+            "DryWet": "100%"
+          },
+          "function": "Ethereal octave-up pitch-shifted reverb tail for melodic techno leads and chords"
+        }
+      ]
+    },
+    {
+      "index": 5,
+      "name": "Portal",
+      "type": "return",
+      "devices": [
+        {
+          "name": "Echo Granular",
+          "type": "Live.Echo",
+          "parameters": {
+            "LeftDelay": "3/16",
+            "RightDelay": "1/8",
+            "Feedback": "38%",
+            "Modulation": "Granular Wobble",
+            "DryWet": "100%"
+          },
+          "function": "Granular rhythmic stutter delay and spatial pitch fluctuations"
+        }
+      ]
+    }
+  ],
+  "arrangement_timeline": {
+    "total_bars": 180,
+    "total_beats": 720.0,
+    "duration_seconds": 342.85,
+    "energy_curve": [
+      {
+        "section": "INTRO",
+        "bars": "1-16",
+        "energy_pct": 25,
+        "active_elements": [
+          "Kick",
+          "Rumble",
+          "Filtered Shaker",
+          "Drone"
+        ]
+      },
+      {
+        "section": "ARMADO",
+        "bars": "17-32",
+        "energy_pct": 45,
+        "active_elements": [
+          "Kick",
+          "Rumble",
+          "Clap",
+          "16th Hats",
+          "Lead Tease"
+        ]
+      },
+      {
+        "section": "PUENTE",
+        "bars": "33-48",
+        "energy_pct": 60,
+        "active_elements": [
+          "Percussion drops",
+          "Lead Filter Open",
+          "Snare Roll Riser"
+        ]
+      },
+      {
+        "section": "DROP 1",
+        "bars": "49-64",
+        "energy_pct": 85,
+        "active_elements": [
+          "Full Kick",
+          "Rumble",
+          "Full Drums",
+          "Lead Unfiltered",
+          "Rolling Bass"
+        ]
+      },
+      {
+        "section": "PUENTE 2",
+        "bars": "65-80",
+        "energy_pct": 75,
+        "active_elements": [
+          "Triplet Bass Motif",
+          "Counter Arp Pluck Tease",
+          "Hats Variation"
+        ]
+      },
+      {
+        "section": "DROP 2",
+        "bars": "81-96",
+        "energy_pct": 90,
+        "active_elements": [
+          "Driving Bass",
+          "Main Lead",
+          "Counter Melody",
+          "Aux Percussion"
+        ]
+      },
+      {
+        "section": "PUENTE 3",
+        "bars": "97-112",
+        "energy_pct": 65,
+        "active_elements": [
+          "Stripping Drums",
+          "Filter Cutoff Sweeps Up",
+          "Riser Sweep"
+        ]
+      },
+      {
+        "section": "BREAK",
+        "bars": "113-128",
+        "energy_pct": 40,
+        "active_elements": [
+          "Kick & Sub Silent",
+          "Cm Progression Chords",
+          "Atmospheric Pads",
+          "Lead Theme"
+        ]
+      },
+      {
+        "section": "PREDROP",
+        "bars": "129-144",
+        "energy_pct": 80,
+        "active_elements": [
+          "Snare Acceleration",
+          "Pitch Riser",
+          "Noise Sweep",
+          "Gain Ducking Bar 144"
+        ]
+      },
+      {
+        "section": "MAIN DROP",
+        "bars": "145-160",
+        "energy_pct": 100,
+        "active_elements": [
+          "MAXIMUM CLIMAX",
+          "All Elements Firing",
+          "Crash Impact",
+          "Full Modulation"
+        ]
+      },
+      {
+        "section": "OUTRO",
+        "bars": "161-176",
+        "energy_pct": 35,
+        "active_elements": [
+          "Leads Cut",
+          "Chords Fade",
+          "Kick & Rumble Only",
+          "DJ Mix Out"
+        ]
+      },
+      {
+        "section": "TAIL",
+        "bars": "177-180",
+        "energy_pct": 0,
+        "active_elements": [
+          "Reverb Wash Decay",
+          "Complete Silence"
+        ]
+      }
+    ]
+  },
+  "automation_envelopes": [
+    {
+      "target": "Group Synths Auto Filter Cutoff",
+      "type": "device_parameter",
+      "description": "Continuous filter sweep opening into Drop 1 and Main Drop",
+      "breakpoints": [
+        {
+          "bar": 1.0,
+          "value": 350.0
+        },
+        {
+          "bar": 33.0,
+          "value": 450.0
+        },
+        {
+          "bar": 49.0,
+          "value": 18000.0
+        },
+        {
+          "bar": 65.0,
+          "value": 14000.0
+        },
+        {
+          "bar": 97.0,
+          "value": 2500.0
+        },
+        {
+          "bar": 113.0,
+          "value": 850.0
+        },
+        {
+          "bar": 129.0,
+          "value": 1200.0
+        },
+        {
+          "bar": 144.9,
+          "value": 18500.0
+        },
+        {
+          "bar": 145.0,
+          "value": 18500.0
+        },
+        {
+          "bar": 161.0,
+          "value": 1200.0
+        },
+        {
+          "bar": 177.0,
+          "value": 200.0
+        }
+      ]
+    },
+    {
+      "target": "Master Utility Pre-Drop Gain Ducking",
+      "type": "device_parameter",
+      "description": "-1.5 dB attenuation on beat 144.3 to 145.1, snapping back to 0.0 dB on Main Drop impact",
+      "breakpoints": [
+        {
+          "bar": 1.0,
+          "value_db": 0.0
+        },
+        {
+          "bar": 144.0,
+          "value_db": 0.0
+        },
+        {
+          "bar": 144.3,
+          "value_db": -1.5
+        },
+        {
+          "bar": 145.0,
+          "value_db": -1.5
+        },
+        {
+          "bar": 145.1,
+          "value_db": 0.0
+        }
+      ]
+    },
+    {
+      "target": "Roar Multi-Stage Saturation Drive",
+      "type": "device_parameter",
+      "description": "Drive increase during tension buildups",
+      "breakpoints": [
+        {
+          "bar": 33.0,
+          "value_db": 3.0
+        },
+        {
+          "bar": 48.9,
+          "value_db": 10.5
+        },
+        {
+          "bar": 49.0,
+          "value_db": 6.5
+        },
+        {
+          "bar": 129.0,
+          "value_db": 4.0
+        },
+        {
+          "bar": 144.9,
+          "value_db": 12.0
+        },
+        {
+          "bar": 145.0,
+          "value_db": 7.0
+        }
+      ]
+    },
+    {
+      "target": "Send D (Long Reverb) Throw Bursts",
+      "type": "mixer_send",
+      "description": "Automated reverb send bursts on bar turnaround beats",
+      "burst_points": [
+        "Bar 48.4 (Beat 191)",
+        "Bar 80.4 (Beat 319)",
+        "Bar 144.4 (Beat 575)"
+      ]
+    }
+  ],
+  "transition_sfx": [
+    {
+      "name": "Downlifter Drop 1",
+      "sample": "TPS - Voyage - Downlifter 01.wav",
+      "bar": 49.1
+    },
+    {
+      "name": "Impact Climax",
+      "sample": "TPS - Eclipse - Impact 03.wav",
+      "bar": 145.1
+    },
+    {
+      "name": "Riser Predrop",
+      "sample": "TPS x CamelPhat - Riser 08.wav",
+      "bar": 137.1
+    },
+    {
+      "name": "Snare Build Roll",
+      "sample": "TextureDRM_SnareSeq_SG_17.wav",
+      "bar": 141.1
+    }
+  ],
+  "master_bus_chain": [
+    {
+      "name": "EQ Eight",
+      "type": "Live.Eq8",
+      "parameters": {
+        "Band1Type": "HighPass 48dB",
+        "Band1Freq": "25 Hz",
+        "Band3Type": "Bell Dip",
+        "Band3Freq": "260 Hz",
+        "Band3Gain": "-0.8 dB",
+        "Band8Type": "HighShelf",
+        "Band8Freq": "12000 Hz",
+        "Band8Gain": "+0.8 dB"
+      }
+    },
+    {
+      "name": "Glue Compressor",
+      "type": "Live.GlueCompressor",
+      "parameters": {
+        "Attack": "30 ms",
+        "Release": "0.1 s",
+        "Ratio": "2",
+        "Threshold": "-12.0 dB",
+        "GainReduction": "1.0 - 2.0 dB",
+        "Makeup": "1.5 dB"
+      }
+    },
+    {
+      "name": "Saturator",
+      "type": "Live.Saturator",
+      "parameters": {
+        "Curve": "Analog Clip",
+        "Drive": "+0.8 dB",
+        "DryWet": "15%"
+      }
+    },
+    {
+      "name": "Utility",
+      "type": "Live.StereoGain",
+      "parameters": {
+        "BassMono": true,
+        "BassMonoCutoff": "120 Hz",
+        "Width": "105%"
+      }
+    },
+    {
+      "name": "Limiter",
+      "type": "Live.Limiter",
+      "parameters": {
+        "Ceiling": "-0.3 dB",
+        "Lookahead": "5.0 ms",
+        "Release": "100.0 ms"
+      }
+    }
+  ],
+  "tracks": [
+    {
+      "id": 0,
+      "name": "DRUMS",
+      "type": "group",
+      "volume_db": -2.0,
+      "pan": 0.0,
+      "devices": [
+        {
+          "name": "Glue Compressor",
+          "type": "Live.GlueCompressor",
+          "parameters": {
+            "Attack": "30 ms",
+            "Release": "0.2 s",
+            "Ratio": "2",
+            "Threshold": "-14.0 dB",
+            "Makeup": "2.0 dB",
+            "DryWet": "70%"
+          }
+        },
+        {
+          "name": "EQ Eight",
+          "type": "Live.Eq8",
+          "parameters": {
+            "Band1Type": "HighPass 48dB",
+            "Band1Freq": "30 Hz",
+            "Band8Type": "HighShelf",
+            "Band8Freq": "10000 Hz",
+            "Band8Gain": "+1.2 dB"
+          }
+        }
+      ],
+      "sub_tracks": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ]
+    },
+    {
+      "id": 1,
+      "name": "Kick Punch",
+      "type": "audio",
+      "parent_group": "DRUMS",
+      "volume_db": -4.0,
+      "pan": 0.0,
+      "source_sample": {
+        "name": "10 AT VNTM - Kick F.wav",
+        "key": "F",
+        "fundamental_hz": 46.2,
+        "character": "Punchy Melodic Techno transient kick"
+      },
+      "devices": [
+        {
+          "name": "Drum Buss",
+          "type": "Live.DrumBuss",
+          "parameters": {
+            "Drive": "18%",
+            "Boom": "+2.2 dB",
+            "BoomFreq": "46 Hz",
+            "Transients": "+1.5 dB",
+            "Crunch": "0%"
+          }
+        },
+        {
+          "name": "EQ Eight",
+          "type": "Live.Eq8",
+          "parameters": {
+            "Band1HighPass": "28 Hz (48dB/oct)",
+            "Band2Dip": "-2.5 dB at 320 Hz (Q: 2.1)",
+            "Band3Boost": "+1.8 dB at 3200 Hz (Click transient)"
+          }
+        }
+      ],
+      "clips": [
+        {
+          "name": "Kick 4-on-the-floor Intro",
+          "start_bar": 1,
+          "end_bar": 33
+        },
+        {
+          "name": "Kick 4-on-the-floor Drop 1",
+          "start_bar": 49,
+          "end_bar": 97
+        },
+        {
+          "name": "Kick 4-on-the-floor Main Drop",
+          "start_bar": 145,
+          "end_bar": 177
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Kick Sub Body",
+      "type": "audio",
+      "parent_group": "DRUMS",
+      "volume_db": -9.0,
+      "source_sample": {
+        "name": "mau5_kick_17_F#m.wav",
+        "tuned_to": "F",
+        "character": "Deadmau5 deep sub low-end body"
+      },
+      "devices": [
+        {
+          "name": "Auto Filter",
+          "type": "Live.AutoFilter",
+          "parameters": {
+            "FilterType": "LowPass 24dB",
+            "Cutoff": "90 Hz",
+            "Resonance": "0.1"
+          }
+        }
+      ],
+      "clips": [
+        {
+          "name": "Sub Body Intro",
+          "start_bar": 1,
+          "end_bar": 33
+        },
+        {
+          "name": "Sub Body Drop 1",
+          "start_bar": 49,
+          "end_bar": 97
+        },
+        {
+          "name": "Sub Body Main Drop",
+          "start_bar": 145,
+          "end_bar": 177
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "Kick Sub Rumble",
+      "type": "audio",
+      "parent_group": "DRUMS",
+      "volume_db": -7.5,
+      "description": "Techno 16th sub rumble generated via parallel delay and reverb keyed to kick sidechain.",
+      "devices": [
+        {
+          "name": "Delay",
+          "type": "Live.Delay",
+          "parameters": {
+            "LeftDelay": "1/16 triplet",
+            "RightDelay": "1/16",
+            "Feedback": "35%",
+            "DryWet": "100%"
+          }
+        },
+        {
+          "name": "Reverb",
+          "type": "Live.Reverb",
+          "parameters": {
+            "DecayTime": "850 ms",
+            "PreDelay": "0 ms",
+            "Diffusion": "100%",
+            "DryWet": "100%"
+          }
+        },
+        {
+          "name": "Auto Filter",
+          "type": "Live.AutoFilter",
+          "parameters": {
+            "FilterType": "LowPass 24dB MS2",
+            "Cutoff": "100 Hz",
+            "Drive": "3.5 dB"
+          }
+        },
+        {
+          "name": "Saturator",
+          "type": "Live.Saturator",
+          "parameters": {
+            "Curve": "Soft Sine",
+            "Drive": "+3.0 dB",
+            "DryWet": "100%"
+          }
+        },
+        {
+          "name": "Utility",
+          "type": "Live.StereoGain",
+          "parameters": {
+            "BassMono": true,
+            "BassMonoCutoff": "120 Hz",
+            "Width": "0% (Mono)"
+          }
+        },
+        {
+          "name": "Compressor (Sidechain)",
+          "type": "Live.Compressor",
+          "parameters": {
+            "SidechainEnabled": true,
+            "SidechainSource": "Kick Punch",
+            "Attack": "0.1 ms",
+            "Release": "80 ms",
+            "Ratio": "6:1",
+            "Threshold": "-22.0 dB"
+          }
+        }
+      ],
+      "clips": [
+        {
+          "name": "Sub Rumble Groove Intro",
+          "start_bar": 1,
+          "end_bar": 33
+        },
+        {
+          "name": "Sub Rumble Groove Drop 1",
+          "start_bar": 49,
+          "end_bar": 97
+        },
+        {
+          "name": "Sub Rumble Groove Main Drop",
+          "start_bar": 145,
+          "end_bar": 177
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "name": "Clap-Snare Main",
+      "type": "audio",
+      "parent_group": "DRUMS",
+      "volume_db": -8.0,
+      "source_sample": {
+        "name": "Odd Frequency - Pulse - Clap-Snare 1.wav",
+        "character": "Transient tight clap-snare hybrid with wide stereo tail"
+      },
+      "sends": {
+        "CLA-76": -12.0,
+        "room": -14.0,
+        "PLate": -18.0
+      },
+      "clips": [
+        {
+          "name": "Clap Beats 2 and 4 Armado",
+          "start_bar": 17,
+          "end_bar": 33
+        },
+        {
+          "name": "Clap Beats 2 and 4 Drop 1",
+          "start_bar": 49,
+          "end_bar": 97
+        },
+        {
+          "name": "Clap Beats 2 and 4 Main Drop",
+          "start_bar": 145,
+          "end_bar": 177
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "name": "Shaker Loop 16th",
+      "type": "audio",
+      "parent_group": "DRUMS",
+      "volume_db": -13.0,
+      "source_sample": {
+        "name": "Odd Frequency - Pulse - Shaker Loop 1 - 124 BPM.wav",
+        "warped_bpm": 126.0,
+        "groove": "Swing 16-59"
+      },
+      "devices": [
+        {
+          "name": "Auto Filter",
+          "type": "Live.AutoFilter",
+          "parameters": {
+            "FilterType": "HighPass 12dB",
+            "Cutoff": "450 Hz"
+          }
+        }
+      ],
+      "clips": [
+        {
+          "name": "Shaker Loop 16th Intro",
+          "start_bar": 1,
+          "end_bar": 33
+        },
+        {
+          "name": "Shaker Loop 16th Drop 1",
+          "start_bar": 49,
+          "end_bar": 97
+        },
+        {
+          "name": "Shaker Loop 16th Main Drop",
+          "start_bar": 145,
+          "end_bar": 177
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "name": "Hi-Hats Offbeat & 16th",
+      "type": "audio",
+      "parent_group": "DRUMS",
+      "volume_db": -11.0,
+      "source_sample": {
+        "name": "Odd Frequency - Pulse - Hat Loop 18 - 124 BPM.wav",
+        "warped_bpm": 126.0,
+        "groove": "Swing 16-62"
+      },
+      "sends": {
+        "CLA-76": -18.0,
+        "room": -16.0
+      },
+      "clips": [
+        {
+          "name": "Hi-Hats Armado",
+          "start_bar": 17,
+          "end_bar": 33
+        },
+        {
+          "name": "Hi-Hats Drop 1",
+          "start_bar": 49,
+          "end_bar": 97
+        },
+        {
+          "name": "Hi-Hats Main Drop",
+          "start_bar": 145,
+          "end_bar": 177
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "name": "Drum Rack Aux Perc",
+      "type": "midi",
+      "parent_group": "DRUMS",
+      "volume_db": -10.0,
+      "devices": [
+        {
+          "name": "Drum Rack",
+          "type": "Live.DrumGroupDevice",
+          "pads": [
+            {
+              "note": "C1 (36)",
+              "sample": "Rimshot Wood.wav",
+              "pan": -25
+            },
+            {
+              "note": "D1 (38)",
+              "sample": "Perc Bongo Tight.wav",
+              "pan": 30
+            },
+            {
+              "note": "F#1 (42)",
+              "sample": "Closed Hat Ghost.wav",
+              "pan": -10
+            },
+            {
+              "note": "A#1 (46)",
+              "sample": "Open Hat Sizzle.wav",
+              "pan": 15
+            }
+          ]
+        }
+      ],
+      "clips": [
+        {
+          "name": "Syncopated Perc Armado",
+          "start_bar": 17,
+          "end_bar": 33
+        },
+        {
+          "name": "Syncopated Perc Drop 1",
+          "start_bar": 49,
+          "end_bar": 97
+        },
+        {
+          "name": "Syncopated Perc Main Drop",
+          "start_bar": 145,
+          "end_bar": 177
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "name": "PERCUSSIVE Top Loop",
+      "type": "audio",
+      "parent_group": "DRUMS",
+      "volume_db": -14.0,
+      "source_sample": {
+        "name": "ZEN_ALL_125_drum_loop_top_timeless.wav",
+        "warped_bpm": 126.0
+      },
+      "devices": [
+        {
+          "name": "Auto Filter",
+          "type": "Live.AutoFilter",
+          "parameters": {
+            "FilterType": "BandPass",
+            "Cutoff": "1800 Hz",
+            "Resonance": "0.4"
+          }
+        }
+      ],
+      "clips": [
+        {
+          "name": "Top Percussive Drop 1",
+          "start_bar": 49,
+          "end_bar": 97
+        },
+        {
+          "name": "Top Percussive Main Drop",
+          "start_bar": 145,
+          "end_bar": 177
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "name": "SYNTHS",
+      "type": "group",
+      "volume_db": -3.0,
+      "devices": [
+        {
+          "name": "Auto Filter (Synths Bus Cutoff Sweep)",
+          "type": "Live.AutoFilter",
+          "parameters": {
+            "FilterType": "LowPass 24dB MS2",
+            "Cutoff": "350 Hz to 18000 Hz automated",
+            "Resonance": "0.22",
+            "Drive": "2.0 dB"
+          }
+        },
+        {
+          "name": "Glue Compressor",
+          "type": "Live.GlueCompressor",
+          "parameters": {
+            "Attack": "10 ms",
+            "Release": "0.1 s",
+            "Ratio": "4",
+            "Threshold": "-16 dB"
+          }
+        }
+      ],
+      "sub_tracks": [
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16
+      ]
+    },
+    {
+      "id": 10,
+      "name": "Wavetable Lead",
+      "type": "midi",
+      "parent_group": "SYNTHS",
+      "volume_db": -5.0,
+      "pan": 0.0,
+      "devices": [
+        {
+          "name": "Wavetable",
+          "type": "Live.WavetableDevice",
+          "parameters": {
+            "Osc1Category": "Retro / Complex",
+            "Osc1Wavetable": "Cobalt",
+            "Osc1Position": "1.0",
+            "Osc1Effect": "FM Modern",
+            "Osc1EffectValue": "0.734",
+            "Osc2Waveform": "Saw",
+            "Osc2Detune": "+7 cents",
+            "SubOscEnabled": true,
+            "SubOscOctave": "-1",
+            "SubOscGain": "0.0 dB",
+            "Filter1Type": "LowPass MS2 (Korg ladder)",
+            "Filter1Cutoff": "650 Hz",
+            "Filter1Resonance": "0.156",
+            "Filter1Drive": "8.81 dB",
+            "FilterEnvelopeDecay": "800 ms",
+            "UnisonMode": "Shimmer",
+            "UnisonVoices": 4,
+            "UnisonSpread": "25%",
+            "GlideMode": "Portamento",
+            "GlideTime": "30.0 ms"
+          }
+        },
+        {
+          "name": "Roar Multi-Stage Saturation",
+          "type": "Live.RoarDevice",
+          "parameters": {
+            "Routing": "Parallel / Multi-band",
+            "Stage1Mode": "Warm Tube",
+            "Stage1Drive": "+6.5 dB",
+            "Stage1Bias": "0.20",
+            "Stage2Mode": "High-cut Crunch",
+            "Stage2Drive": "+4.0 dB",
+            "FeedbackModulation": "15%",
+            "EnvelopeFollowerAmount": "25%",
+            "DryWet": "65%"
+          }
+        },
+        {
+          "name": "Auto Filter (SC Filter)",
+          "type": "Live.AutoFilter",
+          "parameters": {
+            "FilterType": "HighPass 24dB",
+            "Cutoff": "200 Hz",
+            "SidechainEnabled": true,
+            "SidechainSource": "Kick Punch",
+            "DuckEnvelope": "Low frequencies cut during kick attack"
+          }
+        },
+        {
+          "name": "Delay",
+          "type": "Live.Delay",
+          "parameters": {
+            "LeftDelay": "3/16 (dotted 8th)",
+            "RightDelay": "1/16",
+            "Feedback": "35%",
+            "PingPong": true,
+            "DryWet": "28%"
+          }
+        }
+      ],
+      "sends": {
+        "PLate": -14.0,
+        "long rvbv": -20.0,
+        "SHIMMER": -16.0,
+        "Portal": -22.0
+      },
+      "clips": [
+        {
+          "name": "Lead Tease Armado",
+          "start_bar": 17,
+          "end_bar": 33
+        },
+        {
+          "name": "Lead Main Hook Drop 1",
+          "start_bar": 49,
+          "end_bar": 65
+        },
+        {
+          "name": "Lead Climax Main Drop",
+          "start_bar": 145,
+          "end_bar": 161
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "name": "Meld Bass & Texture",
+      "type": "midi",
+      "parent_group": "SYNTHS",
+      "volume_db": -6.5,
+      "devices": [
+        {
+          "name": "Meld",
+          "type": "Live.MeldDevice",
+          "parameters": {
+            "EngineA": "Virtual Analog Sub",
+            "EngineAWave": "Saw/Pulse",
+            "EngineAOctave": "-1",
+            "EngineB": "Rain / Noisy Texture",
+            "EngineBResonance": "0.65",
+            "CrossEngineMod": "0.35",
+            "FilterDrive": "4.5 dB",
+            "Spread": "30%"
+          }
+        },
+        {
+          "name": "Saturator",
+          "type": "Live.Saturator",
+          "parameters": {
+            "Curve": "Analog Clip",
+            "Drive": "+3.2 dB"
+          }
+        }
+      ],
+      "clips": [
+        {
+          "name": "Meld Texture Drop 1",
+          "start_bar": 49,
+          "end_bar": 65
+        },
+        {
+          "name": "Meld Driving Bass Drop 2",
+          "start_bar": 81,
+          "end_bar": 97
+        },
+        {
+          "name": "Meld Climax Main Drop",
+          "start_bar": 145,
+          "end_bar": 161
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "name": "Drift Analog Lead",
+      "type": "midi",
+      "parent_group": "SYNTHS",
+      "volume_db": -8.0,
+      "devices": [
+        {
+          "name": "Drift",
+          "type": "Live.DriftDevice",
+          "parameters": {
+            "Osc1Wave": "Saw",
+            "Osc2Wave": "Square",
+            "Osc2Detune": "+9 cents",
+            "DriftAmount": "0.45 (Vintage pitch drift)",
+            "FilterCutoff": "1200 Hz",
+            "StereoMode": "Wide Chorus",
+            "TouchMod": "Velocity to Cutoff"
+          }
+        }
+      ],
+      "sends": {
+        "long rvbv": -14.0,
+        "SHIMMER": -12.0
+      },
+      "clips": [
+        {
+          "name": "Drift Counter Melody Drop 2",
+          "start_bar": 81,
+          "end_bar": 97
+        },
+        {
+          "name": "Drift Breakdown Melody",
+          "start_bar": 113,
+          "end_bar": 145
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "name": "Operator FM Sub Stabs",
+      "type": "midi",
+      "parent_group": "SYNTHS",
+      "volume_db": -7.0,
+      "devices": [
+        {
+          "name": "Operator",
+          "type": "Live.Operator",
+          "parameters": {
+            "Algorithm": "1 (Vertical Stack D->C->B->A)",
+            "OscA": "Sine (Carrier)",
+            "OscB": "Sine (Modulator, Ratio 1.0, Level -12 dB)",
+            "OscC": "Sine (Modulator, Ratio 2.0, Level -24 dB)",
+            "OscD": "White Noise (Transient click)",
+            "FilterType": "LowPass 24dB",
+            "Cutoff": "450 Hz"
+          }
+        }
+      ],
+      "clips": [
+        {
+          "name": "FM Stabs Drop 1",
+          "start_bar": 49,
+          "end_bar": 65
+        },
+        {
+          "name": "FM Stabs Drop 2",
+          "start_bar": 81,
+          "end_bar": 97
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "name": "SUB Bass Dedicated",
+      "type": "midi",
+      "parent_group": "SYNTHS",
+      "volume_db": -5.0,
+      "devices": [
+        {
+          "name": "Simpler / Operator Pure Sub",
+          "type": "Live.SimplerDevice",
+          "parameters": {
+            "Waveform": "Pure Sine",
+            "Attack": "1.0 ms",
+            "Decay": "0 loss",
+            "Sustain": "0 dB"
+          }
+        },
+        {
+          "name": "Utility",
+          "type": "Live.StereoGain",
+          "parameters": {
+            "BassMono": true,
+            "BassMonoCutoff": "150 Hz",
+            "Width": "0%"
+          }
+        },
+        {
+          "name": "Compressor Sidechain",
+          "type": "Live.Compressor",
+          "parameters": {
+            "SidechainEnabled": true,
+            "SidechainSource": "Kick Punch",
+            "Attack": "0.1 ms",
+            "Release": "90 ms",
+            "Threshold": "-20 dB"
+          }
+        }
+      ],
+      "clips": [
+        {
+          "name": "Sub Bassline Intro",
+          "start_bar": 1,
+          "end_bar": 33
+        },
+        {
+          "name": "Sub Bassline Drop 1",
+          "start_bar": 49,
+          "end_bar": 97
+        },
+        {
+          "name": "Sub Bassline Main Drop",
+          "start_bar": 145,
+          "end_bar": 177
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "name": "Atmospheric Chords & Pads",
+      "type": "midi",
+      "parent_group": "SYNTHS",
+      "volume_db": -10.0,
+      "devices": [
+        {
+          "name": "Wavetable Pad",
+          "type": "Live.WavetableDevice",
+          "parameters": {
+            "Osc1Wavetable": "Warm Pad",
+            "Osc2Wavetable": "Vocal Formants",
+            "FilterCutoff": "800 Hz",
+            "Unison": "Classic 4 voices"
+          }
+        }
+      ],
+      "sends": {
+        "PLate": -12.0,
+        "long rvbv": -8.0,
+        "SHIMMER": -10.0
+      },
+      "clips": [
+        {
+          "name": "Atmospheric Pad Break",
+          "start_bar": 113,
+          "end_bar": 145
+        }
+      ]
+    },
+    {
+      "id": 16,
+      "name": "Pluck Arp Call & Response",
+      "type": "midi",
+      "parent_group": "SYNTHS",
+      "volume_db": -9.0,
+      "devices": [
+        {
+          "name": "Analog Pluck",
+          "type": "Live.InstrumentGroupDevice",
+          "parameters": {
+            "FilterDecay": "220 ms",
+            "Resonance": "0.45",
+            "DelaySend": "-10 dB"
+          }
+        }
+      ],
+      "sends": {
+        "Portal": -14.0,
+        "PLate": -16.0
+      },
+      "clips": [
+        {
+          "name": "Arp Pluck Puente 2",
+          "start_bar": 65,
+          "end_bar": 81
+        },
+        {
+          "name": "Arp Pluck Main Drop",
+          "start_bar": 145,
+          "end_bar": 161
+        }
+      ]
+    },
+    {
+      "id": 17,
+      "name": "HARMONICS & MELODICS",
+      "type": "group",
+      "volume_db": -2.5,
+      "devices": [
+        {
+          "name": "Glue Compressor",
+          "type": "Live.GlueCompressor",
+          "parameters": {
+            "Attack": "30 ms",
+            "Release": "Auto",
+            "Ratio": "2",
+            "Threshold": "-15 dB"
+          }
+        }
+      ],
+      "sub_tracks": [
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24
+      ]
+    },
+    {
+      "id": 18,
+      "name": "Progression Chords & Pads",
+      "type": "midi",
+      "parent_group": "HARMONICS & MELODICS",
+      "volume_db": -7.0,
+      "midi_progression": {
+        "length_bars": 16,
+        "chords": [
+          "Cm(add9)",
+          "Ab(add9)",
+          "Fm(add9)",
+          "Gm7"
+        ]
+      },
+      "clips": [
+        {
+          "name": "Progression Chords Breakdown",
+          "start_bar": 113,
+          "end_bar": 145,
+          "notes_count": 64,
+          "pitch_range": "C3 to D4"
+        }
+      ]
+    },
+    {
+      "id": 19,
+      "name": "Rolling 16th Bass",
+      "type": "midi",
+      "parent_group": "HARMONICS & MELODICS",
+      "volume_db": -5.0,
+      "description": "Driving straight 16th rolling bassline locked to chord progression root and fifth notes.",
+      "clips": [
+        {
+          "name": "Rolling 16th Bass Drop 1",
+          "start_bar": 49,
+          "end_bar": 97,
+          "groove_params": {
+            "straight_16ths": true,
+            "accent_velocity": 110,
+            "ghost_velocity": 75,
+            "probability": 0.85
+          }
+        },
+        {
+          "name": "Rolling 16th Bass Main Drop",
+          "start_bar": 145,
+          "end_bar": 177
+        }
+      ]
+    },
+    {
+      "id": 20,
+      "name": "PC2 Triplet Bass Motif",
+      "type": "midi",
+      "parent_group": "HARMONICS & MELODICS",
+      "volume_db": -6.0,
+      "description": "3-3-2 triplet syncopated bass motif introducing high tension and polyrhythmic drive.",
+      "clips": [
+        {
+          "name": "Triplet Bass Pattern Puente 2",
+          "start_bar": 65,
+          "end_bar": 81
+        },
+        {
+          "name": "Triplet Bass Pattern Drop 2",
+          "start_bar": 81,
+          "end_bar": 97
+        }
+      ]
+    },
+    {
+      "id": 21,
+      "name": "Main Melodic Theme (Lead)",
+      "type": "midi",
+      "parent_group": "HARMONICS & MELODICS",
+      "volume_db": -4.5,
+      "description": "Core Melodic Techno hook: C Minor emotional lead phrasing with pitch bends and call-and-response.",
+      "clips": [
+        {
+          "name": "Lead Theme Drop 1",
+          "start_bar": 49,
+          "end_bar": 65,
+          "pitches": [
+            "C4",
+            "Eb4",
+            "G4",
+            "Bb4",
+            "Ab4",
+            "G4",
+            "F4",
+            "D4"
+          ],
+          "velocity_deviation": "+/- 8",
+          "probability": 0.95
+        },
+        {
+          "name": "Lead Theme Main Drop",
+          "start_bar": 145,
+          "end_bar": 161
+        }
+      ]
+    },
+    {
+      "id": 22,
+      "name": "Arpeggiated Counter-Melody",
+      "type": "midi",
+      "parent_group": "HARMONICS & MELODICS",
+      "volume_db": -8.0,
+      "description": "Fast cascading 16th arpeggios answering the main lead phrase.",
+      "clips": [
+        {
+          "name": "Counter Arp Drop 2",
+          "start_bar": 81,
+          "end_bar": 97
+        },
+        {
+          "name": "Counter Arp Main Drop",
+          "start_bar": 145,
+          "end_bar": 161
+        }
+      ]
+    },
+    {
+      "id": 23,
+      "name": "Structural Fills & Turnarounds",
+      "type": "audio",
+      "parent_group": "HARMONICS & MELODICS",
+      "volume_db": -6.0,
+      "source_sample": {
+        "name": "TPS x CamelPhat - Fill 02 (124 BPM).wav",
+        "warped_bpm": 126.0
+      },
+      "clips": [
+        {
+          "name": "Fill Bar 48 Turnaround",
+          "start_bar": 48,
+          "end_bar": 49
+        },
+        {
+          "name": "Fill Bar 80 Turnaround",
+          "start_bar": 80,
+          "end_bar": 81
+        },
+        {
+          "name": "Fill Bar 144 Predrop",
+          "start_bar": 144,
+          "end_bar": 145
+        }
+      ]
+    },
+    {
+      "id": 24,
+      "name": "Build Risers & Tension FX",
+      "type": "audio",
+      "parent_group": "HARMONICS & MELODICS",
+      "volume_db": -7.0,
+      "source_sample": {
+        "name": "TPS x CamelPhat - Riser 08 (124 BPM).wav",
+        "warped_bpm": 126.0
+      },
+      "clips": [
+        {
+          "name": "Riser Build Puente 1",
+          "start_bar": 41,
+          "end_bar": 49
+        },
+        {
+          "name": "Riser Build Predrop 2",
+          "start_bar": 137,
+          "end_bar": 145
+        }
+      ]
+    }
+  ],
+  "device_chains": {
+    "master": [
+      {
+        "name": "EQ Eight",
+        "type": "Live.Eq8"
+      },
+      {
+        "name": "Glue Compressor",
+        "type": "Live.GlueCompressor"
+      },
+      {
+        "name": "Saturator",
+        "type": "Live.Saturator"
+      },
+      {
+        "name": "Utility",
+        "type": "Live.StereoGain"
+      },
+      {
+        "name": "Limiter",
+        "type": "Live.Limiter"
+      }
+    ]
+  },
+  "routing": {
+    "drums_group": "AudioOut/Main/Master",
+    "synths_group": "AudioOut/Main/Master",
+    "returns": [
+      "CLA-76",
+      "room",
+      "PLate",
+      "long rvbv",
+      "SHIMMER",
+      "Portal"
+    ],
+    "master_limiter_ceiling": "-0.3 dB",
+    "harmonics_melodics_group": "AudioOut/Main/Master"
+  },
+  "clips": [
+    {
+      "track": "Kick Punch",
+      "name": "Kick 4-on-the-floor Intro",
+      "start_bar": 1,
+      "end_bar": 33,
+      "type": "audio"
+    },
+    {
+      "track": "Kick Punch",
+      "name": "Kick 4-on-the-floor Drop 1",
+      "start_bar": 49,
+      "end_bar": 97,
+      "type": "audio"
+    },
+    {
+      "track": "Kick Punch",
+      "name": "Kick 4-on-the-floor Main Drop",
+      "start_bar": 145,
+      "end_bar": 177,
+      "type": "audio"
+    },
+    {
+      "track": "Kick Sub Rumble",
+      "name": "Sub Rumble Groove Intro",
+      "start_bar": 1,
+      "end_bar": 33,
+      "type": "audio"
+    },
+    {
+      "track": "Kick Sub Rumble",
+      "name": "Sub Rumble Groove Drop 1",
+      "start_bar": 49,
+      "end_bar": 97,
+      "type": "audio"
+    },
+    {
+      "track": "Kick Sub Rumble",
+      "name": "Sub Rumble Groove Main Drop",
+      "start_bar": 145,
+      "end_bar": 177,
+      "type": "audio"
+    },
+    {
+      "track": "Clap-Snare Main",
+      "name": "Clap Beats 2 and 4 Armado",
+      "start_bar": 17,
+      "end_bar": 33,
+      "type": "audio"
+    },
+    {
+      "track": "Shaker Loop 16th",
+      "name": "Shaker Loop 16th Intro",
+      "start_bar": 1,
+      "end_bar": 33,
+      "type": "audio"
+    },
+    {
+      "track": "Hi-Hats Offbeat & 16th",
+      "name": "Hi-Hats Armado",
+      "start_bar": 17,
+      "end_bar": 33,
+      "type": "audio"
+    },
+    {
+      "track": "Drum Rack Aux Perc",
+      "name": "Syncopated Perc Drop 1",
+      "start_bar": 49,
+      "end_bar": 97,
+      "type": "midi"
+    },
+    {
+      "track": "PERCUSSIVE Top Loop",
+      "name": "Top Percussive Main Drop",
+      "start_bar": 145,
+      "end_bar": 177,
+      "type": "audio"
+    },
+    {
+      "track": "Progression Chords & Pads",
+      "name": "Progression Chords Breakdown",
+      "start_bar": 113,
+      "end_bar": 145,
+      "type": "midi"
+    },
+    {
+      "track": "Rolling 16th Bass",
+      "name": "Rolling 16th Bass Drop 1",
+      "start_bar": 49,
+      "end_bar": 97,
+      "type": "midi"
+    },
+    {
+      "track": "Rolling 16th Bass",
+      "name": "Rolling 16th Bass Main Drop",
+      "start_bar": 145,
+      "end_bar": 177,
+      "type": "midi"
+    },
+    {
+      "track": "PC2 Triplet Bass Motif",
+      "name": "Triplet Bass Pattern Drop 2",
+      "start_bar": 81,
+      "end_bar": 97,
+      "type": "midi"
+    },
+    {
+      "track": "Main Melodic Theme (Lead)",
+      "name": "Lead Theme Drop 1",
+      "start_bar": 49,
+      "end_bar": 65,
+      "type": "midi"
+    },
+    {
+      "track": "Main Melodic Theme (Lead)",
+      "name": "Lead Theme Main Drop",
+      "start_bar": 145,
+      "end_bar": 161,
+      "type": "midi"
+    },
+    {
+      "track": "Arpeggiated Counter-Melody",
+      "name": "Counter Arp Drop 2",
+      "start_bar": 81,
+      "end_bar": 97,
+      "type": "midi"
+    },
+    {
+      "track": "Structural Fills & Turnarounds",
+      "name": "Fill Bar 48 Turnaround",
+      "start_bar": 48,
+      "end_bar": 49,
+      "type": "audio"
+    },
+    {
+      "track": "Build Risers & Tension FX",
+      "name": "Riser Build Predrop 2",
+      "start_bar": 137,
+      "end_bar": 145,
+      "type": "audio"
+    }
+  ]
+}

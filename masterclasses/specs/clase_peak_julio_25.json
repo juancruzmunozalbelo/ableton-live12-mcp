@@ -1,0 +1,1181 @@
+{
+  "project_name": "ClaSE PEAK jULIO 25",
+  "class_name": "clase_peak_julio_25",
+  "instructor": "Peerk",
+  "genre": "Hard / Peak Time Techno",
+  "daw_engine": "Ableton Live 12.2.1 Suite (Build Revision c0d59beb0465cc1bcc75830dbff2b10a48082a7d)",
+  "tempo": 135.0,
+  "time_signature": [
+    4,
+    4
+  ],
+  "scale": {
+    "name": "Minor",
+    "root_note": "G",
+    "mode": "Natural Minor",
+    "scale_intervals": [
+      0,
+      2,
+      3,
+      5,
+      7,
+      8,
+      10
+    ]
+  },
+  "duration_bars": 176,
+  "total_beats": 704.0,
+  "duration_seconds": 312.89,
+  "locators": [
+    {
+      "name": "Phase 1: Atmospheric Intro",
+      "time_bars": 1.0,
+      "time_beats": 0.0,
+      "length_bars": 8.0
+    },
+    {
+      "name": "Phase 2: Groove In & Low-End Arrival",
+      "time_bars": 9.0,
+      "time_beats": 32.0,
+      "length_bars": 24.0
+    },
+    {
+      "name": "Phase 3: First Peak / Melodic Incursion",
+      "time_bars": 33.0,
+      "time_beats": 128.0,
+      "length_bars": 32.0
+    },
+    {
+      "name": "Phase 4: Main Breakdown & Vocal Spotlight",
+      "time_bars": 65.0,
+      "time_beats": 256.0,
+      "length_bars": 16.0
+    },
+    {
+      "name": "Phase 5: Climax Drop 2",
+      "time_bars": 81.0,
+      "time_beats": 320.0,
+      "length_bars": 48.0
+    },
+    {
+      "name": "Phase 6: Second Climax & Tension Release",
+      "time_bars": 129.0,
+      "time_beats": 512.0,
+      "length_bars": 32.0
+    },
+    {
+      "name": "Phase 7: Outro Stripping",
+      "time_bars": 161.0,
+      "time_beats": 640.0,
+      "length_bars": 16.0
+    }
+  ],
+  "return_tracks": [
+    {
+      "name": "A-Reverb",
+      "type": "Live.Reverb",
+      "decay": "2500 ms"
+    },
+    {
+      "name": "B-Delay",
+      "type": "Live.Delay",
+      "delay": "synced 3/16"
+    },
+    {
+      "name": "C-Echo",
+      "type": "Live.Echo",
+      "feedback": "45%"
+    }
+  ],
+  "tracks": [
+    {
+      "index": 0,
+      "id": 33,
+      "type": "group",
+      "name": "1-Group",
+      "parent": null,
+      "volume_db": -4.7,
+      "pan": 0.0,
+      "mute": false,
+      "sends": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "role": "Master STEM Bus"
+    },
+    {
+      "index": 1,
+      "id": 22,
+      "type": "group",
+      "name": "2-Group",
+      "parent": 33,
+      "volume_db": -0.7,
+      "pan": 0.0,
+      "mute": false,
+      "sends": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "role": "Drums & Melodics Bus"
+    },
+    {
+      "index": 2,
+      "id": 34,
+      "type": "group",
+      "name": "3-Group",
+      "parent": 22,
+      "volume_db": -5.7,
+      "pan": 0.0,
+      "mute": false,
+      "sends": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "role": "Kick & Sub Bus"
+    },
+    {
+      "index": 3,
+      "id": 14,
+      "type": "audio",
+      "name": "4-OL_SKPA1_Kick_Loop_01_123 (5)",
+      "parent": 34,
+      "volume_db": -3.0,
+      "pan": 0.0,
+      "mute": false,
+      "sends": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "role": "Main Peak Kick"
+    },
+    {
+      "index": 4,
+      "id": 15,
+      "type": "audio",
+      "name": "5-TWHS_HGE1_RUMBLE_LOOP_08_143BPM",
+      "parent": 34,
+      "volume_db": -9.4,
+      "pan": 0.0,
+      "mute": false,
+      "sends": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "role": "Sub Rumble Loop"
+    },
+    {
+      "index": 5,
+      "id": 31,
+      "type": "audio",
+      "name": "6-OL_SKPA1_Kick_Loop_01_123 (5)",
+      "parent": 22,
+      "volume_db": -9.1,
+      "pan": 0.0,
+      "mute": false,
+      "sends": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "role": "Kick Layer 2"
+    },
+    {
+      "index": 6,
+      "id": 16,
+      "type": "midi",
+      "name": "7-ADRKT_WTTB4_Synth_10",
+      "parent": 22,
+      "volume_db": -13.9,
+      "pan": 0.0,
+      "mute": false,
+      "sends": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "role": "Wavetable Lead 1 (G1 544 notes)"
+    },
+    {
+      "index": 7,
+      "id": 17,
+      "type": "midi",
+      "name": "8-Omnisphere",
+      "parent": 22,
+      "volume_db": -2.0,
+      "pan": 0.0,
+      "mute": false,
+      "sends": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "role": "Atmosphere Pulse (G2 1,632 notes)"
+    },
+    {
+      "index": 8,
+      "id": 18,
+      "type": "audio",
+      "name": "9-TWHS_HGE1_CH_LOOP_03_142BPM",
+      "parent": 22,
+      "volume_db": -9.6,
+      "pan": 0.0,
+      "mute": false,
+      "sends": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "role": "Closed Hi-Hat Loop"
+    },
+    {
+      "index": 9,
+      "id": 23,
+      "type": "midi",
+      "name": "10-ADRKT_WTTB4_Synth_26",
+      "parent": 22,
+      "volume_db": 0.0,
+      "pan": 0.0,
+      "mute": false,
+      "sends": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "role": "Wavetable Accent Stab (G1 54 notes)"
+    },
+    {
+      "index": 10,
+      "id": 19,
+      "type": "midi",
+      "name": "11-ADRKT_WTTB4_Synth_15",
+      "parent": 22,
+      "volume_db": -11.3,
+      "pan": 0.0,
+      "mute": false,
+      "sends": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "role": "Wavetable Lead 2 (G3 576 notes)"
+    },
+    {
+      "index": 11,
+      "id": 21,
+      "type": "audio",
+      "name": "Omnisphere",
+      "parent": 22,
+      "volume_db": -8.4,
+      "pan": 0.0,
+      "mute": false,
+      "sends": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "role": "Bounced Atmosphere STEM"
+    },
+    {
+      "index": 12,
+      "id": 24,
+      "type": "midi",
+      "name": "13-ADRKT_WTTB4_Synth_18",
+      "parent": 33,
+      "volume_db": -4.6,
+      "pan": 0.0,
+      "mute": false,
+      "sends": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "role": "Wavetable Tension Arp (G2,G3,G#3 3,264 notes)"
+    },
+    {
+      "index": 13,
+      "id": 25,
+      "type": "midi",
+      "name": "ADRKT_WTTB4_Bass_01",
+      "parent": 33,
+      "volume_db": -9.4,
+      "pan": 0.0,
+      "mute": false,
+      "sends": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "role": "Sub/Mid Bass Stab (G1 28 notes)"
+    },
+    {
+      "index": 14,
+      "id": 26,
+      "type": "audio",
+      "name": "15-TWHS_HGE1_CLAP_02",
+      "parent": 33,
+      "volume_db": -12.7,
+      "pan": 0.0,
+      "mute": false,
+      "sends": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "role": "Main Clap"
+    },
+    {
+      "index": 15,
+      "id": 27,
+      "type": "audio",
+      "name": "16-AU_MTF2_126_vocal_rap_doubles",
+      "parent": 33,
+      "volume_db": -8.3,
+      "pan": 0.0,
+      "mute": false,
+      "sends": [
+        0.09,
+        0.05,
+        0.04
+      ],
+      "role": "Lead Vocals (Manipulator)"
+    },
+    {
+      "index": 16,
+      "id": 42,
+      "type": "audio",
+      "name": "17-AU_MTF2_126_vocal_rap_doubles",
+      "parent": 33,
+      "volume_db": -30.0,
+      "pan": 0.0,
+      "mute": false,
+      "sends": [
+        1.0,
+        0.05,
+        1.0
+      ],
+      "role": "Filtered Vocal Spin 1 (Band-pass Spinner)"
+    },
+    {
+      "index": 17,
+      "id": 38,
+      "type": "audio",
+      "name": "18-AU_MTF2_126_vocal_rap_doubles",
+      "parent": 33,
+      "volume_db": -12.2,
+      "pan": 0.0,
+      "mute": false,
+      "sends": [
+        0.09,
+        0.05,
+        0.04
+      ],
+      "role": "Vocal Chop 2"
+    },
+    {
+      "index": 18,
+      "id": 49,
+      "type": "audio",
+      "name": "19-AU_MTF2_126_vocal_rap_doubles",
+      "parent": 33,
+      "volume_db": -12.2,
+      "pan": 0.0,
+      "mute": false,
+      "sends": [
+        0.09,
+        0.05,
+        0.04
+      ],
+      "role": "Filtered Vocal Spin 2"
+    },
+    {
+      "index": 19,
+      "id": 36,
+      "type": "audio",
+      "name": "20-AU_MTF2_126_vocal_rap_doubles",
+      "parent": 33,
+      "volume_db": -30.0,
+      "pan": 0.0,
+      "mute": false,
+      "sends": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "role": "Vocal Build Chop"
+    },
+    {
+      "index": 20,
+      "id": 29,
+      "type": "audio",
+      "name": "21-AU_MTF2_126_vocal_rap_doubles",
+      "parent": 33,
+      "volume_db": -31.5,
+      "pan": 0.0,
+      "mute": false,
+      "sends": [
+        0.09,
+        0.05,
+        0.0
+      ],
+      "role": "Cola del Volcado (Reverb Tail)"
+    },
+    {
+      "index": 21,
+      "id": 32,
+      "type": "audio",
+      "name": "22-TA_MK4_SNARE_ROLL_MASSIVE_126",
+      "parent": 33,
+      "volume_db": -16.8,
+      "pan": 0.0,
+      "mute": false,
+      "sends": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "role": "Snare Build Roll"
+    },
+    {
+      "index": 22,
+      "id": 35,
+      "type": "midi",
+      "name": "23-Serum 2",
+      "parent": 33,
+      "volume_db": -14.0,
+      "pan": 0.0,
+      "mute": false,
+      "sends": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "role": "Synth Hook Arp (G3,D4,Eb4,G4 1,032 notes)"
+    },
+    {
+      "index": 23,
+      "id": 37,
+      "type": "audio",
+      "name": "24-ZEN_KBB_137_drum_groove_storm",
+      "parent": null,
+      "volume_db": -20.4,
+      "pan": 0.0,
+      "mute": false,
+      "sends": [
+        0.15,
+        0.0,
+        0.0
+      ],
+      "role": "Aux Breakbeat Percussion"
+    },
+    {
+      "index": 24,
+      "id": 43,
+      "type": "midi",
+      "name": "25-Omnisphere",
+      "parent": null,
+      "volume_db": -20.3,
+      "pan": 0.0,
+      "mute": false,
+      "sends": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "role": "Drone Pad 1 (G3 1 note, bars 77-80)"
+    },
+    {
+      "index": 25,
+      "id": 48,
+      "type": "audio",
+      "name": "Omnisphere",
+      "parent": null,
+      "volume_db": -21.2,
+      "pan": 0.0,
+      "mute": false,
+      "sends": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "role": "Drone Audio Layer"
+    },
+    {
+      "index": 26,
+      "id": 47,
+      "type": "midi",
+      "name": "27-Omnisphere",
+      "parent": null,
+      "volume_db": -21.2,
+      "pan": 0.0,
+      "mute": false,
+      "sends": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "role": "Drone Pad 2 (G3 1 note, bars 65-80)"
+    },
+    {
+      "index": 27,
+      "id": 44,
+      "type": "audio",
+      "name": "28-031_FX_Impact_-_SEROTONINTRANCE",
+      "parent": null,
+      "volume_db": -22.0,
+      "pan": 0.0,
+      "mute": false,
+      "sends": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "role": "Impact FX (Bars 1, 33, 81, 129)"
+    },
+    {
+      "index": 28,
+      "id": 45,
+      "type": "audio",
+      "name": "29-ESM_7th_Dimension_Build_Up",
+      "parent": null,
+      "volume_db": -13.8,
+      "pan": 0.0,
+      "mute": false,
+      "sends": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "role": "Transition Build Riser"
+    },
+    {
+      "index": 29,
+      "id": 50,
+      "type": "audio",
+      "name": "30-Freeze ... Oscar Mulero Metal Horse",
+      "parent": null,
+      "volume_db": -28.3,
+      "pan": 0.0,
+      "mute": false,
+      "sends": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "role": "Industrial Texture (640 audio slices)",
+      "note": "External sample whose audio file was not distributed with project download; only .asd analysis cache exists. Reconstruct/synthesize using native Suite devices."
+    },
+    {
+      "index": 30,
+      "id": 2,
+      "type": "return",
+      "name": "A-Reverb",
+      "parent": null,
+      "volume_db": 0.0,
+      "pan": 0.0,
+      "mute": false,
+      "sends": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "role": "Return Reverb"
+    },
+    {
+      "index": 31,
+      "id": 3,
+      "type": "return",
+      "name": "B-Delay",
+      "parent": null,
+      "volume_db": 0.0,
+      "pan": 0.0,
+      "mute": false,
+      "sends": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "role": "Return Delay"
+    },
+    {
+      "index": 32,
+      "id": 28,
+      "type": "return",
+      "name": "C-Echo",
+      "parent": null,
+      "volume_db": 0.0,
+      "pan": 0.0,
+      "mute": false,
+      "sends": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "role": "Return Echo"
+    }
+  ],
+  "nested_groups": {
+    "group_1": {
+      "name": "1-Group",
+      "id": 33,
+      "children": [
+        22,
+        24,
+        25,
+        26,
+        27,
+        42,
+        38,
+        49,
+        36,
+        29,
+        32,
+        35
+      ]
+    },
+    "group_2": {
+      "name": "2-Group",
+      "id": 22,
+      "children": [
+        34,
+        31,
+        16,
+        17,
+        18,
+        23,
+        19,
+        21
+      ]
+    },
+    "group_3": {
+      "name": "3-Group",
+      "id": 34,
+      "children": [
+        14,
+        15
+      ]
+    }
+  },
+  "samples_inventory": [
+    {
+      "subfolder": "Imported/",
+      "filename": "031_FX_Impact_-_SEROTONINTRANCE_Zenhiser.wav",
+      "format": "44.1kHz 24b",
+      "channels": 2,
+      "duration": 8.487,
+      "size_mb": 2.14,
+      "track": "Track 27 (28-031_FX_Impact)"
+    },
+    {
+      "subfolder": "Imported/",
+      "filename": "ESM_7th_Dimension_Build_Up_Rising_Riser_Cinematic_Trailer_Movie_Transition.wav",
+      "format": "44.1kHz 16b",
+      "channels": 2,
+      "duration": 5.594,
+      "size_mb": 1.03,
+      "track": "Track 28 (29-ESM_7th_Dimension)"
+    },
+    {
+      "subfolder": "Imported/",
+      "filename": "TA_MK4_SNARE_ROLL_MASSIVE_126.wav",
+      "format": "44.1kHz 24b",
+      "channels": 2,
+      "duration": 15.238,
+      "size_mb": 3.85,
+      "track": "Track 21 (22-TA_MK4_SNARE_ROLL)"
+    },
+    {
+      "subfolder": "Imported/",
+      "filename": "TWHS_HGE1_CH_LOOP_03_142BPM.wav",
+      "format": "44.1kHz 24b",
+      "channels": 2,
+      "duration": 6.761,
+      "size_mb": 1.79,
+      "track": "Track 08 (9-TWHS_HGE1_CH_LOOP_03)"
+    },
+    {
+      "subfolder": "Imported/",
+      "filename": "ZEN_KBB_137_drum_groove_storm.wav",
+      "format": "44.1kHz 24b",
+      "channels": 2,
+      "duration": 14.015,
+      "size_mb": 3.54,
+      "track": "Track 23 (24-ZEN_KBB_137_drum_groove_storm)"
+    },
+    {
+      "subfolder": "Processed/Consolidate/",
+      "filename": "OL_SKPA1_Kick_Loop_01_123 (5) [2025-06-25 203905].wav",
+      "format": "44.1kHz 24b",
+      "channels": 2,
+      "duration": 3.556,
+      "size_mb": 0.9,
+      "track": "Tracks 03 & 05 (Main Kick)"
+    },
+    {
+      "subfolder": "Processed/Consolidate/",
+      "filename": "TWHS_HGE1_RUMBLE_LOOP_08_143BPM [2025-06-25 203947].wav",
+      "format": "44.1kHz 24b",
+      "channels": 2,
+      "duration": 0.444,
+      "size_mb": 0.11,
+      "track": "Track 04 (Sub Rumble)"
+    },
+    {
+      "subfolder": "Processed/Consolidate/",
+      "filename": "TWHS_HGE1_CLAP_02 [2025-06-25 211236].wav",
+      "format": "44.1kHz 24b",
+      "channels": 2,
+      "duration": 0.889,
+      "size_mb": 0.22,
+      "track": "Track 14 (Main Clap)"
+    },
+    {
+      "subfolder": "Processed/Consolidate/",
+      "filename": "AU_MTF2_126_vocal_rap_doubles_female_get_naughty_sex_pills_dry_Gmin [2025-06-25 211824].wav",
+      "format": "44.1kHz 24b",
+      "channels": 2,
+      "duration": 7.619,
+      "size_mb": 1.92,
+      "track": "Tracks 15, 17, 18 (Lead Vocals)"
+    },
+    {
+      "subfolder": "Processed/Consolidate/",
+      "filename": "AU_MTF2_126_vocal_rap_doubles_female_get_naughty_sex_pills_dry_Gmin [2025-06-25 211605].wav",
+      "format": "44.1kHz 24b",
+      "channels": 2,
+      "duration": 15.476,
+      "size_mb": 3.91,
+      "track": "Vocal Alt Take 2"
+    },
+    {
+      "subfolder": "Processed/Consolidate/",
+      "filename": "AU_MTF2_126_vocal_rap_doubles_female_get_naughty_sex_pills_dry_Gmin [2025-06-25 211534].wav",
+      "format": "44.1kHz 24b",
+      "channels": 2,
+      "duration": 15.476,
+      "size_mb": 3.91,
+      "track": "Vocal Alt Take 1"
+    },
+    {
+      "subfolder": "Processed/Consolidate/",
+      "filename": "AU_MTF2_126_vocal_rap_doubles_female_get_naughty_sex_pills_dry_Gmin (Cola del volcado) [2025-06-25 213100].wav",
+      "format": "44.1kHz 24b",
+      "channels": 2,
+      "duration": 9.778,
+      "size_mb": 2.47,
+      "track": "Track 20 (Cola del Volcado)"
+    },
+    {
+      "subfolder": "Processed/Consolidate/",
+      "filename": "(Volcar) [2025-06-25 223141].wav",
+      "format": "44.1kHz 24b",
+      "channels": 2,
+      "duration": 14.222,
+      "size_mb": 3.59,
+      "track": "Omnisphere Dump"
+    },
+    {
+      "subfolder": "Processed/Reverse/",
+      "filename": "AU_MTF2_126_vocal_rap_doubles_female_get_naughty_sex_pills_dry_Gmin [2025-06-25 211824] R.wav",
+      "format": "44.1kHz 24b",
+      "channels": 2,
+      "duration": 7.619,
+      "size_mb": 1.92,
+      "track": "Reversed Vocal Transition"
+    },
+    {
+      "subfolder": "Processed/Reverse/",
+      "filename": "AU_MTF2_126_vocal_rap_doubles_female_get_naughty_sex_pills_dry_Gmin [2025-06-25 211824] R.wav",
+      "format": "44.1kHz 24b",
+      "channels": 2,
+      "duration": 7.619,
+      "size_mb": 1.92,
+      "track": "Reversed Vocal Transition 2",
+      "remapped_from": "AU_MTF2_126_vocal_rap_doubles_female_get_naughty_sex_pills_dry_Gmin [2025-06-25 215155] R.wav",
+      "note": "Remapped from non-existent 215155 take to verified identical 211824 R take"
+    },
+    {
+      "subfolder": "Processed/Bounce/",
+      "filename": "Bounce 7-Omnisphere [2025-06-25 210111]-2.wav",
+      "format": "44.1kHz 32f",
+      "channels": 2,
+      "duration": 14.333,
+      "size_mb": 4.82,
+      "track": "Track 11 (Omnisphere Bounced STEM)"
+    },
+    {
+      "subfolder": "Processed/Freeze/",
+      "filename": "Freeze 25-Omnisphere [2025-06-26 020502]-1.wav",
+      "format": "44.1kHz 32f",
+      "channels": 2,
+      "duration": 14.566,
+      "size_mb": 4.9,
+      "track": "Track 25 (Omnisphere Drone Layer)",
+      "remapped_from": "Bounce 25-Omnisphere [2025-06-25 222218]-2.wav",
+      "note": "Remapped from intermediate bounce to final frozen stem of Track 25"
+    },
+    {
+      "subfolder": "Processed/Freeze/",
+      "filename": "Freeze 24-ZEN_KBB_137_drum_groove_storm [2025-06-26 020502]-1.wav",
+      "format": "44.1kHz 32f",
+      "channels": 2,
+      "duration": 12.556,
+      "size_mb": 4.22,
+      "track": "Track 23 (Aux Drum Freeze Cache)"
+    },
+    {
+      "subfolder": "Processed/Freeze/",
+      "filename": "Freeze 25-Omnisphere [2025-06-26 020502]-1.wav",
+      "format": "44.1kHz 32f",
+      "channels": 2,
+      "duration": 14.566,
+      "size_mb": 4.9,
+      "track": "Track 24 (Omnisphere Drone Freeze Cache)"
+    },
+    {
+      "subfolder": "Recorded/",
+      "filename": "13-AU_MTF2_126_vocal_rap_doubles_female_get_naughty_sex_pills_dry_Gmin 0001 [2025-06-25 212002].wav",
+      "format": "44.1kHz 24b",
+      "channels": 1,
+      "duration": 1.411,
+      "size_mb": 0.18,
+      "track": "Track 13/15 Scratch Vocal Take"
+    },
+    {
+      "subfolder": "Recorded/",
+      "filename": "15-Audio 0001 [2025-06-25 212820].wav",
+      "format": "44.1kHz 24b",
+      "channels": 2,
+      "duration": 4.656,
+      "size_mb": 1.17,
+      "track": "Track 15 Live Resample Take"
+    }
+  ],
+  "midi_clips_summary": {
+    "total_midi_clips": 370,
+    "pitch_distribution": {
+      "Track 06 (Synth 10)": {
+        "pitch": 31,
+        "note": "G1",
+        "total_notes": 544
+      },
+      "Track 07 (Omnisphere)": {
+        "pitch": 43,
+        "note": "G2",
+        "total_notes": 1632
+      },
+      "Track 09 (Synth 26)": {
+        "pitch": 31,
+        "note": "G1",
+        "total_notes": 54
+      },
+      "Track 10 (Synth 15)": {
+        "pitch": 55,
+        "note": "G3",
+        "total_notes": 576
+      },
+      "Track 12 (Synth 18)": {
+        "pitches": [
+          43,
+          55,
+          56
+        ],
+        "notes": [
+          "G2",
+          "G3",
+          "G#3"
+        ],
+        "total_notes": 3264
+      },
+      "Track 13 (Bass 01)": {
+        "pitch": 31,
+        "note": "G1",
+        "total_notes": 28
+      },
+      "Track 22 (Serum 2)": {
+        "pitches": [
+          55,
+          62,
+          63,
+          67
+        ],
+        "notes": [
+          "G3",
+          "D4",
+          "Eb4",
+          "G4"
+        ],
+        "total_notes": 1032
+      },
+      "Track 24 (Omnisphere Drone 1)": {
+        "pitch": 55,
+        "note": "G3",
+        "total_notes": 1
+      },
+      "Track 26 (Omnisphere Drone 2)": {
+        "pitch": 55,
+        "note": "G3",
+        "total_notes": 1
+      }
+    }
+  },
+  "audio_clips_summary": {
+    "total_audio_clips": 1823,
+    "key_layers": [
+      "4-OL_SKPA1_Kick_Loop_01_123 (5)",
+      "5-TWHS_HGE1_RUMBLE_LOOP_08_143BPM",
+      "9-TWHS_HGE1_CH_LOOP_03_142BPM",
+      "15-TWHS_HGE1_CLAP_02",
+      "16 to 21 AU_MTF2 Vocal Rap Doubles Chops",
+      "22-TA_MK4_SNARE_ROLL_MASSIVE_126",
+      "24-ZEN_KBB_137_drum_groove_storm",
+      "30-Freeze ... Oscar Mulero - On a Metal Horse (640 slices)"
+    ]
+  },
+  "device_chains": {
+    "master": [
+      {
+        "name": "T-RackS 6 Limiter (VST3)",
+        "type": "PluginDevice",
+        "function": "Analog bus limiting and saturation stage"
+      },
+      {
+        "name": "Voxengo SPAN (VST3)",
+        "type": "PluginDevice",
+        "function": "High-resolution FFT spectrum analyzer"
+      }
+    ],
+    "wavetable_sound_design_racks": [
+      "Cobalt wavetable sprite, position 1.0, FM Modern 0.734",
+      "MS2 Korg ladder circuit low-pass filter with 8.81 dB drive",
+      "Distortion stage: Amp, Overdrive, Pedal, Saturator, Redux2",
+      "Time & space: Delay, Hybrid Reverb, Reverb",
+      "Dynamics: EQ Eight surgical low-cut, DrumBuss boom, StereoGain"
+    ],
+    "vocal_processing": {
+      "lead_vocal": "Polyverse Manipulator (VST3) pitch/formant robotic shift",
+      "band_pass_spinner": {
+        "device": "AutoFilter2",
+        "filter_type": "Band-pass 24dB/oct",
+        "circuit": "MS2 with 15.9% drive",
+        "center_freq": "2490.39 Hz",
+        "resonance": "0.738",
+        "lfo": "Sine 0.64 Hz, amount 14.5%, spin 0.5",
+        "sends": "Send A (Reverb) 100%, Send C (Echo) 100%"
+      }
+    },
+    "live12_flagship_devices": {
+      "meld": "Meld loaded with preset 'Housy Bass.adv'",
+      "wavetable": "Audioreakt Wavetable Techno Bank 4 presets"
+    }
+  },
+  "routing": {
+    "group_3_to_group_2": "AudioOut/GroupTrack/Main",
+    "group_2_to_group_1": "AudioOut/GroupTrack/Group",
+    "group_1_to_master": "AudioOut/Main/Main",
+    "aux_tracks_to_master": "AudioOut/Main/Main",
+    "returns_to_master": "AudioOut/Main/Master"
+  },
+  "clips": [
+    {
+      "track": "4-OL_SKPA1_Kick_Loop_01_123 (5)",
+      "type": "audio",
+      "start_bar": 9,
+      "end_bar": 65,
+      "sample_path": "Samples/Processed/Consolidate/OL_SKPA1_Kick_Loop_01_123 (5) [2025-06-25 203905].wav",
+      "sample_file": "OL_SKPA1_Kick_Loop_01_123 (5) [2025-06-25 203905].wav",
+      "warp_mode": "Beats"
+    },
+    {
+      "track": "5-TWHS_HGE1_RUMBLE_LOOP_08_143BPM",
+      "type": "audio",
+      "start_bar": 9,
+      "end_bar": 65,
+      "sample_path": "Samples/Processed/Consolidate/TWHS_HGE1_RUMBLE_LOOP_08_143BPM [2025-06-25 203947].wav",
+      "sample_file": "TWHS_HGE1_RUMBLE_LOOP_08_143BPM [2025-06-25 203947].wav",
+      "warp_mode": "Beats"
+    },
+    {
+      "track": "9-TWHS_HGE1_CH_LOOP_03_142BPM",
+      "type": "audio",
+      "start_bar": 17,
+      "end_bar": 65,
+      "sample_path": "Samples/Imported/TWHS_HGE1_CH_LOOP_03_142BPM.wav",
+      "sample_file": "TWHS_HGE1_CH_LOOP_03_142BPM.wav",
+      "warp_mode": "Beats"
+    },
+    {
+      "track": "15-TWHS_HGE1_CLAP_02",
+      "type": "audio",
+      "start_bar": 17,
+      "end_bar": 65,
+      "sample_path": "Samples/Processed/Consolidate/TWHS_HGE1_CLAP_02 [2025-06-25 211236].wav",
+      "sample_file": "TWHS_HGE1_CLAP_02 [2025-06-25 211236].wav",
+      "warp_mode": "Beats"
+    },
+    {
+      "track": "16-AU_MTF2_126_vocal_rap_doubles",
+      "type": "audio",
+      "start_bar": 33,
+      "end_bar": 81,
+      "sample_path": "Samples/Processed/Consolidate/AU_MTF2_126_vocal_rap_doubles_female_get_naughty_sex_pills_dry_Gmin [2025-06-25 211824].wav",
+      "sample_file": "AU_MTF2_126_vocal_rap_doubles_female_get_naughty_sex_pills_dry_Gmin [2025-06-25 211824].wav",
+      "warp_mode": "ComplexPro"
+    },
+    {
+      "track": "22-TA_MK4_SNARE_ROLL_MASSIVE_126",
+      "type": "audio",
+      "start_bar": 24,
+      "end_bar": 33,
+      "sample_path": "Samples/Imported/TA_MK4_SNARE_ROLL_MASSIVE_126.wav",
+      "sample_file": "TA_MK4_SNARE_ROLL_MASSIVE_126.wav",
+      "warp_mode": "Beats"
+    },
+    {
+      "track": "24-ZEN_KBB_137_drum_groove_storm",
+      "type": "audio",
+      "start_bar": 73,
+      "end_bar": 81,
+      "sample_path": "Samples/Imported/ZEN_KBB_137_drum_groove_storm.wav",
+      "sample_file": "ZEN_KBB_137_drum_groove_storm.wav",
+      "warp_mode": "Beats"
+    },
+    {
+      "track": "28-031_FX_Impact_-_SEROTONINTRANCE",
+      "type": "audio",
+      "start_bar": 1,
+      "end_bar": 9,
+      "sample_path": "Samples/Imported/031_FX_Impact_-_SEROTONINTRANCE_Zenhiser.wav",
+      "sample_file": "031_FX_Impact_-_SEROTONINTRANCE_Zenhiser.wav",
+      "warp_mode": "ComplexPro"
+    },
+    {
+      "track": "29-ESM_7th_Dimension_Build_Up",
+      "type": "audio",
+      "start_bar": 25,
+      "end_bar": 33,
+      "sample_path": "Samples/Imported/ESM_7th_Dimension_Build_Up_Rising_Riser_Cinematic_Trailer_Movie_Transition.wav",
+      "sample_file": "ESM_7th_Dimension_Build_Up_Rising_Riser_Cinematic_Trailer_Movie_Transition.wav",
+      "warp_mode": "ComplexPro"
+    },
+    {
+      "track": "Omnisphere",
+      "type": "audio",
+      "start_bar": 1,
+      "end_bar": 65,
+      "sample_path": "Samples/Processed/Bounce/Bounce 7-Omnisphere [2025-06-25 210111]-2.wav",
+      "sample_file": "Bounce 7-Omnisphere [2025-06-25 210111]-2.wav",
+      "warp_mode": "ComplexPro"
+    },
+    {
+      "track": "21-AU_MTF2_126_vocal_rap_doubles",
+      "type": "audio",
+      "start_bar": 61,
+      "end_bar": 81,
+      "sample_path": "Samples/Processed/Consolidate/AU_MTF2_126_vocal_rap_doubles_female_get_naughty_sex_pills_dry_Gmin (Cola del volcado) [2025-06-25 213100].wav",
+      "sample_file": "AU_MTF2_126_vocal_rap_doubles_female_get_naughty_sex_pills_dry_Gmin (Cola del volcado) [2025-06-25 213100].wav",
+      "warp_mode": "ComplexPro"
+    },
+    {
+      "track": "7-ADRKT_WTTB4_Synth_10",
+      "type": "midi",
+      "start_bar": 9,
+      "end_bar": 65,
+      "pitch": 31
+    },
+    {
+      "track": "8-Omnisphere",
+      "type": "midi",
+      "start_bar": 1,
+      "end_bar": 65,
+      "pitch": 43
+    },
+    {
+      "track": "11-ADRKT_WTTB4_Synth_15",
+      "type": "midi",
+      "start_bar": 33,
+      "end_bar": 65,
+      "pitch": 55
+    },
+    {
+      "track": "13-ADRKT_WTTB4_Synth_18",
+      "type": "midi",
+      "start_bar": 33,
+      "end_bar": 161,
+      "pitch": 56
+    },
+    {
+      "track": "ADRKT_WTTB4_Bass_01",
+      "type": "midi",
+      "start_bar": 9,
+      "end_bar": 65,
+      "pitch": 31
+    },
+    {
+      "track": "23-Serum 2",
+      "type": "midi",
+      "start_bar": 33,
+      "end_bar": 161,
+      "pitches": [
+        55,
+        62,
+        63,
+        67
+      ]
+    }
+  ],
+  "backups_chronological_diff": [
+    {
+      "snapshot": 1,
+      "filename": "ClaSE PEAK jULIO 25 [2025-06-25 205831].als",
+      "timestamp": "2025-06-25 20:58:31",
+      "size_kb": 33,
+      "tracks_count": 5,
+      "phase": "The Initial Groove: Kick Loop, Rumble Bass Loop, Synth 10 Wavetable rack, Reverb, Delay at 135 BPM."
+    },
+    {
+      "snapshot": 2,
+      "filename": "ClaSE PEAK jULIO 25 [2025-06-25 221831].als",
+      "timestamp": "2025-06-25 22:18:31",
+      "size_kb": 158,
+      "tracks_count": 8,
+      "phase": "Melodic Expansion (1h 20m): Omnisphere atmospheric pad, Closed Hi-Hat loop, and Synth 15 lead."
+    },
+    {
+      "snapshot": 3,
+      "filename": "ClaSE PEAK jULIO 25 [2025-06-25 225832].als",
+      "timestamp": "2025-06-25 22:58:32",
+      "size_kb": 560,
+      "tracks_count": 29,
+      "phase": "Grouping & Vocals (2h 00m): Nested groups (1-Group, 2-Group, 3-Group), Clap, Snare Roll, Serum 2, FX, Return Echo, Manipulator and Band-pass Spinner."
+    },
+    {
+      "snapshot": 4,
+      "filename": "ClaSE PEAK jULIO 25 [2025-06-25 230002].als",
+      "timestamp": "2025-06-25 23:00:02",
+      "size_kb": 838,
+      "tracks_count": 33,
+      "phase": "Climax & Industrial Texture: Oscar Mulero industrial texture groove with 640 slices, arrangement timeline out to 176 bars (beat 704)."
+    },
+    {
+      "snapshot": 5,
+      "filename": "ClaSE PEAK jULIO 25 [2025-06-26 022422].als",
+      "timestamp": "2025-06-26 02:24:22",
+      "size_kb": 837,
+      "tracks_count": 33,
+      "phase": "Post-Class Polish: Omnisphere bounced STEM, EQ Eight low-frequency cleaning, fine-tuned clip transitions."
+    },
+    {
+      "snapshot": 6,
+      "filename": "ClaSE PEAK jULIO 25.als (Final Project)",
+      "timestamp": "2025-06-26 02:45:00",
+      "size_kb": 1056,
+      "tracks_count": 33,
+      "phase": "Mastering & Delivery: Master chain loaded (T-RackS 6 limiter + Voxengo SPAN), track freeze cache generated."
+    }
+  ]
+}

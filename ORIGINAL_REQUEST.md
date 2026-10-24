@@ -149,3 +149,81 @@ USER UPDATE — ABLETON LIVE 12 SUITE LICENSE IS NOW ACTIVE (`Unlock.json` prese
 1. Ableton Live 12 Suite is officially licensed and unlocked, listening on `localhost:11246` with `Live12Bridge` loaded.
 2. Note from `Log.txt`: avoid concurrent test processes against the same live session to eliminate track-index race conditions (`IndexError: Track index 15 out of range [0, 15)`), and restart Live if needed to cleanly ingest `Unlock.json` with unlimited Suite tracks.
 3. Ensure the Orchestrator and Victory Auditor execute `./scripts/run_live_tests.sh --live` sequentially (one runner at a time, clean `Log.txt` with zero tracebacks), and push any final test/handler adjustments to `origin/main`.
+
+
+## Follow-up — 2026-10-23T03:56:42Z
+
+Use a very large team of agents. Analyze the 5 video modules of `HOLO MASTER CLASS` (`/Users/juancruz/Downloads/HOLO MASTER CLASS/`), the Peak Time class video (`/Users/juancruz/Downloads/video peak.mp4`), and the reference Ableton project (`/Users/juancruz/Downloads/ClaSE PEAK jULIO 25 Project/ClaSE PEAK jULIO 25.als` plus its 5 chronological backups and `Samples/`), and reconstruct every module step-by-step inside the live running Ableton Live 12.4.6 Suite instance (`127.0.0.1:11246`) using our `ableton-live12` MCP server—saving the resulting `.als` Live Sets, exporting `.wav` audio bounces, and documenting the executable recipes in `/Users/juancruz/ableton-live12-mcp/masterclasses/`.
+
+Working directory: /Users/juancruz/ableton-live12-mcp
+Integrity mode: development
+
+## Verification Resources & Source Files on Disk
+
+- **HOLO MASTER CLASS Videos (`/Users/juancruz/Downloads/HOLO MASTER CLASS/`):**
+  1. `/Users/juancruz/Downloads/HOLO MASTER CLASS/Modulo 1 [CONCEPTO Y REFERENCIA].mp4` (5,604s / 93 min)
+  2. `/Users/juancruz/Downloads/HOLO MASTER CLASS/Modulo 2 [GROOVE Y BATERIAS].mp4` (6,403s / 106 min)
+  3. `/Users/juancruz/Downloads/HOLO MASTER CLASS/Modulo 3 [DISEÑO SONORO].mp4` (6,335s / 105 min)
+  4. `/Users/juancruz/Downloads/HOLO MASTER CLASS/Modulo 4 [BASES ARMÓNICAS Y MELÓDICAS].mp4` (6,789s / 113 min)
+  5. `/Users/juancruz/Downloads/HOLO MASTER CLASS/Modulo 5 [ARREGLO COMPLETO].mp4` (5,893s / 98 min)
+- **Peak Time Class Video & Ableton Project:**
+  - Video: `/Users/juancruz/Downloads/video peak.mp4` (9,732s / 162 min)
+  - Main Project (`.als` is gzip-compressed XML): `/Users/juancruz/Downloads/ClaSE PEAK jULIO 25 Project/ClaSE PEAK jULIO 25.als`
+  - Chronological Backups: `/Users/juancruz/Downloads/ClaSE PEAK jULIO 25 Project/Backup/` (5 `.als` snapshots showing the exact evolution of the track during the class)
+  - Project Audio Samples & Presets: `/Users/juancruz/Downloads/ClaSE PEAK jULIO 25 Project/Samples/` (`Imported/`, `Recorded/`, `Processed/`) and `Presets/`.
+- **Live Ableton 12.4.6 Suite & MCP Server:**
+  - Running `/Applications/Ableton Live 12 Suite.app` (unlocked Suite license at `/Users/juancruz/Library/Application Support/Ableton/Live 12.4.6/Unlock/Unlock.json`) with `Live12Bridge` listening on TCP `127.0.0.1:11246`.
+  - MCP server & bridge in `/Users/juancruz/ableton-live12-mcp/src/` (75 tools across all 20 Ableton 12 Manual chapters).
+
+## Requirements
+
+### R1. Parallel Multimodal Deconstruction of the 5 HOLO Modules + Peak Class & `.als` XML
+Deploy parallel analysis agents to extract the exact musical and technical specifications from all 6 classes:
+- **For `ClaSE PEAK jULIO 25.als` (and its 5 `Backup/*.als` snapshots) + `video peak.mp4`:** Decompress and parse the `.als` XML alongside video keyframes/audio analysis to extract the exact BPM, scale, track list, group routing, loaded instruments/effects, parameter values, MIDI notes, audio clips/warp settings, automation envelopes, locator cue points, and arrangement timeline structure.
+- **For Modules 1–5 of `HOLO MASTER CLASS`:** Extract keyframes (`ffmpeg`) and audio/spectral/speech cues across each module to capture the reference structure & locators (Module 1), kick/bass/percussion groove & drum programming (Module 2), synth patches & sound design chains using Ableton Suite devices (Module 3), harmonic progressions, melodies & extended MIDI note patterns (Module 4), and full arrangement structure, transitions & automation envelopes (Module 5).
+- Save the structured machine-readable specifications and human-readable breakdowns in `/Users/juancruz/ableton-live12-mcp/masterclasses/specs/`.
+
+### R2. Live End-to-End Reconstruction in Ableton Live 12 Suite via MCP (Sequential Execution)
+Using **only** the `ableton-live12` MCP server / RPC bridge connected to the live running `/Applications/Ableton Live 12 Suite.app` over `127.0.0.1:11246` (executing one module at a time sequentially on the live instance so sessions never collide):
+1. Build and save **HOLO Module 1 (`Concepto y Referencia`)**: Set project tempo/scale, create reference track structure, arrangement locator cue points, and initial routing → save `/Users/juancruz/ableton-live12-mcp/masterclasses/holo/modulo_1_concepto_referencia.als` and render `modulo_1_concepto_referencia.wav`.
+2. Build and save **HOLO Module 2 (`Groove y Baterías`)**: Construct the complete kick, sub/rumble bass, hi-hats, claps, percussion racks, groove pool swing, and sidechain/mixer routing → save `modulo_2_groove_baterias.als` and render `modulo_2_groove_baterias.wav`.
+3. Build and save **HOLO Module 3 (`Diseño Sonoro`)**: Add the lead/stab/fx sound design tracks using Ableton Live 12 Suite synths and effect chains (`Wavetable`, `Meld`, `Drift`, `Roar`, `Operator`, `Simpler`, `Spectral Resonator`, filters/delays/reverbs) and macro mappings → save `modulo_3_diseno_sonoro.als` and render `modulo_3_diseno_sonoro.wav`.
+4. Build and save **HOLO Module 4 (`Bases Armónicas y Melódicas`)**: Program the chord progressions, arpeggios, counter-melodies, and Live 12 extended MIDI transformations/probabilities across the harmonic/melodic tracks → save `modulo_4_bases_armonicas_melodicas.als` and render `modulo_4_bases_armonicas_melodicas.wav`.
+5. Build and save **HOLO Module 5 (`Arreglo Completo`)**: Lay out the full multi-minute arrangement across `Arrangement View` / `TakeLanes` (`Intro`, `Build`, `Drop 1`, `Breakdown`, `Build 2`, `Drop 2`, `Outro`) with clip/device automation envelopes, transitions, and master chain → save `modulo_5_arreglo_completo.als` and render `modulo_5_arreglo_completo.wav`.
+6. Build and save **Peak Class (`ClaSE PEAK jULIO 25`)**: Reconstruct the Peak Time project in Live 12 Suite via MCP (injecting the actual audio samples from `/Users/juancruz/Downloads/ClaSE PEAK jULIO 25 Project/Samples/`, recreating the tracks, MIDI clips, device chains, routing, and arrangement) → save `/Users/juancruz/ableton-live12-mcp/masterclasses/peak/clase_peak_julio_25_mcp.als` and render `clase_peak_julio_25_mcp.wav`.
+
+If any operation needed by the 6 classes exposes a limitation or bug in `src/live12_bridge/` or `src/ableton_live12_mcp/`, fix it immediately, sync to `/Users/juancruz/Music/Ableton/User Library/Remote Scripts/Live12Bridge/`, and add regression tests.
+
+### R3. Reproducible MCP Builder Scripts & Masterclass Playbook
+Provide clean, standalone Python MCP builder scripts in `/Users/juancruz/ableton-live12-mcp/masterclasses/scripts/` (`build_holo_m1.py` .. `build_holo_m5.py`, `build_peak_class.py`, and `run_all_masterclasses.py`) and a comprehensive guide (`masterclasses/README.md`) documenting every technique extracted from the courses and how each MCP tool executes it.
+
+## Acceptance Criteria
+
+### Multimodal Course & `.als` Extraction
+- [ ] `/Users/juancruz/ableton-live12-mcp/masterclasses/specs/` contains complete JSON and Markdown technical extractions for all 5 `HOLO MASTER CLASS` modules and `ClaSE PEAK jULIO 25` (including parsed `.als` XML track/device/clip/parameter inventory from `ClaSE PEAK jULIO 25.als` and its 5 backups, plus video keyframe/audio analysis).
+
+### Live Ableton 12 Suite `.als` Projects & `.wav` Audio Renders
+- [ ] All 6 Ableton Live 12 Sets exist on disk, were generated via the live Ableton 12 Suite MCP bridge (`127.0.0.1:11246`), and are valid non-empty `.als` (gzipped XML) files verified by decompressing and inspecting their internal `<LiveSet>` track/clip/device trees:
+  - `masterclasses/holo/modulo_1_concepto_referencia.als`
+  - `masterclasses/holo/modulo_2_groove_baterias.als`
+  - `masterclasses/holo/modulo_3_diseno_sonoro.als`
+  - `masterclasses/holo/modulo_4_bases_armonicas_melodicas.als`
+  - `masterclasses/holo/modulo_5_arreglo_completo.als`
+  - `masterclasses/peak/clase_peak_julio_25_mcp.als`
+- [ ] Corresponding non-silent stereo `.wav` audio renders (`modulo_1_concepto_referencia.wav` .. `modulo_5_arreglo_completo.wav` and `clase_peak_julio_25_mcp.wav`) exist, pass `ffprobe` validation and non-zero RMS energy verification.
+- [ ] Zero unhandled tracebacks occur in `/Users/juancruz/Library/Preferences/Ableton/Live 12.4.6/Log.txt` during the sequential live builds, and `pytest tests/ -v` passes 100%.
+
+
+## Follow-up — 2026-10-23T04:30:37Z
+
+CRITICAL INFRASTRUCTURE FIXES APPLIED BY MAIN AGENT:
+The user noticed Ableton opening multiple times / showing recovery dialogs. Root causes identified and fixed:
+1. Unmounted `/Volumes/Ableton Live 12 Suite Installer` so macOS LaunchServices never launches a second translocated copy of Ableton from the DMG when `open` is called.
+2. Removed `/Users/juancruz/Library/Preferences/Ableton/Live 12.4.6/CrashDetection.cfg` and `CrashRecoveryInfo.cfg` which were triggering the startup modal `"Live unexpectedly quit... Would you like to recover your work?"` and blocking `Live12Bridge` initialization.
+3. Relaunched a clean single instance of `/Applications/Ableton Live 12 Suite.app` (PID 38339) which is now actively listening on `127.0.0.1:11246`.
+4. Patched `src/ableton_live12_mcp/dialogs.py` to always target `/Applications/Ableton Live 12 Suite.app` explicitly, and patched `src/live12_bridge/bridge.py` (synced to User Library) so client validation exceptions (`AttributeError`, `PermissionError`, `TypeError`, `RuntimeError`) return clean JSON-RPC errors without dumping tracebacks to `Log.txt`.
+
+STRICT RULES FOR ALL WORKERS:
+- NEVER `kill -9` the running `Live` process (PID 38339) and NEVER spawn new instances of Ableton Live. Reuse the single running instance on `127.0.0.1:11246`.
+- When running unit tests (`pytest`), always pass `ABLETON_TEST_MODE=mock` unless running the sequential live masterclass builders, so unit tests with dummy `.als` paths do not trigger macOS `open` on the live GUI.
+- Forward this immediately to `orchestrator_3` (`c74f8015-7475-47a5-b1c7-8716f509d581`).

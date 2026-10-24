@@ -68,6 +68,12 @@ DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 11246
 DISCOVERY_PATH = "/tmp/ableton_live12_bridge.json"
 MAX_QUEUE_DRAIN_PER_TICK = 64
+# Live.Base.Timer interval (milliseconds). Live dispatches every tick to the main
+# thread, and a 5 ms tick burns ~60% of a whole CPU core inside Ableton Live 12,
+# which starves the audio engine (silent output / dropped meter updates).
+# 20 ms keeps the MCP round trip comfortably below the perceptual floor while
+# leaving the engine headroom. Override with LIVE12_BRIDGE_TIMER_MS.
+TIMER_INTERVAL_MS = max(5, int(os.environ.get("LIVE12_BRIDGE_TIMER_MS", "20") or 20))
 
 
 class BridgeJob:
@@ -302,12 +308,23 @@ class Live12ControlSurface(ControlSurface):
     # -------------------------------------------------------------------------
 
     def _setup_timer(self) -> None:
-        """Initializes Live.Base.Timer for high-frequency 5ms main-thread queue polling."""
+        """Initializes Live.Base.Timer for main-thread queue polling.
+
+        The interval is deliberately conservative (see TIMER_INTERVAL_MS): every
+        tick is a main-thread message inside Live, and an aggressive interval
+        starves the audio engine.
+        """
         if Live and hasattr(Live, "Base") and hasattr(Live.Base, "Timer"):
             try:
-                self._timer = Live.Base.Timer(callback=self._process_queue, interval=5, repeat=True)
+                self._timer = Live.Base.Timer(
+                    callback=self._process_queue,
+                    interval=TIMER_INTERVAL_MS,
+                    repeat=True,
+                )
                 self._timer.start()
-                self.log_message("Live12Bridge: Live.Base.Timer active (5ms loop).")
+                self.log_message(
+                    f"Live12Bridge: Live.Base.Timer active ({TIMER_INTERVAL_MS}ms loop)."
+                )
             except Exception as e:
                 self.log_message(f"Live12Bridge: Failed to initialize Live.Base.Timer: {e}")
         else:
@@ -340,7 +357,7 @@ class Live12ControlSurface(ControlSurface):
                 with self._guard():
                     res = dispatch_tool_call(self._handlers, job.method, job.params)
                     job.result = res
-            except (IndexError, ValueError, KeyError) as e:
+            except (IndexError, ValueError, KeyError, PermissionError, AttributeError, TypeError, RuntimeError) as e:
                 # Normal client validation/boundary error - return clean RPC error without dumping traceback to host Log.txt
                 job.error = {
                     "code": -32603,

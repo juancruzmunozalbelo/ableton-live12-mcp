@@ -118,9 +118,18 @@ class TestTier1Domain2TracksAndRouting:
             "arm": True
         })
         assert not prop_res.is_error
-        assert prop_res["color"] == 65280
+        # `color` above the Live 12 palette range (0-69) is treated as a packed RGB value.
+        assert prop_res["color_rgb"] == [0, 255, 0]
         assert prop_res["solo"] is True
         assert prop_res["arm"] is True
+
+        # Palette slot (0-69) is written to Live 12's `color_index`.
+        palette_res = client.call_tool("live12_track_set_properties", {
+            "track_index": t_idx,
+            "color_index": 14,
+        })
+        assert not palette_res.is_error
+        assert palette_res["color_index"] == 14
 
     def test_domain2_02_track_duplication_and_deletion(self, client: Live12TestClient):
         t_idx, _ = client.create_sandboxed_track("audio", "audio_stem")

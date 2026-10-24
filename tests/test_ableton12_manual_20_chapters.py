@@ -310,6 +310,26 @@ class TestChapter06AudioClipsAndWarping:
         res_del = client.call_tool("live12_clip_delete", {"track_index": t_idx, "slot_index": 0})
         assert not res_del.is_error
 
+    def test_arrangement_clip_deletion(self, client: Live12TestClient):
+        """Chapter 6: arrangement clips are removed with live12_clip_delete_arrangement."""
+        t_idx, _ = client.create_sandboxed_track("midi", "arrangement_deletion")
+        client.call_tool("live12_clip_create", {"track_index": t_idx, "slot_index": 0, "length_beats": 4.0})
+
+        # Promote the session clip into the arrangement
+        res_dup = client.call_tool("live12_clip_duplicate_to_arrangement", {
+            "track_index": t_idx,
+            "slot_index": 0,
+            "arrangement_time": 8.0,
+        })
+        assert not res_dup.is_error
+
+        res_del = client.call_tool("live12_clip_delete_arrangement", {
+            "track_index": t_idx,
+            "clip_index": 0,
+        })
+        assert not res_del.is_error
+        assert res_del["deleted"] is True
+
 
 class TestChapter07MidiNoteEditingExtended:
     """
@@ -1038,7 +1058,7 @@ class TestAll75ToolsExercisedVerification:
             src = f.read()
 
         catalog_names = set(t["name"] if isinstance(t, dict) else t.name for t in ALL_TOOLS)
-        assert len(catalog_names) == 75, f"Expected 75 tools in catalog, found {len(catalog_names)}"
+        assert len(catalog_names) == 76, f"Expected 76 tools in catalog, found {len(catalog_names)}"
 
         missing_from_tests = [t for t in catalog_names if f'"{t}"' not in src and f"'{t}'" not in src]
         assert not missing_from_tests, f"The following MCP tools are not referenced in the test suite: {missing_from_tests}"

@@ -63,6 +63,26 @@ CLIP_TOOLS: List[Dict[str, Any]] = [
         }
     },
     {
+        "name": "live12_clip_delete_arrangement",
+        "description": "Deletes an Arrangement view clip by its position on a track in Ableton Live 12 (Track.delete_clip). Use this to remove clips laid out in the Arrangement timeline (live12_clip_delete only handles Session view slots).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "track_index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Zero-based track index."
+                },
+                "clip_index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Zero-based index of the clip inside the track's arrangement_clips collection."
+                }
+            },
+            "required": ["track_index", "clip_index"]
+        }
+    },
+    {
         "name": "live12_clip_fire",
         "description": "Fires / triggers playback of a clip slot in Ableton Live 12 (Clip.fire).",
         "inputSchema": {

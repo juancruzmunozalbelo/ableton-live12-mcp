@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ableton-live12-mcp"
-version = "1.0.0"
+version = "1.1.0"
 description = "Full-coverage Model Context Protocol (MCP) server and Control Surface bridge for Ableton Live 12.4.6 Suite"
 readme = "README.md"
 requires-python = ">=3.11"

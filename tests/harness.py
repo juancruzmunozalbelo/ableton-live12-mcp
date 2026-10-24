@@ -19,6 +19,8 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
+LIVE_COLOR_INDEX_MAX = 69  # Live 12 palette slots 0..69
+
 
 @dataclass
 class ToolResult:
@@ -322,6 +324,13 @@ class MockTakeLane:
         self.clips: List[MockClip] = []
         self.comp_regions: List[Dict[str, float]] = []
 
+    def create_audio_clip(self, file_path: str, time: float) -> MockClip:
+        clip = MockClip(name=os.path.basename(file_path), length=4.0, is_audio=True)
+        clip.file_path = file_path
+        clip.time = float(time)
+        self.clips.append(clip)
+        return clip
+
     def to_dict(self, index: int) -> dict:
         return {
             "index": index,
@@ -336,6 +345,7 @@ class MockTrack:
         self.name = name
         self.type = track_type
         self.color = 16711680
+        self.color_index = 69
         self.solo = False
         self.mute = False
         self.arm = False
@@ -371,6 +381,7 @@ class MockTrack:
             "name": self.name,
             "type": self.type,
             "color": self.color,
+            "color_index": self.color_index,
             "solo": self.solo,
             "mute": self.mute,
             "arm": self.arm,
@@ -389,6 +400,7 @@ class MockScene:
     def __init__(self, name: str = "Scene"):
         self.name = name
         self.color = 0
+        self.color_index = 69
         self.is_playing = False
         self.tempo = 120.0
         self.tempo_enabled = False
@@ -753,6 +765,8 @@ class MockAbletonBridge:
         track_index: int,
         name: Optional[str] = None,
         color: Optional[int] = None,
+        color_index: Optional[int] = None,
+        color_rgb: Optional[List[int]] = None,
         solo: Optional[bool] = None,
         mute: Optional[bool] = None,
         arm: Optional[bool] = None
@@ -763,15 +777,14 @@ class MockAbletonBridge:
         track = self.tracks[idx]
         if name is not None:
             track.name = str(name)
-        if color is not None:
-            track.color = int(color)
+        color_state = self._apply_mock_color(track, color, color_index, color_rgb)
         if solo is not None:
             track.solo = bool(solo)
         if mute is not None:
             track.mute = bool(mute)
         if arm is not None:
             track.arm = bool(arm)
-        return {
+        res = {
             "status": "success",
             "track_index": idx,
             "name": track.name,
@@ -780,6 +793,42 @@ class MockAbletonBridge:
             "mute": track.mute,
             "arm": track.arm
         }
+        res.update(color_state)
+        return res
+
+    @staticmethod
+    def _apply_mock_color(
+        obj: Any,
+        color: Optional[int],
+        color_index: Optional[int],
+        color_rgb: Optional[List[int]],
+    ) -> dict:
+        """Mirror of BridgeHandlers._apply_color for the in-memory Live simulation."""
+        state: Dict[str, Any] = {}
+        idx_val = color_index if color_index is not None else (
+            int(color) if color is not None and 0 <= int(color) <= LIVE_COLOR_INDEX_MAX else None
+        )
+        if idx_val is not None:
+            idx_val = int(idx_val)
+            if idx_val < 0 or idx_val > LIVE_COLOR_INDEX_MAX:
+                raise ValueError(f"color_index {idx_val} out of range [0, {LIVE_COLOR_INDEX_MAX}]")
+            obj.color_index = idx_val
+            state["color_index"] = idx_val
+        if color_rgb is not None:
+            rgb = [int(v) for v in color_rgb]
+            if len(rgb) not in (3, 4):
+                raise ValueError("color_rgb must contain 3 (RGB) or 4 (RGBA) components")
+            for v in rgb[:3]:
+                if v < 0 or v > 255:
+                    raise ValueError(f"color_rgb component {v} out of range [0, 255]")
+            obj.color = tuple(rgb)
+            state["color_rgb"] = rgb
+        elif color is not None and not (0 <= int(color) <= LIVE_COLOR_INDEX_MAX):
+            packed = int(color)
+            rgb = ((packed >> 16) & 0xFF, (packed >> 8) & 0xFF, packed & 0xFF)
+            obj.color = rgb
+            state["color_rgb"] = list(rgb)
+        return state
 
     def _tool_live12_track_group(self, track_indices: List[int]) -> dict:
         if not track_indices:
@@ -831,6 +880,35 @@ class MockAbletonBridge:
         region = {"start": st, "length": ln}
         lane.comp_regions.append(region)
         return {"status": "success", "lane_index": l_idx, "comp_region": region}
+
+    def _tool_live12_take_lane_create_audio_clip(
+        self,
+        track_index: int,
+        take_lane_index: int,
+        file_path: str,
+        time: float,
+    ) -> dict:
+        t_idx = int(track_index)
+        l_idx = int(take_lane_index)
+        f_path = str(file_path)
+        t_time = float(time)
+        if math.isnan(t_time) or math.isinf(t_time) or t_time < 0.0:
+            raise ValueError(f"Clip time must be non-negative, got {t_time}")
+        if t_idx < 0 or t_idx >= len(self.tracks):
+            raise IndexError(f"Track index {t_idx} out of range")
+        track = self.tracks[t_idx]
+        if l_idx < 0 or l_idx >= len(track.take_lanes):
+            raise IndexError(f"Take lane index {l_idx} out of range")
+        lane = track.take_lanes[l_idx]
+        clip = lane.create_audio_clip(f_path, t_time)
+        return {
+            "status": "success",
+            "track_index": t_idx,
+            "take_lane_index": l_idx,
+            "file_path": f_path,
+            "time": t_time,
+            "clip_name": clip.name,
+        }
 
     def _tool_live12_scene_create(self, index: int = -1) -> dict:
         scene = MockScene(f"Scene {len(self.scenes)+1}")
@@ -953,6 +1031,8 @@ class MockAbletonBridge:
         scene_index: int,
         name: Optional[str] = None,
         color: Optional[int] = None,
+        color_index: Optional[int] = None,
+        color_rgb: Optional[List[int]] = None,
         tempo: Optional[float] = None,
         tempo_enabled: Optional[bool] = None,
         time_signature_numerator: Optional[int] = None,
@@ -965,8 +1045,7 @@ class MockAbletonBridge:
         scene = self.scenes[idx]
         if name is not None:
             scene.name = str(name)
-        if color is not None:
-            scene.color = int(color)
+        color_state = self._apply_mock_color(scene, color, color_index, color_rgb)
         if tempo is not None:
             t_val = float(tempo)
             if t_val < 20.0 or t_val > 999.0 or math.isnan(t_val) or math.isinf(t_val):
@@ -986,7 +1065,7 @@ class MockAbletonBridge:
             scene.time_signature_denominator = ts_den
         if time_signature_enabled is not None:
             scene.time_signature_enabled = bool(time_signature_enabled)
-        return {
+        res = {
             "status": "success",
             "scene_index": idx,
             "name": scene.name,
@@ -997,6 +1076,8 @@ class MockAbletonBridge:
             "time_signature_denominator": scene.time_signature_denominator,
             "time_signature_enabled": scene.time_signature_enabled,
         }
+        res.update(color_state)
+        return res
 
     def _tool_live12_routing_get(self, track_index: int) -> dict:
         idx = int(track_index)
@@ -1055,6 +1136,25 @@ class MockAbletonBridge:
             raise IndexError("Clip slot has no clip")
         track.clip_slots[s_idx].clip = None
         return {"status": "success", "track_index": t_idx, "slot_index": s_idx}
+
+    def _tool_live12_clip_delete_arrangement(self, track_index: int, clip_index: int) -> dict:
+        t_idx = int(track_index)
+        c_idx = int(clip_index)
+        if t_idx < 0 or t_idx >= len(self.tracks):
+            raise IndexError("Track index out of range")
+        track = self.tracks[t_idx]
+        if c_idx < 0 or c_idx >= len(track.arrangement_clips):
+            raise IndexError(f"Arrangement clip index {c_idx} out of range")
+        removed = track.arrangement_clips.pop(c_idx)
+        name = getattr(removed[0], "name", None) if isinstance(removed, (tuple, list)) else None
+        return {
+            "status": "success",
+            "deleted": True,
+            "track_index": t_idx,
+            "clip_index": c_idx,
+            "clip_name": name,
+            "remaining_clips": len(track.arrangement_clips),
+        }
 
     def _tool_live12_clip_fire(self, track_index: int, slot_index: int) -> dict:
         t_idx = int(track_index)
@@ -2232,7 +2332,7 @@ class MockAbletonBridge:
             return {
                 "path": target_path,
                 "type": "Live.Track.Track",
-                "properties": ["name", "color", "solo", "mute", "arm", "clip_slots", "devices"],
+                "properties": ["name", "color", "color_index", "solo", "mute", "arm", "clip_slots", "devices"],
                 "methods": ["delete_device", "duplicate_clip_slot", "stop_all_clips"]
             }
         return {
@@ -2264,7 +2364,7 @@ class MockAbletonBridge:
             raise AttributeError(f"'Song' object has no attribute '{property_name}'")
 
         if "tracks" in lowered:
-            if property_name in ("name", "color", "solo", "mute", "arm", "clip_slots", "devices", "volume", "pan"):
+            if property_name in ("name", "color", "color_index", "solo", "mute", "arm", "clip_slots", "devices", "volume", "pan"):
                 return {"path": target_path, "property": property_name, "value": 0}
             raise AttributeError(f"'Track' object has no attribute '{property_name}'")
 

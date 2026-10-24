@@ -196,7 +196,7 @@ class TestMcpToolsList:
         resp = mcp_client.send_request("tools/list", {})
         assert "result" in resp
         tools = resp["result"].get("tools", [])
-        assert len(tools) == 75, f"Expected 75 tools, found {len(tools)}"
+        assert len(tools) == 76, f"Expected 76 tools, found {len(tools)}"
 
     def test_all_tools_pass_draft7_metaschema_validation(self, mcp_client: McpProcessClient):
         resp = mcp_client.send_request("tools/list", {})
@@ -219,7 +219,7 @@ class TestMcpToolsList:
         resp = mcp_client.send_request("tools/list", {})
         tools = resp["result"]["tools"]
         names = {t["name"] for t in tools}
-        assert len(names) == 75, "Found duplicate tool names"
+        assert len(names) == 76, "Found duplicate tool names"
 
         domain_tools = {
             "Domain 1: Song & Transport (15 tools)": [
@@ -238,8 +238,9 @@ class TestMcpToolsList:
                 "live12_scene_create", "live12_scene_fire", "live12_scene_set_properties",
                 "live12_routing_set", "live12_routing_get", "live12_mixer_set",
             ],
-            "Domain 3: Clips, Extended MIDI, Warping (16 tools)": [
-                "live12_clip_create", "live12_clip_delete", "live12_clip_fire",
+            "Domain 3: Clips, Extended MIDI, Warping (17 tools)": [
+                "live12_clip_create", "live12_clip_delete", "live12_clip_delete_arrangement",
+                "live12_clip_fire",
                 "live12_clip_stop", "live12_clip_set_properties", "live12_clip_add_notes",
                 "live12_clip_get_notes", "live12_clip_modify_notes", "live12_clip_quantize",
                 "live12_clip_duplicate_to_arrangement", "live12_clip_remove_notes",

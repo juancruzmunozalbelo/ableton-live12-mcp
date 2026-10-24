@@ -24,6 +24,7 @@ from typing import Any, Callable, Dict, List, Optional, TextIO, Union
 
 from .client import DEFAULT_DISCOVERY_PATH, Live12Client, LiveTcpClient, ToolResult
 from .tools import ValidationError, get_tool_catalog, validate_tool_call
+from .tools.take_lane_tools import TAKE_LANE_TOOLS
 from . import dialogs
 from .dialogs import DialogError
 
@@ -68,7 +69,14 @@ class McpServer:
         # Mock Bridge fallback
         self._mock_bridge: Optional[Any] = None
 
+        # Registered tool extensions (e.g. live12_take_lane_create_audio_clip)
+        self._registered_tools: Dict[str, Dict[str, Any]] = {t["name"]: t for t in TAKE_LANE_TOOLS}
+
         self._init_backend()
+
+    def register_tool(self, tool_def: Dict[str, Any]) -> None:
+        """Registers an additional tool definition into the server instance."""
+        self._registered_tools[tool_def["name"]] = tool_def
 
     def _init_backend(self) -> None:
         """Initializes client connectors and evaluates mock/live execution mode."""

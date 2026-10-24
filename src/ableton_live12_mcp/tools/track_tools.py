@@ -63,7 +63,7 @@ TRACK_TOOLS: List[Dict[str, Any]] = [
     },
     {
         "name": "live12_track_set_properties",
-        "description": "Updates properties of an existing track in Ableton Live 12, such as name, RGB integer color, solo, mute, and record arming.",
+        "description": "Updates properties of an existing track in Ableton Live 12: name, palette color (Live 12 color_index 0-69), explicit RGB, solo, mute and record arming.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -78,7 +78,20 @@ TRACK_TOOLS: List[Dict[str, Any]] = [
                 },
                 "color": {
                     "type": "integer",
-                    "description": "RGB integer color value (e.g. 65280 for green, 16711680 for red)."
+                    "description": "Track color. Values 0-69 set the Live 12 palette slot (color_index); values > 69 are treated as a packed RGB integer (e.g. 65280 green, 16711680 red). Prefer color_index/color_rgb for clarity."
+                },
+                "color_index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 69,
+                    "description": "Live 12 palette slot index for the track color (0-69). This is what the GUI paints on the track header."
+                },
+                "color_rgb": {
+                    "type": "array",
+                    "items": {"type": "integer", "minimum": 0, "maximum": 255},
+                    "minItems": 3,
+                    "maxItems": 4,
+                    "description": "Explicit RGB(A) color (0-255 per component) for the track."
                 },
                 "solo": {
                     "type": "boolean",
@@ -311,7 +324,20 @@ TRACK_TOOLS: List[Dict[str, Any]] = [
                 },
                 "color": {
                     "type": "integer",
-                    "description": "RGB integer color value."
+                    "description": "Scene color. Values 0-69 set the Live 12 palette slot (color_index); values > 69 are treated as a packed RGB integer. Prefer color_index/color_rgb for clarity."
+                },
+                "color_index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 69,
+                    "description": "Live 12 palette slot index for the scene color (0-69)."
+                },
+                "color_rgb": {
+                    "type": "array",
+                    "items": {"type": "integer", "minimum": 0, "maximum": 255},
+                    "minItems": 3,
+                    "maxItems": 4,
+                    "description": "Explicit RGB(A) color (0-255 per component) for the scene."
                 },
                 "tempo": {
                     "type": "number",

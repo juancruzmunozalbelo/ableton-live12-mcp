@@ -5,7 +5,7 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-yellow.svg)](NOTICE.md)
 [![DAW: Ableton Live 12.4.6 Suite](https://img.shields.io/badge/DAW-Ableton%20Live%2012.4.6%20Suite-ffbe00.svg)](https://www.ableton.com/en/live/)
-[![MCP Tools: 75](https://img.shields.io/badge/MCP%20Tools-75%20Tools-00d2ff.svg)](docs/ABLETON_12_MANUAL_COVERAGE.md)
+[![MCP Tools: 77](https://img.shields.io/badge/MCP%20Tools-77%20Tools-00d2ff.svg)](docs/ABLETON_12_MANUAL_COVERAGE.md)
 [![LOM Classes: 49](https://img.shields.io/badge/LOM%20Classes-49%20Classes-00ff88.svg)](docs/LOM_REFERENCE.md)
 [![Clean-Room](https://img.shields.io/badge/interoperability-DMCA%20%C2%A71201(f)%20%7C%20EU%202009%2F24%2FEC-lightgrey.svg)](NOTICE.md)
 
@@ -23,7 +23,7 @@ Enables autonomous AI coding and production agents such as **Antigravity (`agy`)
 
 ### Multimedia Artifacts
 
-- 🌐 **Interactive Documentation Site**: [https://juancruzmunozalbelo.github.io/ableton-live12-mcp/](https://juancruzmunozalbelo.github.io/ableton-live12-mcp/) — Dark-luxury studio UI with interactive 75-tool search and 49-class LOM explorer.
+- 🌐 **Interactive Documentation Site**: [https://juancruzmunozalbelo.github.io/ableton-live12-mcp/](https://juancruzmunozalbelo.github.io/ableton-live12-mcp/) — Dark-luxury studio UI with interactive 77-tool search and 49-class LOM explorer.
 - 🎬 **Video Telemetry (`assets/demo_overview.mp4`)**: 1280x720 video with dynamic waveforms and logarithmic spectrum visualizers synchronized to synthesized showcase audio.
 - 🔊 **Audio Showcase (`assets/showcase_demo.wav`)**: 8-bar 124 BPM Melodic Techno demo in C Minor (-17.1 LUFS / -1.0 dBFS Peak) generated via MCP tool pipeline.
 - 📋 **Session Recipe Manifest (`assets/showcase_session_manifest.json`)**: Exact JSON tool sequence reproducing the showcase session in Live 12.
@@ -36,7 +36,7 @@ Enables autonomous AI coding and production agents such as **Antigravity (`agy`)
 | Feature Dimension | Ableton Live 12 MCP (This Project) | ahujasid/ableton-mcp | AbletonOSC (Generic OSC) |
 | :--- | :--- | :--- | :--- |
 | **Manual Chapter Coverage** | **100% (All 20 Chapters)** | ~20% (Partial Session View) | ~35% (Basic Transport & Clips) |
-| **Dedicated MCP Tools** | **75 Dedicated Tools** | 15 Basic Tools | 0 (Requires external bridge) |
+| **Dedicated MCP Tools** | **77 Dedicated Tools** | 15 Basic Tools | 0 (Requires external bridge) |
 | **Live 12 Extended Notes** | **✓ Probability, Deviation, Release** | ✗ Pitch & Velocity Only | ✗ Pitch & Velocity Only |
 | **Live 12 Flagship Devices** | **✓ Meld, Roar, Drift, CC Control** | ✗ None | ✗ Generic Parameters Only |
 | **Take Lanes & Comping** | **✓ Live.TakeLane & Comp Regions** | ✗ Not Supported | ✗ Not Supported |
@@ -49,9 +49,11 @@ Enables autonomous AI coding and production agents such as **Antigravity (`agy`)
 
 ---
 
-## 🛠️ Complete 75-Tool Catalog (20 Manual Chapters)
+## 🛠️ Complete 77-Tool Catalog (20 Manual Chapters)
 
 Refer to [`docs/ABLETON_12_MANUAL_COVERAGE.md`](docs/ABLETON_12_MANUAL_COVERAGE.md) for full technical mapping to LOM classes and test verification suites.
+Operational notes (live-set safety, bridge CPU, audio device issues, GUI automation) live in
+[`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md).
 
 ### 1. Arrangement View, Transport & Locator Cue Points (Domain 1)
 - `live12_transport_play`: Starts playback at current arrangement time.
@@ -71,6 +73,7 @@ Refer to [`docs/ABLETON_12_MANUAL_COVERAGE.md`](docs/ABLETON_12_MANUAL_COVERAGE.
 - `live12_scene_set_properties`: Configures scene name, color, scene tempo BPM, and signature triggers.
 - `live12_clip_create`: Creates a blank MIDI clip on a designated slot.
 - `live12_clip_delete`: Deletes a clip from a slot.
+- `live12_clip_delete_arrangement`: Deletes a clip from the Arrangement View by its position on a track.
 - `live12_clip_fire`: Triggers playback of a specific session clip.
 - `live12_clip_stop`: Stops playback on a designated track.
 
@@ -78,7 +81,7 @@ Refer to [`docs/ABLETON_12_MANUAL_COVERAGE.md`](docs/ABLETON_12_MANUAL_COVERAGE.
 - `live12_track_create`: Creates MIDI, Audio, or Return tracks.
 - `live12_track_delete`: Deletes a track by index.
 - `live12_track_duplicate`: Clones a track with all devices, clips, and automation.
-- `live12_track_set_properties`: Sets track name, color, mute, solo, and arm.
+- `live12_track_set_properties`: Sets track name, palette color (`color_index` 0-69 or explicit RGB), mute, solo, and arm.
 - `live12_track_group`: Groups multiple tracks into a composite Group Track.
 - `live12_track_ungroup`: Dissolves a Group Track back to top-level tracks.
 
@@ -180,7 +183,7 @@ Refer to [`docs/ABLETON_12_MANUAL_COVERAGE.md`](docs/ABLETON_12_MANUAL_COVERAGE.
                            │ JSON-RPC 2.0 (stdio)
 ┌──────────────────────────▼─────────────────────────────┐
 │          Layer 2: Stdio MCP Server & OS Bridge         │
-│  src/ableton_live12_mcp/server.py (75 Dedicated Tools) │
+│  src/ableton_live12_mcp/server.py (77 Dedicated Tools) │
 │  src/ableton_live12_mcp/dialogs.py (AppleScript/Cocoa) │
 └──────────────────────────▲─────────────────────────────┘
                            │ Loopback TCP (127.0.0.1:11246)

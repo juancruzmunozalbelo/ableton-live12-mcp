@@ -593,3 +593,16 @@ class TestTier5BridgeHandlersBoundaries:
         assert res.get("monitoring") == "in"
         assert mock_song.tracks[0].current_monitoring_state == 0
         cs.disconnect()
+
+    def test_bridge_reload(self):
+        """
+        Verify live12_bridge_reload safely reloads modules and returns status.
+        """
+        cs = Live12ControlSurface(MockCInstance())
+        handlers = BridgeHandlers(cs)
+        cs._handlers = handlers
+        res = handlers.live12_bridge_reload()
+        assert res["status"] == "reloaded"
+        assert "handlers_count" in res
+        assert res["handlers_count"] > 50
+        cs.disconnect()

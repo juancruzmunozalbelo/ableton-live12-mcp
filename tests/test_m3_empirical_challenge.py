@@ -110,7 +110,7 @@ class TestEmpiricalAll61ToolsCall:
 
     def test_all_61_tools_execute_in_mock_mode(self, mcp_session: McpProcessClient, tmp_path: Path):
         catalog = get_tool_catalog()
-        assert len(catalog) == 75, f"Expected 75 tools in catalog, found {len(catalog)}"
+        assert len(catalog) == 76, f"Expected 76 tools in catalog, found {len(catalog)}"
 
         save_als_path = str(tmp_path / "empirical_test.als")
         export_wav_path = str(tmp_path / "empirical_test.wav")
@@ -153,6 +153,7 @@ class TestEmpiricalAll61ToolsCall:
             # Domain 3: Clips, Extended MIDI, Warping (16 tools)
             "live12_clip_create": {"track_index": 0, "slot_index": 1, "length_beats": 4.0, "name": "Clip B"},
             "live12_clip_delete": {"track_index": 0, "slot_index": 1},
+            "live12_clip_delete_arrangement": {"track_index": 0, "clip_index": 0},
             "live12_clip_fire": {"track_index": 0, "slot_index": 0},
             "live12_clip_stop": {"track_index": 0, "slot_index": 0},
             "live12_clip_set_properties": {"track_index": 0, "slot_index": 0, "loop": True, "loop_start": 0.0, "loop_end": 4.0},
@@ -211,11 +212,15 @@ class TestEmpiricalAll61ToolsCall:
         }
 
         # Verify specification covers 100% of tools
-        assert len(valid_call_specs) == 75
+        assert len(valid_call_specs) == 76
         for tool in catalog:
             assert tool["name"] in valid_call_specs, f"Missing test spec for tool {tool['name']}"
 
-        # Execute all 75 tools sequentially
+        # Execute all 76 tools sequentially
+        # Pre-arrange an Arrangement View clip so live12_clip_delete_arrangement has a target.
+        _call_tool(mcp_session, "live12_clip_create", {"track_index": 0, "slot_index": 0, "length_beats": 4.0})
+        _call_tool(mcp_session, "live12_clip_duplicate_to_arrangement",
+                   {"track_index": 0, "slot_index": 0, "arrangement_time": 8.0})
         executed_count = 0
         for tool in catalog:
             name = tool["name"]
@@ -224,7 +229,7 @@ class TestEmpiricalAll61ToolsCall:
             assert not is_error, f"Tool {name} failed with error: {data}"
             executed_count += 1
 
-        assert executed_count == 75, f"Expected 75 tools executed, ran {executed_count}"
+        assert executed_count == 76, f"Expected 76 tools executed, ran {executed_count}"
 
 
 # ==============================================================================
