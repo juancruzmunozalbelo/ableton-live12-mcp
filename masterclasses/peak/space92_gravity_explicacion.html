@@ -78,7 +78,7 @@
 <div class="anchor">
   <a href="#resumen">Resumen</a><a href="#pipeline">Cómo se hizo</a><a href="#formula">La fórmula</a>
   <a href="#pistas">Las 14 pistas</a><a href="#tiempo">El mapa del tiempo</a><a href="#silencio">El silencio</a>
-  <a href="#bugs">Los 4 bugs</a><a href="#verificar">Cómo lo verifiqué</a><a href="#glosario">Glosario</a>
+  <a href="#bugs">Los 4 bugs</a><a href="#verificar">Cómo lo verifiqué</a><a href="#fuentes">Fuentes</a><a href="#glosario">Glosario</a>
   <a href="#repro">Cómo lo reproduzco</a>
 </div>
 
@@ -97,6 +97,14 @@
     <span class="badge"><b>5:05</b> de duración</span>
     <span class="badge">set <b>Space 92 × Psy-Tech</b></span>
   </div>
+<div class="callout warn" style="margin-top:22px">
+  <b>⚠️ Corrección (24/10/2026):</b> esta página describe el set que construí, que es una
+  <b>reconstrucción del género</b>, no un análisis verificado del track <i>Gravity</i> de Space 92.
+  Investigando después encontré que el track real es <b>132 BPM</b> (no 138), en <b>Sol menor</b>
+  (no frigio), dura <b>6:06</b> en su extended (radio edit 4:00), y que Space 92 usa 5 técnicas
+  que este set no tiene. Todo el detalle está en
+  <code>masterclasses/SPACE92_GRAVITY_VERIFIED.md</code> — y la sección <a href="#fuentes">09b</a>.
+</div>
 </header>
 
 <h2 id="resumen"><span class="n">01</span> Resumen en 30 segundos</h2>
@@ -350,6 +358,55 @@ espera a que caiga el pico anterior antes de medir una sección.</p>
 </tbody>
 </table>
 <p class="sub">Los valores son la escala 0–1 del medidor de Live (1.0 = tope). El master llegó a 0.91 en el drop.</p>
+
+<h2 id="fuentes"><span class="n">09b</span> La fórmula REAL de Gravity (verificada)</h2>
+<p>Lo que sigue no es mi opinión: sale de <b>dos fuentes independientes</b> (SongBPM + los metadatos
+del release) y del <b>breakdown real</b> de <i>Gravity</i> hecho por François PML en Production Music Live
+("Producer Notes", episodio 004).</p>
+<table>
+<thead><tr><th>Dato</th><th>Mi set (reconstrucción)</th><th>Gravity real (verificado)</th></tr></thead>
+<tbody>
+<tr><td>Tempo</td><td class="num">138 BPM</td><td class="num">132 BPM</td></tr>
+<tr><td>Tonalidad</td><td>G Frigio (con Ab = b2)</td><td class="num">Gm — Sol menor</td></tr>
+<tr><td>Duración</td><td class="num">5:05</td><td class="num">6:06 (extended) · 4:00 (radio)</td></tr>
+<tr><td>Sello / fecha</td><td>—</td><td>Filth on Acid (FOA126) · 17/02/2023</td></tr>
+</tbody>
+</table>
+<div class="card">
+  <h3>Las 6 técnicas reales de Gravity que este set NO tiene</h3>
+  <ol>
+    <li><b>Rumble Rack</b>: un rack de device para dar "color" y forma al rumble (yo uso un sample con high-pass fijo).</li>
+    <li><b>Velocidades MIDI randomizadas</b> en percusión (snare rolls, hat): es lo que hace que suene "tocado por alguien" y no por una máquina.</li>
+    <li><b>EQ dinámica</b> para dejar espacio entre el main y el bass stab (yo uso EQ estático).</li>
+    <li><b>Groove loops + atmo</b> para llenar el espectro (yo sólo tengo rumble y vocal pad).</li>
+    <li><b>Envelope followers</b> de Ableton para mezcla "creativa" (sidechain en tiempo real de un bus).</li>
+    <li><b>Cadenas en paralelo + sidechained</b>: p.ej. una reverb en paralelo usada como relleno de altas frecuencias.</li>
+  </ol>
+  <p class="sub">Fuente: <a href="https://www.productionmusiclive.com/blogs/news/producer-notes-in-the-style-of-space-92-gravity-techno-ableton-serum">Production Music Live — Producer Notes: In the Style of Space 92 "Gravity"</a>
+  (con François PML, episodio 004 de la serie).</p>
+</div>
+<div class="grid2">
+  <div class="card">
+    <h3>Dónde se analiza Space 92</h3>
+    <ul>
+      <li><a href="https://www.reddit.com/r/TechnoProduction/comments/tpqs58/how_to_produce_like_umek_or_space_92/">r/TechnoProduction — "How to produce like Umek or Space 92?"</a>
+        (el hilo más directo: la receta es <i>importá el tema a tu DAW y reproducí lo que escuchás</i>).</li>
+      <li><a href="https://www.reddit.com/r/proresivesound/comments/115haua/space_92_gravity_filth_on_acid/">r/proresivesound — Space 92 - Gravity [Filth on Acid]</a> (metadatos exactos).</li>
+      <li><a href="https://www.reddit.com/r/Techno/comments/1slzgex/space_92_dimension_2026/">r/Techno</a> — hilo por tema (Dimension, Orbit Motion, Polaris, Atlas).</li>
+      <li><a href="https://www.reddit.com/r/psytrance/comments/15jk3hx/the_craziest_beat_i_have_heard_n_wow_is_the_word/">r/psytrance</a> — la raíz psytrance del sonido.</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>Entrevistas y perfiles</h3>
+    <ul>
+      <li><a href="https://grayarea.co/magazine/an-interview-with-space-92-techno-s-french-kingpin">Gray Area — "An Interview with Space 92"</a>
+        (se define: <i>"ass-kicking, melodic, trancey"</i>).</li>
+      <li><a href="https://www.beatportal.com/articles/12120-introducing-space-92-technos-new-cosmic-champion">Beatportal — perfil de label y visión artística</a>.</li>
+      <li><a href="https://innovationsounds.com/products/mandala-space-92-style-techno-ghost-production">Innovations Sounds — pack "Mandala (Space 92 style)"</a>: derivada de su sonido, sirve de referencia.</li>
+      <li><a href="https://musicbrainz.org/artist/e2bef0c5-02e7-4505-b87f-90fc96bd70c3">MusicBrainz — Space 92</a> (fechas, sellos, duraciones reales).</li>
+    </ul>
+  </div>
+</div>
 
 <h2 id="glosario"><span class="n">09</span> Glosario mínimo (para devs)</h2>
 <div class="grid3">
