@@ -18,7 +18,7 @@ from ableton_live12_mcp.client import Live12Client  # noqa: E402
 import organize_grid_and_export_html as og  # noqa: E402
 from organize_grid_and_export_html import ABLETON_COLOR_HEX  # noqa: E402
 
-OUT_HTML = "/Users/juancruz/ableton-live12-mcp/masterclasses/peak/space92_gravity_arrangement_map.html"
+OUT_HTML = "/Users/juancruz/ableton-live12-mcp/masterclasses/peak/space92_gravity_v3_map.html"
 
 # (start_beat, end_beat, etiqueta corta, color de clip)
 SECTIONS = [
@@ -30,7 +30,7 @@ SECTIONS = [
     (356.0, 484.0, "DROP 1", 11),
     (484.0, 500.0, "MINI BREAK", 58),
     (500.0, 564.0, "DROP 2", 19),
-    (564.0, 704.0, "OUTRO", 49),
+    (564.0, 806.0, "OUTRO", 49),
 ]
 
 TRACKS = [
