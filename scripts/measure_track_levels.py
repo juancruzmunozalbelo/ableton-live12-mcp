@@ -32,6 +32,7 @@ def main() -> int:
     ap.add_argument("--start-beat", type=float, default=64.0)
     ap.add_argument("--seconds", type=float, default=8.0)
     ap.add_argument("--interval", type=float, default=0.05)
+    ap.add_argument("--settle", type=float, default=3.0, help="seconds to let peak-hold decay after the seek")
     args = ap.parse_args()
 
     c = Live12Client()
@@ -51,10 +52,17 @@ def main() -> int:
     master_peak = -120.0
 
     c.call("live12_transport_set_loop", {"enabled": False, "start": 0.0, "length": 4.0})
+    # Stop first: Live's meter reading is a PEAK-HOLD value, so it must be reset
+    # (transport stopped + a short pause) before measuring a new section.
+    # Live 12 ignores a playhead move while the transport is stopped: the position
+    # must be set WHILE playing (hot seek). Start, seek, then measure.
+    c.call("live12_transport_play", {"restart": True})
+    time.sleep(0.4)
     c.call("live12_lom_set", {"target_path": "song", "property_name": "current_song_time",
                               "value": float(args.start_beat)})
-    time.sleep(0.4)
-    c.call("live12_transport_play", {"restart": True})
+    # Live's meter reading is a PEAK-HOLD: let the peaks of the previous position
+    # decay before sampling the new section.
+    time.sleep(float(args.settle))
 
     deadline = time.time() + args.seconds
     while time.time() < deadline:
