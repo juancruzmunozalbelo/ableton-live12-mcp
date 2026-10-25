@@ -35,7 +35,7 @@ from build_joris_acid_flow_ttg import (  # helpers probados en vivo
     place_audio_range,
     set_params,
 )
-from loop_renderer import render_club_loops  # noqa: E402
+from loop_renderer import render_club_loops, render_hit_loop  # noqa: E402
 
 PEAK_OUT = "/Users/juancruz/ableton-live12-mcp/masterclasses/peak"
 SAMPLES_DIR = "/Users/juancruz/Downloads/ClaSE PEAK jULIO 25 Project/Samples"
@@ -122,8 +122,8 @@ def hook_notes_4bars() -> list[dict]:
         base = bar * 4.0
         for pitch, start, dur, vel in cell:
             notes.append({"pitch": pitch, "start_time": base + start, "duration": dur, "velocity": vel})
-        if bar % 2 == 1:   # la tensión b2 (Ab4) aparece cada 2 compases
-            notes.append({"pitch": 68, "start_time": base + 3.75, "duration": 0.25, "velocity": 92})
+        if bar == 3:   # la tensión b2 (Ab4) aparece una vez por frase de 4 compases
+            notes.append({"pitch": 68, "start_time": base + 3.75, "duration": 0.25, "velocity": 82})
     return notes
 
 
@@ -131,7 +131,7 @@ def triplet_gallop_4bars() -> list[dict]:
     """Galope 1/8T: 3 notas por negra, con movimiento melódico (G - Bb - D) en G menor."""
     notes = []
     third = 1.0 / 3.0
-    pattern = (43, 43, 46)   # G1, G1, Bb1 (la 3a de cada negra es la que "camina")
+    pattern = (43, 43, 55)   # G1, G1, G2: el "octave pop" en la 3a negra es la firma de Space 92
     for bar in range(4):
         base = bar * 4.0
         for beat in range(4):
@@ -200,6 +200,18 @@ def add_locators(c: Live12Client) -> None:
 
 def build_gravity_verified_set() -> None:
     loops = render_club_loops(BPM, PEAK_OUT, "_132bpm")
+    # Los loops de la clase Peak vienen a 142/143/135 BPM: sin re-grid, derivan
+    # contra el bombo y el clip de 16 beats no cierra con el sample. Se recolocan
+    # sample-accurate sobre la grilla de 132 BPM.
+    loops["kick"] = os.path.join(PEAK_OUT, "loop_kick_16b_132bpm.wav")
+    render_hit_loop(SAMPLE_KICK, loops["kick"], BPM, 16,
+                    tuple(float(i) for i in range(16)), "highpass=f=28,lowpass=f=180", 0.95, 44100, 0.30)
+    loops["hats"] = os.path.join(PEAK_OUT, "loop_hats_16b_132bpm.wav")
+    render_hit_loop(SAMPLE_CH, loops["hats"], BPM, 16,
+                    tuple(i + 0.5 for i in range(16)), "highpass=f=380,lowpass=f=12000", 0.85, 44100, 0.25)
+    loops["rumble_b"] = os.path.join(PEAK_OUT, "loop_rumble_b_16b_132bpm.wav")
+    render_hit_loop(SAMPLE_RUMBLE_ALT, loops["rumble_b"], BPM, 16,
+                    tuple(float(i) for i in range(16)), "highpass=f=150,lowpass=f=420", 0.30, 44100, 0.25)
     c = Live12Client()
     reset_session(c)
 
@@ -213,7 +225,7 @@ def build_gravity_verified_set() -> None:
     c.call("live12_browser_load_item", {"track_index": t_kick, "browser_item_uri": "Glue Compressor"})
     set_params(c, t_kick, 1, {1: -12.0, 3: 2.0, 4: 4.0, 6: 1.0, 8: 1.0})
     for a, b in (S1_INTRO, S2_GROOVE, S4_BUILD, S6_DROP1, S7_MINIBREAK, S8_DROP2, S9_OUTRO):
-        place_audio_range(c, t_kick, SAMPLE_KICK, a, b)
+        place_audio_range(c, t_kick, loops["kick"], a, b)
 
     # =========================================================================
     # 02 · ROLLING SUB K-B-B-B (galope) — dueño exclusivo de 43-49 Hz
@@ -264,7 +276,7 @@ def build_gravity_verified_set() -> None:
     c.call("live12_browser_load_item", {"track_index": t_rum_b, "browser_item_uri": "Saturator"})
     set_params(c, t_rum_b, 2, {1: 0.35, 2: 0.5, 3: 0.2})
     for a, b in (S2_GROOVE, S3_BREAKDOWN, S6_DROP1, S8_DROP2, S9_OUTRO):
-        place_audio_range(c, t_rum_b, SAMPLE_RUMBLE_ALT, a, b, step_override=16.0)
+        place_audio_range(c, t_rum_b, loops["rumble_b"], a, b, step_override=16.0)
 
     # =========================================================================
     # 05 · HOOK (Sol menor + tensión Ab prestada + velocities humanizadas)
@@ -369,7 +381,7 @@ def build_gravity_verified_set() -> None:
     # =========================================================================
     t_atmo = c.call("live12_track_create", {"type": "midi", "index": -1})["track_index"]
     c.call("live12_track_set_properties", {"track_index": t_atmo, "name": "08 [ATMOS] Gm9 ATMOSPHERE PAD", "color": 58})
-    c.call("live12_mixer_set", {"track_index": t_atmo, "volume": db_to_norm(-8.0), "pan": 0.0})
+    c.call("live12_mixer_set", {"track_index": t_atmo, "volume": db_to_norm(-11.0), "pan": 0.0})
     c.call("live12_browser_load_item", {"track_index": t_atmo, "browser_item_uri": "Wavetable"})
     add_surgical_highpass_eq(c, t_atmo, freq_norm=0.32)
     c.call("live12_browser_load_item", {"track_index": t_atmo, "browser_item_uri": "Reverb"})
@@ -405,7 +417,7 @@ def build_gravity_verified_set() -> None:
     c.call("live12_mixer_set", {"track_index": t_ch, "volume": db_to_norm(-9.5), "pan": -0.05})
     add_surgical_highpass_eq(c, t_ch, freq_norm=0.42)
     for a, b in (S2_GROOVE, S4_BUILD, S6_DROP1, S7_MINIBREAK, S8_DROP2, S9_OUTRO):
-        place_audio_range(c, t_ch, SAMPLE_CH, a, b)
+        place_audio_range(c, t_ch, loops["hats"], a, b)
 
     # =========================================================================
     # 11 · OPEN HAT (offbeat)

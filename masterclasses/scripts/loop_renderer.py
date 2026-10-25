@@ -143,3 +143,191 @@ if __name__ == "__main__":
     bpm = float(sys.argv[1]) if len(sys.argv) > 1 else 132.0
     suffix = sys.argv[2] if len(sys.argv) > 2 else f"_{int(bpm)}bpm"
     print(json.dumps(render_club_loops(bpm, "/Users/juancruz/ableton-live12-mcp/masterclasses/peak", suffix), indent=2))
+
+
+# ==============================================================================
+# RE-GRID: recorta un loop sample (142/143/135 BPM) y lo vuelve a Placing sobre
+# la grilla del tempo objetivo, detectando los onsets del propio sample.
+# ==============================================================================
+
+def _decode_stereo(src_path: str, sr: int = SR):
+    """Decodifica a PCM estéreo 16-bit con ffmpeg y devuelve (pcm, sr)."""
+    import array as _array
+    tmp = os.path.join(os.path.dirname(src_path) or ".", "_regrid_decode.wav")
+    subprocess.run([
+        "ffmpeg", "-y", "-i", src_path, "-ac", "2", "-ar", str(sr), "-sample_fmt", "s16", tmp,
+    ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    with wave.open(tmp, "rb") as wf:
+        raw = wf.readframes(wf.getnframes())
+    os.remove(tmp)
+    pcm = _array.array("h")
+    pcm.frombytes(raw)
+    return pcm, sr
+
+
+def _detect_hits(pcm, sr: int, thresh: float = 0.22, min_gap: float = 0.15):
+    """Devuelve [(frame_inicio, pico)] de los onsets del loop (en muestras/canales)."""
+    step = int(sr * 0.002)
+    env = []
+    for i in range(0, len(pcm) - 1, step * 2):
+        l = abs(pcm[i])
+        r = abs(pcm[i + 1])
+        env.append(max(l, r))
+    peak = max(env) if env else 1
+    hits, last = [], -10.0
+    for i, v in enumerate(env):
+        t = i * step / sr
+        if v / peak > thresh and t - last > min_gap:
+            hits.append((i * step, v / peak))
+            last = t
+    return hits
+
+
+def render_regridded(src_path: str, dest_path: str, bpm: float, beats: int = 16,
+                     filter_chain: str = "anull", gain: float = 1.0,
+                     thresh: float = 0.22, min_gap: float = 0.15,
+                     repeat_first: bool = False) -> dict:
+    """Re-coloca los onsets de un loop sample sobre la grilla de `bpm`.
+
+    Devuelve info del resultado (hits detectados, BPM inferido del sample).
+    """
+    pcm, sr = _decode_stereo(src_path)
+    if filter_chain != "anull":
+        tmp_in = dest_path + ".in.wav"
+        with wave.open(tmp_in, "wb") as wf:
+            wf.setnchannels(2)
+            wf.setsampwidth(2)
+            wf.setframerate(sr)
+            wf.writeframes(pcm.tobytes())
+        subprocess.run([
+            "ffmpeg", "-y", "-i", tmp_in, "-af", filter_chain, "-ac", "2", "-ar", str(sr),
+            "-sample_fmt", "s16", dest_path + ".f.wav",
+        ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        os.remove(tmp_in)
+        pcm, sr = _decode_stereo(dest_path + ".f.wav")
+        os.remove(dest_path + ".f.wav")
+
+    hits = _detect_hits(pcm, sr, thresh, min_gap)
+    if not hits:
+        return {"status": "no_hits", "hits": 0}
+
+    beat_frames = int(round((60.0 / bpm) * sr))
+    total_frames = beat_frames * beats
+    canvas = [0] * (total_frames * 2)
+
+    # periodo mediano de los onsets -> BPM "nativo" del sample (para reportar)
+    gaps = [(hits[i + 1][0] - hits[i][0]) / sr for i in range(len(hits) - 1)]
+    gaps_sorted = sorted(gaps) if gaps else [60.0 / bpm]
+    median_gap = gaps_sorted[len(gaps_sorted) // 2]
+    src_bpm = 60.0 / median_gap if median_gap > 0 else 0.0
+
+    def _place(chunk, dst_frame: float, scale: float) -> None:
+        dst_i = int(round(dst_frame))
+        for f in range(0, len(chunk) - 1, 2):
+            d = dst_i + f // 2
+            if d >= total_frames:
+                break
+            canvas[d * 2] += int(chunk[f] * scale)
+            canvas[d * 2 + 1] += int(chunk[f + 1] * scale)
+
+    if repeat_first:
+        # El sample es un solo hit (no un loop): se repite en CADA beat.
+        frame, amp = hits[0]
+        chunk = pcm[frame:len(pcm)]
+        for b in range(beats):
+            _place(chunk, b * beat_frames, amp * gain)
+    else:
+        # 1) patrón original -> grilla de semicorcheas del tempo destino (snap)
+        placed = []
+        for idx, (frame, amp) in enumerate(hits):
+            nxt = hits[idx + 1][0] if idx + 1 < len(hits) else len(pcm)
+            chunk = pcm[frame:nxt]
+            if not chunk:
+                continue
+            scaled_beat = (frame / sr) * (bpm / 60.0)
+            dst_beat = round(scaled_beat * 4.0) / 4.0
+            placed.append((dst_beat, chunk, amp))
+        # 2) si el patrón original es más corto que el loop destino, se.tilea
+        if placed:
+            span = placed[-1][0] - placed[0][0]
+            if span > 0:
+                offset = span
+                while placed[-1][0] < beats - 0.01:
+                    for dst_beat, chunk, amp in list(placed):
+                        if placed[-1][0] >= beats - 0.01:
+                            break
+                        placed.append((dst_beat + offset, chunk, amp))
+        # 3) se coloca
+        for dst_beat, chunk, amp in placed:
+            if dst_beat >= beats - 0.001:
+                continue
+            _place(chunk, dst_beat * beat_frames, amp * gain)
+
+    out = array("h", (max(-32000, min(32000, v)) for v in canvas))
+    with wave.open(dest_path, "wb") as wf:
+        wf.setnchannels(2)
+        wf.setsampwidth(2)
+        wf.setframerate(sr)
+        wf.writeframes(out.tobytes())
+
+    return {
+        "status": "ok",
+        "hits": len(hits),
+        "src_bpm": round(src_bpm, 2),
+        "dst_bpm": bpm,
+        "beats": beats,
+        "path": dest_path,
+    }
+
+
+def render_hit_loop(src_path: str, dest_path: str, bpm: float, beats: int = 16,
+                    offsets=(0.0,), filter_chain: str = "anull", gain: float = 1.0,
+                    sr: int = SR, min_gap: float = 0.12) -> dict:
+    """Coloca el PRIMER hit del sample en las posiciones `offsets` (en beats).
+
+    Es la misma técnica que usa render_club_loops() (que ya sonó bien): se detecta
+    el onset, se corta el segmento del hit y se lo coloca sample-accurate sobre la
+    grilla del tempo destino. Así el loop queda phase-locked con el resto del set.
+    """
+    pcm, sr = _decode_stereo(src_path, sr)
+    if filter_chain != "anull":
+        tmp_in = dest_path + ".in.wav"
+        with wave.open(tmp_in, "wb") as wf:
+            wf.setnchannels(2); wf.setsampwidth(2); wf.setframerate(sr)
+            wf.writeframes(pcm.tobytes())
+        subprocess.run(["ffmpeg", "-y", "-i", tmp_in, "-af", filter_chain, "-ac", "2",
+                        "-ar", str(sr), "-sample_fmt", "s16", dest_path + ".f.wav"],
+                       check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        os.remove(tmp_in)
+        pcm, sr = _decode_stereo(dest_path + ".f.wav", sr)
+        os.remove(dest_path + ".f.wav")
+
+    hits = _detect_hits(pcm, sr, 0.22, min_gap)
+    if not hits:
+        return {"status": "no_hits"}
+    start = hits[0][0]
+    end = hits[1][0] if len(hits) > 1 else len(pcm)
+    chunk = pcm[start:end]
+    amp = hits[0][1]
+
+    beat_frames = int(round((60.0 / bpm) * sr))
+    total_frames = beat_frames * beats
+    canvas = [0] * (total_frames * 2)
+    for off in offsets:
+        dst = int(round(off * beat_frames))
+        if dst < 0 or dst >= total_frames:
+            continue
+        scale = amp * gain
+        for f in range(0, len(chunk) - 1, 2):
+            d = dst + f // 2
+            if d >= total_frames:
+                break
+            canvas[d * 2] += int(chunk[f] * scale)
+            canvas[d * 2 + 1] += int(chunk[f + 1] * scale)
+
+    out = array("h", (max(-32000, min(32000, v)) for v in canvas))
+    with wave.open(dest_path, "wb") as wf:
+        wf.setnchannels(2); wf.setsampwidth(2); wf.setframerate(sr)
+        wf.writeframes(out.tobytes())
+    return {"status": "ok", "hits_detected": len(hits), "chunk_sec": round(len(chunk) / sr / 2, 3),
+            "positions": list(offsets), "path": dest_path}
