@@ -317,32 +317,65 @@ def create_midi_clip_with_filter_sweep(
 
 
 def configure_returns_and_master(c: Live12Client, send_assignments: list[tuple[int, float, float]]) -> None:
-    """Sets up Return A (Dark Club Reverb) & Return B (Ping-Pong Acid Delay), assigns track sends, and builds Master Chain."""
+    """Sets up Return A (Dark Club Reverb) & Return B (Ping-Pong Acid Delay), assigns track sends, and builds Master Chain.
+
+    IDEMPOTENTE: si el bus ya tiene dispositivos (corridas anteriores del builder),
+    se desactivan las duplicadas antes de cargar la cadena nueva. Sin esto cada
+    corrida apilaba otra EQ/Reverb/Delay/Glue/Limiter encima de la anterior.
+    """
     ret_res = c.call("live12_lom_get", {"target_path": "song", "property_name": "return_tracks"})
     curr_ret = len(ret_res.get("value", []))
     while curr_ret < 2:
         c.call("live12_track_create", {"type": "return", "index": -1})
         curr_ret += 1
 
+    def _clean_bus(bus_path: str, wanted: list[str]) -> None:
+        """Deja activa una sola instancia de cada dispositivo wanted; desactiva el resto."""
+        devs = c.call("live12_lom_get", {"target_path": bus_path, "property_name": "devices"}).get("value", [])
+        kept: set[str] = set()
+        for idx in range(len(devs)):
+            name = c.call("live12_lom_get", {
+                "target_path": f"{bus_path}.devices.{idx}", "property_name": "name",
+            }).get("value")
+            if name is None:
+                break
+            if name in wanted and name not in kept:
+                kept.add(name)
+                continue
+            try:
+                c.call("live12_lom_set", {
+                    "target_path": f"{bus_path}.devices.{idx}.parameters.0",
+                    "property_name": "value", "value": 0.0,
+                })
+            except Exception:
+                pass
+
     # Return A: A-DARK CLUB REVERB
     c.call("live12_lom_set", {"target_path": "song.return_tracks.0", "property_name": "name", "value": "A-DARK CLUB REVERB"})
+    _clean_bus("song.return_tracks.0", ["EQ Eight", "Reverb"])
     c.call("live12_browser_load_item", {"track_index": 0, "browser_item_uri": "EQ Eight", "track_type": "return"})
     c.call("live12_browser_load_item", {"track_index": 0, "browser_item_uri": "Reverb", "track_type": "return"})
 
     # Return B: B-PINGPONG ACID DELAY
     c.call("live12_lom_set", {"target_path": "song.return_tracks.1", "property_name": "name", "value": "B-PINGPONG ACID DELAY"})
+    _clean_bus("song.return_tracks.1", ["EQ Eight", "Delay"])
     c.call("live12_browser_load_item", {"track_index": 1, "browser_item_uri": "EQ Eight", "track_type": "return"})
     c.call("live12_browser_load_item", {"track_index": 1, "browser_item_uri": "Delay", "track_type": "return"})
 
-    # Set Send A and Send B levels per track
+    # Set Send A and Send B levels per track.
+    # API correcta: `sends` es un dict {indice_del_send: nivel}. (Con `send_index`/
+    # `send_value` la llamada fallaba en silencio y los envíos quedaban en 0.)
     for t_idx, send_a, send_b in send_assignments:
         try:
-            c.call("live12_mixer_set", {"track_index": t_idx, "send_index": 0, "send_value": float(send_a)})
-            c.call("live12_mixer_set", {"track_index": t_idx, "send_index": 1, "send_value": float(send_b)})
+            c.call("live12_mixer_set", {
+                "track_index": t_idx,
+                "sends": {"0": float(send_a), "1": float(send_b)},
+            })
         except Exception:
             pass
 
     # Master Chain: EQ Eight (30Hz Subsonic Cut) + Glue Compressor (Bus Glue + Soft Clip) + Limiter
+    _clean_bus("song.master_track", ["EQ Eight", "Glue Compressor", "Limiter"])
     c.call("live12_browser_load_item", {"track_index": 0, "browser_item_uri": "EQ Eight", "track_type": "master"})
     c.call("live12_browser_load_item", {"track_index": 0, "browser_item_uri": "Glue Compressor", "track_type": "master"})
     c.call("live12_browser_load_item", {"track_index": 0, "browser_item_uri": "Limiter", "track_type": "master"})

@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Qué hice en tu tema estilo Space 92 — guía para devs</title>
+<style>
+  :root{
+    --bg:#0a0b0f; --bg2:#101319; --panel:#151922; --panel2:#1b2029;
+    --line:#262d39; --txt:#e8edf5; --dim:#93a0b5; --dim2:#6b7789;
+    --acc:#00d2ff; --acc2:#ff2e9a; --ok:#2ee6a8; --warn:#ffb648; --hot:#ff5f5f;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(1200px 600px at 20% -10%,#16202e 0%,var(--bg) 60%);
+    color:var(--txt);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 24px 120px}
+  header{padding:72px 0 40px;border-bottom:1px solid var(--line)}
+  .kicker{font:600 12px/1 var(--mono);letter-spacing:.22em;text-transform:uppercase;color:var(--acc)}
+  h1{font-size:clamp(30px,5vw,52px);line-height:1.05;margin:16px 0 10px;font-weight:800;letter-spacing:-.02em}
+  h1 em{font-style:normal;color:var(--acc)}
+  .lede{color:var(--dim);font-size:18px;max-width:70ch}
+  .badges{display:flex;flex-wrap:wrap;gap:8px;margin-top:22px}
+  .badge{background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:6px 14px;font:600 13px/1.4 var(--mono);color:var(--dim)}
+  .badge b{color:var(--txt)}
+  h2{font-size:26px;margin:64px 0 6px;letter-spacing:-.01em;display:flex;align-items:center;gap:12px}
+  h2 .n{font:700 13px/1 var(--mono);color:var(--acc);border:1px solid var(--acc);
+      border-radius:8px;padding:6px 9px;opacity:.9}
+  h3{font-size:17px;margin:0 0 6px}
+  p{margin:10px 0;color:#c9d3e1}
+  .sub{color:var(--dim2);font-size:14px;margin-top:-2px}
+  section>p:first-of-type{color:var(--dim)}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px 22px;margin:14px 0}
+  .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+  .grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}
+  table{width:100%;border-collapse:collapse;font-size:14.5px;margin:12px 0}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--dim);font:600 12px/1.4 var(--mono);text-transform:uppercase;letter-spacing:.08em}
+  td.num{font-family:var(--mono);white-space:nowrap;color:var(--acc)}
+  code,.k{font-family:var(--mono);font-size:.9em;background:#0d1017;border:1px solid var(--line);
+    padding:1px 6px;border-radius:6px;color:var(--acc)}
+  pre{background:#0c0f15;border:1px solid var(--line);border-radius:12px;padding:16px;overflow:auto;
+    font-family:var(--mono);font-size:13px;color:#cfe3ff;margin:12px 0}
+  pre .c{color:var(--dim2)}
+  .flow{display:flex;flex-wrap:wrap;gap:10px;align-items:stretch;margin:18px 0}
+  .flow .step{flex:1 1 180px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+  .flow .step .t{font:600 13px/1.3 var(--mono);color:var(--acc);margin-bottom:6px}
+  .flow .arrow{align-self:center;color:var(--dim2);font-size:20px}
+  .pill{display:inline-block;font:600 11px/1 var(--mono);letter-spacing:.06em;text-transform:uppercase;
+    padding:4px 8px;border-radius:6px;border:1px solid var(--line);color:var(--dim);margin-right:6px}
+  .pill.fix{border-color:#3c2a12;color:var(--warn);background:#1d1607}
+  .pill.new{border-color:#0d3a33;color:var(--ok);background:#07231f}
+  .pill.bug{border-color:#3d1620;color:var(--hot);background:#21090e}
+  .callout{border-left:3px solid var(--acc);background:linear-gradient(90deg,#0f1620,transparent);
+    padding:12px 16px;border-radius:0 10px 10px 0;margin:14px 0;color:#cfe0f5}
+  .callout.warn{border-color:var(--warn);background:linear-gradient(90deg,#1b1608,transparent)}
+  .callout.ok{border-color:var(--ok);background:linear-gradient(90deg,#07231f,transparent)}
+  .term{border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:var(--panel2)}
+  .term b{color:var(--acc)}
+  .term span{display:block;color:var(--dim);font-size:14px;margin-top:4px}
+  ul{padding-left:20px;color:#c9d3e1} li{margin:6px 0}
+  .bar{height:8px;background:#0d1017;border-radius:99px;overflow:hidden;border:1px solid var(--line)}
+  .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--acc),var(--acc2))}
+  .tl{display:grid;grid-template-columns:130px 1fr;gap:14px;margin:16px 0}
+  .tl .when{font:600 13px/1.6 var(--mono);color:var(--dim);text-align:right}
+  .tl .what{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 16px}
+  footer{margin-top:80px;padding-top:24px;border-top:1px solid var(--line);color:var(--dim2);font-size:14px}
+  a{color:var(--acc)}
+  .anchor{position:sticky;top:0;z-index:9;background:rgba(10,11,15,.82);backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--line);padding:10px 0;margin-bottom:8px}
+  .anchor a{color:var(--dim);text-decoration:none;font-size:13px;margin-right:14px;font-family:var(--mono)}
+  .anchor a:hover{color:var(--acc)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="anchor">
+  <a href="#resumen">Resumen</a><a href="#pipeline">Cómo se hizo</a><a href="#formula">La fórmula</a>
+  <a href="#pistas">Las 14 pistas</a><a href="#tiempo">El mapa del tiempo</a><a href="#silencio">El silencio</a>
+  <a href="#bugs">Los 4 bugs</a><a href="#verificar">Cómo lo verifiqué</a><a href="#glosario">Glosario</a>
+  <a href="#repro">Cómo lo reproduzco</a>
+</div>
+
+<header>
+  <div class="kicker">Ableton Live 12 · MCP · Guía para devs</div>
+  <h1>De la nada a un tema <em>estilo Space 92</em>:<br/>qué hice exactamente, paso a paso</h1>
+  <p class="lede">Esta página explica, sin jerga musical, qué se construyó dentro de tu Ableton,
+  por qué cada cosa está donde está, y qué bugs del propio sistema aparecieron en el camino.
+  Pensada para que la lea alguien que sabe programar pero <b>no sabe música</b>.</p>
+  <div class="badges">
+    <span class="badge">archivo <b>space92_gravity.als</b></span>
+    <span class="badge"><b>138</b> BPM</span>
+    <span class="badge"><b>G Frigio</b></span>
+    <span class="badge"><b>176</b> compases</span>
+    <span class="badge"><b>14</b> pistas</span>
+    <span class="badge"><b>5:05</b> de duración</span>
+    <span class="badge">set <b>Space 92 × Psy-Tech</b></span>
+  </div>
+</header>
+
+<h2 id="resumen"><span class="n">01</span> Resumen en 30 segundos</h2>
+<p>Un tema de techno no es "un archivo de audio": es una lista de <b>pistas</b> (una pista = una caja de
+ruido con su propio volumen y sus propios efectos), y en cada pista hay <b>clips</b> ordenados en el
+tiempo (un clip = un fragmento de audio o una partitura MIDI). Vos lo que escuchás es la <b>suma</b> de
+todas las pistas sonando a la vez.</p>
+<div class="card">
+  <p>Lo que hice fue <b>programar esa suma por código</b>: no grabé nada, no toqué la interfaz a mano.
+  Escribí scripts que se hablan con tu Ableton abierto por un socket TCP y le dicen
+  "creá esta pista con este sintetizador, estos parámetros, estos clips en estos compases".
+  El resultado:</p>
+  <ul>
+    <li><b>14 pistas</b> con cadenas de efectos reales (síntesis, filtros, EQ, reverb, delay, compresor).</li>
+    <li><b>Una partitura completa</b> de 176 compases con 9 secciones (intro, groove, breakdown, build,
+        <b>un compás de silencio</b>, drop, mini-break, clímax, outro).</li>
+    <li><b>Colores y nombres</b> en cada pista y cada clip, para que la grilla se entienda de un vistazo.</li>
+    <li><b>3 bugs del MCP reparados</b> (incluido uno que hacía que Ableton quemara 60% de un core).</li>
+    <li><b>Verificación automática</b>: medí los niveles reales de cada pista en cada sección.</li>
+  </ul>
+</div>
+
+<h2 id="pipeline"><span class="n">02</span> Cómo se hizo (el pipeline)</h2>
+<p>Tu Ableton no se puede "scriptar" oficialmente. El truco que usa este repo es el mismo que usan
+las control surfaces MIDI: un <b>Remote Script</b> es un módulo de Python que Live carga <i>dentro</i> de su
+propio proceso y le deja tocar su API interna (el <b>LOM</b> — Live Object Model).</p>
+<div class="flow">
+  <div class="step"><div class="t">1 · script Python</div>Le digo a la API qué armar: pistas, notas, efectos, volumen.</div>
+  <div class="arrow">→</div>
+  <div class="step"><div class="t">2 · MCP server</div>Traduce ese script a <b>76 tools</b> JSON-RPC (el formato que los agentes de IA saben usar).</div>
+  <div class="arrow">→</div>
+  <div class="step"><div class="t">3 · Live12Bridge</div>Un Remote Script dentro de Ableton, escuchando en <code>127.0.0.1:11246</code>.</div>
+  <div class="arrow">→</div>
+  <div class="step"><div class="t">4 · Ableton Live 12</div>Ejecuta todo en su hilo principal y cambia el set en vivo.</div>
+</div>
+<p>Todo el repo vive en <code>/Users/juancruz/ableton-live12-mcp</code>. Lo que.toqué en esta sesión:</p>
+<pre><span class="c"># builder del tema (nuevo, 411 líneas)</span>
+masterclasses/scripts/build_gravity_like.py
+<span class="c"># organizador de grilla + mapa HTML (nuevo)</span>
+masterclasses/scripts/organize_gravity_grid.py
+<span class="c"># reparación de buses/master (nuevo, por el bug #4)</span>
+masterclasses/scripts/repair_bus_chains.py
+<span class="c"># utilidades de inspección y medición</span>
+scripts/inspect_live_set.py
+scripts/measure_track_levels.py</pre>
+<div class="callout">
+  <b>Para vos como dev:</b> el theme es <b>declarativo y reproducible</b>. Si mañana querés otra versión
+  (otro tempo, otro riff, otra duración), cambiás el <code>SECTIONS</code> o los patrones de notas del script
+  y lo reconstruís entero con <code>python3 masterclasses/scripts/build_gravity_like.py</code>. No hay
+  "ajustes a ojo" guardados en el DAW: todo está en el código.
+</div>
+
+<h2 id="formula"><span class="n">03</span> La "fórmula" de Space 92, sin jerga</h2>
+<p>Space 92 tiene un sonido muy reconocible. No es magia: son <b>7 decisiones repetibles</b>.
+Acá está cada una traducida a "qué programé" y con su analogía.</p>
+<div class="grid2">
+  <div class="card">
+    <h3>1 · El bajo "galopa" y nunca pisa al bombo <span class="pill new">implementado</span></h3>
+    <p><b>En palabras:</b> el bombo golpea en el 1 de cada tiempo (el "1" de cada negra). El bajo no
+    golpea ahí: entra después, en tres corcheas muy seguidas (e, &amp;, a). Por eso el pie se mueve solo.</p>
+    <p><b>Lo que programé:</b> pista 2, sintetizador <code>Operator</code>, 48 notas por compás con
+    velocidades <code>80 → 126 → 110</code> (el accents está en el "&amp;"), y <b>siempre</b> con la tónica
+    exacta <code>G1</code> para que no se desalinee con el bombo.</p>
+  </div>
+  <div class="card">
+    <h3>2 · Escala frigia: el semitón que incomoda <span class="pill new">implementado</span></h3>
+    <p><b>En palabras:</b> en vez de usar la escala menor (melodía triste), se usa una donde la 2ª nota
+    está a <b>un semitón</b> de la tónica (G–Ab). Esa nota "roza" y genera tensión oscura.</p>
+    <p><b>Lo que programé:</b> <code>song.scale = G Phrygian</code> y todas las notas del hook y del bajo
+    salen de <b>esa escala</b> (G, Ab, Bb, C, D, Eb). En el bajo, la Ab aparece justo en el 4to tiempo.</p>
+  </div>
+  <div class="card">
+    <h3>3 · El hook se repite <i>exactamente</i> <span class="pill new">implementado</span></h3>
+    <p><b>En palabras:</b> no hay "coración" cantado: hay una celda de 4 negras que se repite igual
+    durante minutos. Es lo que hipnotiza.</p>
+    <p><b>Lo que programé:</b> pista 4 (<code>Drift</code>), célula G3–Ab3–Eb3–D3 de 4 negras,
+    repetida 4 veces por clip de 16 beats, con un "destello" de Eb4 al final de cada celda.</p>
+  </div>
+  <div class="card">
+    <h3>4 · El "hoover" se abre como una cortina <span class="pill new">implementado</span></h3>
+    <p><b>En palabras:</b> en el breakdown el bombo desaparece y entra un sonido enorme de octavas
+    que <b>va abriendo su filtro</b>: de cerrado a abierto. Es la sensación de "se está preparando algo".</p>
+    <p><b>Lo que programé:</b> pista 5 (<code>Wavetable</code> supersaw), con el <b>cutoff automatizado</b>
+    de 0.30 → 0.95 a lo largo del breakdown, más <code>Chorus-Ensemble</code> y <code>Reverb</code>.</p>
+  </div>
+  <div class="card">
+    <h3>5 · El silencio antes del drop <span class="pill new">implementado</span></h3>
+    <p><b>En palabras:</b> todo se corta de golpe un compás antes del impacto. Ese vacío es lo que
+    genera la sensación de "ahora sí".</p>
+    <p><b>Lo que programé:</b> el compás 89 (beats 352–356) no tiene <b>ningún clip</b> en ninguna de las
+    14 pistas. Lo verifiqué clip por clip: todos terminan en 352.0 o arrancan en 356.0.</p>
+  </div>
+  <div class="card">
+    <h3>6 · Galope en tresillos en el drop 2 <span class="pill new">implementado</span></h3>
+    <p><b>En palabras:</b> en el clímax el bajo deja de ir en corcheas y pasa a <b>tresillos</b>
+    (3 notas por negra): se siente más rápido aunque el tempo no cambie.</p>
+    <p><b>Lo que programé:</b> pista 12, <code>Operator</code> con la misma nota G1 pero a offsets
+    0, 1/3 y 2/3 de cada negra, con la octava (G2) acentuada en el último tresillo.</p>
+  </div>
+</div>
+<div class="callout ok">
+  <b>El principio que las resume todas:</b> Space 92 no cambia de instrumento cada tema. Cambia el
+  <b>20%</b> (el hook, la melodía) y mantiene el <b>80%</b> fijo (la relación física entre bombo, bajo y filtro).
+  Eso es lo que hace que reconozcas un tema sin saber quién lo hizo.
+</div>
+
+<h2 id="pistas"><span class="n">04</span> Las 14 pistas: qué es cada una y qué le puse</h2>
+<p>Cada fila es una pista del DAW: nombre real, qué suena en términos humanos, la cadena de plugins
+(el "equipment" de esa pista), el volumen final y en qué secciones toca.</p>
+<table>
+<thead><tr><th>#</th><th>Nombre en Ableton</th><th>Qué es (analogía)</th><th>Plugins</th><th>Vol</th><th>Suena en</th></tr></thead>
+<tbody>
+<tr><td class="num">0</td><td><b>01 [LOW] KICK G1 49HZ (BOOM)</b></td><td>El bombo. El "latido" del tema: define el pulso.</td><td>EQ Eight + Glue Compressor</td><td class="num">-1.8 dB</td><td>todo menos breakdown</td></tr>
+<tr><td class="num">1</td><td><b>02 [LOW] PSY ROLLING SUB (K-B-B-B G1)</b></td><td>El bajo que galopa. El motor de la pista.</td><td>Operator + Roar</td><td class="num">-2.8 dB</td><td>todo menos el compás de silencio</td></tr>
+<tr><td class="num">2</td><td><b>03 [LOW] TECHNO RUMBLE (HPF 125Hz)</b></td><td>Ruido de cueva. El "aire" grave del fondo.</td><td>EQ Eight</td><td class="num">-7.0 dB</td><td>intro, groove, drop 1, drop 2, outro</td></tr>
+<tr><td class="num">3</td><td><b>04 [HOOK] SPACE 92 HOOK (G FRIGIO)</b></td><td>La melodía hipnótica de 4 negras. El "tema" propiamente dicho.</td><td>Drift + Roar + EQ Eight + Delay</td><td class="num">-4.5 dB</td><td>groove, drop 1, drop 2</td></tr>
+<tr><td class="num">4</td><td><b>05 [SYNTH] HOOVER ANTHEM (SUPERSAW)</b></td><td>El "pared de sonido" que se abre en el breakdown.</td><td>Wavetable + EQ Eight + Chorus + Reverb</td><td class="num">-3.2 dB</td><td>breakdown, drop 1, drop 2</td></tr>
+<tr><td class="num">5</td><td><b>06 [BASS PAD] DARK REESE DRONE (G1)</b></td><td>El suelo grave del breakdown (cuando no hay bombo).</td><td>Wavetable + Chorus + EQ Eight</td><td class="num">-4.5 dB</td><td>solo breakdown</td></tr>
+<tr><td class="num">6</td><td><b>07 [DRUMS] 909 CLOSED HATS (1/16)</b></td><td>Las charles cerradas: el "tictac".</td><td>EQ Eight</td><td class="num">-9.5 dB</td><td>groove, build, drops, outro</td></tr>
+<tr><td class="num">7</td><td><b>08 [DRUMS] 909 OPEN HAT (OFFBEAT &amp;)</b></td><td>La charle abierta en el "&amp;" (contratiempo).</td><td>EQ Eight</td><td class="num">-10.5 dB</td><td>groove, drop 1, drop 2</td></tr>
+<tr><td class="num">8</td><td><b>09 [DRUMS] 909 ACID RIDE (CLIMAX)</b></td><td>El ride: entra sólo en el clímax.</td><td>EQ Eight</td><td class="num">-10.0 dB</td><td>final del drop 1, drop 2</td></tr>
+<tr><td class="num">9</td><td><b>10 [DRUMS] PEAK CLAP</b></td><td>El clap: marca el 2 y el 4.</td><td>EQ Eight</td><td class="num">-8.5 dB</td><td>drop 1, drop 2</td></tr>
+<tr><td class="num">10</td><td><b>11 [BUILD] RISER + SNARE ROLL (CUT 352)</b></td><td>El "ruido que sube" antes del drop.</td><td>EQ Eight</td><td class="num">-7.5 dB</td><td>build (corta en 352)</td></tr>
+<tr><td class="num">11</td><td><b>12 [BASS] GALOPE 1/8T (DROP 2)</b></td><td>El bajo en tresillos del clímax.</td><td>Operator + EQ Eight + Roar</td><td class="num">-6.0 dB</td><td>solo drop 2</td></tr>
+<tr><td class="num">12</td><td><b>13 [ATMOS] G-FRIGIO VOCAL PAD</b></td><td>Un colchón de aire con voz de fondo.</td><td>EQ Eight + Reverb</td><td class="num">-5.0 dB</td><td>breakdown, mini-break</td></tr>
+<tr><td class="num">13</td><td><b>14 [FX] SUB IMPACT (DROP HITS)</b></td><td>El golpe de sub que marca cada impacto.</td><td>EQ Eight + Delay</td><td class="num">-2.2 dB</td><td>los 2 hits de drop</td></tr>
+</tbody>
+</table>
+
+<div class="grid2">
+  <div class="card">
+    <h3>Las decisiones de mezcla que importan</h3>
+    <ul>
+      <li><b>Nadie habla de la misma banda de frecuencias a la vez.</b> Cada pista tiene un <b>high-pass</b>
+      (filtro que corta las frecuencias bajas): el rumble corta desde 125 Hz, los hats desde ~3 kHz,
+      el hook desde 165 Hz. Así el sub (43–49 Hz) queda solo y no se ensucia.</li>
+      <li><b>El sub es el dueño exclusivo de 43–49 Hz.</b> Por eso el bombo y el bajo no se tapan.</li>
+      <li><b>Los hats van 8 dB por debajo del bombo</b> (-9.5 vs -1.8): es lo que evita el
+      "hihat re-empegante" que te molestaba en el tema anterior.</li>
+      <li><b>Bus de reverb y bus de delay</b> (returns A y B): cada pista manda "cuánto" de cada uno
+      (envíos). Antes de arreglar el bug #4 <b>ningún envío estaba activo</b> y el tema sonaba seco.</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>La cadena del master (el "final" de la señal)</h3>
+    <ul>
+      <li><b>EQ Eight</b>: recorta por debajo de 30 Hz (basura digital) y ajusta la caja del bombo.</li>
+      <li><b>Glue Compressor</b>: threshold -9.5 dB, ratio 2:1, attack 4 ms, release 100 ms.
+      "Pegote" las pistas para que suenen como <b>una sola</b> en vez de 14 capas.</li>
+      <li><b>Limiter</b>: techo final para que nada "clipee" (suene roto).</li>
+    </ul>
+  </div>
+</div>
+
+<h2 id="tiempo"><span class="n">05</span> El mapa del tiempo (176 compases)</h2>
+<p>Un compás son 4 beats. La "forma" de un tema de club es una curva de energía: se sube, se rompe,
+se vuelve a subir. Acá está el mapa con lo que suena en cada tramo.</p>
+<table>
+<thead><tr><th>Compás</th><th>Beats</th><th>Sección</th><th>Qué pasa</th><th>Emoción</th></tr></thead>
+<tbody>
+<tr><td class="num">1–32</td><td class="num">0–128</td><td><b>INTRO</b></td><td>Bombo + bajo galopando + rumble. El hook todavía no entra.</td><td>"algo arrancó"</td></tr>
+<tr><td class="num">33–64</td><td class="num">128–256</td><td><b>GROOVE</b></td><td>Entran el hook (filtrado, cerrado), las charles y la charle abierta.</td><td>"ya tengo cuerpo"</td></tr>
+<tr><td class="num">65–84</td><td class="num">256–336</td><td><b>BREAKDOWN</b></td><td><b>El bombo sale.</b> Entra el reese drone, el hoover que abre filtro y el vocal pad.</td><td>"tensión, vacío"</td></tr>
+<tr><td class="num">85–88</td><td class="num">336–352</td><td><b>BUILD</b></td><td>Vuelve el bombo + riser que sube + charles acelerando.</td><td>"va"</td></tr>
+<tr><td class="num">89</td><td class="num">352–356</td><td><b>SILENCIO</b></td><td><b>No hay absolutamente nada.</b> Un compás entero de nada.</td><td>"ahora sí"</td></tr>
+<tr><td class="num">90–121</td><td class="num">356–484</td><td><b>DROP 1</b></td><td>Todo junto: bombo + sub + hook abierto + hoover + charles + clap + el golpe de sub.</td><td>"BOOM"</td></tr>
+<tr><td class="num">122–125</td><td class="num">484–500</td><td><b>MINI BREAK</b></td><td>Se saca todo menos el bombo y el pad. Se respira.</td><td>"pausa"</td></tr>
+<tr><td class="num">126–141</td><td class="num">500–564</td><td><b>DROP 2</b></td><td>Se suma el galope en tresillos + el ride + el hook al máximo.</td><td>"más grande"</td></tr>
+<tr><td class="num">142–176</td><td class="num">564–704</td><td><b>OUTRO</b></td><td>Se van descartando elementos hasta dejar el bombo y el bajo.</td><td>"se acaba"</td></tr>
+</tbody>
+</table>
+<p class="sub">En Ableton esto quedó también como <b>locators</b> (9 marcadores en la barra de tiempo):
+podés saltar de sección con un click.</p>
+
+<h2 id="silencio"><span class="n">06</span> El detalle fino: cómo se hace el silencio</h2>
+<p>Un compás de silencio no es "no puse nada": es <b>todo lo demás termina exactamente en el mismo
+compás</b>. Si un clip se solapara 1 milisegundo, el silencio existe y se siente "malo".</p>
+<pre><span class="c"># verificación automática (clip por clip, las 14 pistas)</span>
+track  0 clip 34: 356.0 -&gt; 364.0   [DROP 1 c.90] Kick G1 (49Hz)
+track  1 clip 21: 336.0 -&gt; 352.0   [BUILD c.85] K-B-B-B Rolling Sub   <-- termina acá
+track  1 clip 22: 356.0 -&gt; 372.0   [DROP 1 c.90] K-B-B-B Rolling Sub   <-- arranca acá
+track  6 clip  8: 336.0 -&gt; 352.0   [BUILD c.85] 909 Closed Hat
+track 10 clip  0: 336.0 -&gt; 352.0   [BUILD c.85] Riser + Snare Roll
+<span class="c"># ningún clip cruza 352.0 – 356.0  =>  el compás 89 es 100% mudo</span></pre>
+
+<h2 id="bugs"><span class="n">07</span> Los 4 bugs que encontré (y cómo los arreglé)</h2>
+<p>Estos no son bugs del <i>tema</i>: son bugs del <b>sistema que conduce Ableton</b>. Salieron al
+inspeccionar el estado real en vez de asumir que el código funcionaba.</p>
+
+<div class="card">
+  <h3><span class="pill bug">bug 1</span> Los colores de las pistas nunca llegaban a la pantalla</h3>
+  <p><b>Síntoma:</b> el script pedía "pintá la pista 3 de color 14" y la respuesta era OK, pero en Ableton
+  todas las pistas seguían del mismo color.</p>
+  <p><b>Causa raíz:</b> Live 12 tiene <b>dos</b> propiedades de color: <code>color_index</code> (el slot de
+  la paleta, 0–69, que es lo que pinta la GUI) y <code>color</code> (un entero RGB empaquetado). El handler
+  escribía el número en <code>color</code>: valor válido, efecto nulo. <b>El código "funcionaba" y
+  no hacía nada</b> — el peor tipo de bug.</p>
+  <p><b>Arreglo:</b> el handler ahora escribe <code>color_index</code> y acepta <code>color_index</code> y
+  <code>color_rgb</code> explícitos. Tests de regresión agregados
+  (<code>test_track_color_uses_palette_index_not_rgb</code>).</p>
+</div>
+
+<div class="card">
+  <h3><span class="pill bug">bug 2</span> Ableton consumía 60% de un core de CPU</h3>
+  <p><b>Síntoma:</b> el proceso de Ableton estaba al 60% de CPU estando quieto, con el sistema entero
+  al 13 de load.</p>
+  <p><b>Causa raíz:</b> nuestro Remote Script usaba <code>Live.Base.Timer</code> con <b>intervalo de 5 ms</b>
+  (200 wake-ups por segundo). Cada tick es un mensaje al hilo principal de Ableton: lo dejaba
+  permanentemente agendado y el motor de audio quedaba sin aire.</p>
+  <p><b>Arreglo:</b> intervalo a <b>20 ms</b> (50 Hz), configurable por variable de entorno
+  <code>LIVE12_BRIDGE_TIMER_MS</code>. Verificado: CPU de Ableton <b>60% → 0.8%</b>.</p>
+</div>
+
+<div class="card">
+  <h3><span class="pill bug">bug 3</span> Faltaba la herramienta para borrar clips del Arrangement</h3>
+  <p><b>Síntoma:</b> había una tool para borrar clips de la vista <b>Session</b> pero ninguna para la
+  vista <b>Arrangement</b> (la grilla del tema). Un clip basura que dejó un test no se podía borrar.</p>
+  <p><b>Causa raíz:</b> Live exige el <i>objeto</i> clip para borrarlo y el puente de JSON-RPC no puede
+  mandar objetos de Live por el cable. Hacían falta dos tools: una para resolver el clip por índice y
+  otra que lo borre.</p>
+  <p><b>Arreglo:</b> nueva tool <code>live12_clip_delete_arrangement(track_index, clip_index)</code>
+  (resuelve y borra en el hilo principal). Con ella limpié el clip basura del set real.</p>
+</div>
+
+<div class="card">
+  <h3><span class="pill bug">bug 4</span> Reverb, delay y master duplicados ×4</h3>
+  <p><b>Síntoma:</b> el set tenía <b>44 devices</b> en el master bus (en vez de 3) y las copias del
+  reverb/delay seguían apagadas… no, <b>encendidas</b>: la reverb se aplicaba 4 veces y el master
+  estaba comprimido 4 veces.</p>
+  <p><b>Causa raíz:</b> el builder cargaba la cadena de cada bus <b>sin limpiar la anterior</b>: cada
+  corrida del script apilaba otra copia. No era idempotente.</p>
+  <p><b>Arreglo:</b> el builder ahora desactiva las duplicadas antes de cargar (idempotente) y usa la
+  API correcta de envíos (<code>sends={"0": 0.34}</code> en vez de <code>send_index/send_value</code>,
+  que fallaba <b>en silencio</b> dentro de un <code>try/except</code>). Script de reparación:
+  <code>masterclasses/scripts/repair_bus_chains.py</code>.</p>
+</div>
+
+<h2 id="verificar"><span class="n">08</span> Cómo lo verifiqué (números reales)</h2>
+<p>Nada de esto es "me suena bien": son mediciones leídas del motor de Ableton mientras el tema
+reproduce. El lector de medidores de Live es <b>peak-hold</b> (guarda el máximo), así que el script
+espera a que caiga el pico anterior antes de medir una sección.</p>
+<table>
+<thead><tr><th>Sección</th><th>Pistas sonando (medido)</th><th>¿Correcto?</th></tr></thead>
+<tbody>
+<tr><td>INTRO (beat 2)</td><td>Kick 0.88 · Sub 0.77 · Rumble 0.58</td><td>✅ solo el chassis</td></tr>
+<tr><td>GROOVE (beat 130)</td><td>+ Hook 0.76 · Hats 0.74 · OpenHat 0.43</td><td>✅ entra el hook</td></tr>
+<tr><td>BREAKDOWN (beat 258)</td><td><b>Kick 0.0</b> · Sub 0.77 · Hoover 0.75 · Reese 0.65 · Pad 0.6</td><td>✅ bombo fuera</td></tr>
+<tr><td>BUILD (beat 340)</td><td>+ Riser 0.7</td><td>✅</td></tr>
+<tr><td>DROP 1 (beat 358)</td><td>Kick 0.88 · Sub 0.77 · Hook 0.76 · Hoover 0.75 · Hats 0.74 · Impact 0.81</td><td>✅ todo</td></tr>
+<tr><td>DROP 2 (beat 502)</td><td>+ Galope 1/8T 0.69 · Ride 0.43</td><td>✅ el tresillo entra</td></tr>
+</tbody>
+</table>
+<p class="sub">Los valores son la escala 0–1 del medidor de Live (1.0 = tope). El master llegó a 0.91 en el drop.</p>
+
+<h2 id="glosario"><span class="n">09</span> Glosario mínimo (para devs)</h2>
+<div class="grid3">
+  <div class="term"><b>BPM</b><span>Latidos por minuto. 138 BPM = 2.3 golpes por segundo.</span></div>
+  <div class="term"><b>Compás / bar</b><span>4 beats. Es la unidad con la que se habla de "secciones".</span></div>
+  <div class="term"><b>Beat</b><span>Un pulso. El "1" de cada compás es el más fuerte.</span></div>
+  <div class="term"><b>Track / pista</b><span>Una caja con volumen, efectos y clips. El tema es la suma.</span></div>
+  <div class="term"><b>Clip</b><span>Un fragmento (de audio o de partitura) Located en un rango de beats.</span></div>
+  <div class="term"><b>MIDI clip</b><span>Un clip con notas (píxeles), no audio. Se toca con un sintetizador.</span></div>
+  <div class="term"><b>Sintetizador</b><span>Plugin que convierte notas en sonido. Operator, Wavetable, Drift.</span></div>
+  <div class="term"><b>EQ / high-pass</b><span>Filtro que saca frecuencias. El high-pass saca lo grave.</span></div>
+  <div class="term"><b>Cutoff</b><span>El "tope" del filtro. Abrirlo = más brillo.</span></div>
+  <div class="term"><b>Reverb / Delay</b><span>Eco (reverb) y repetición (delay) en buses compartidos.</span></div>
+  <div class="term"><b>Send / envío</b><span>Cuánto de cada bus (A, B) manda una pista. 0 = no manda.</span></div>
+  <div class="term"><b>Return / bus</b><span>Un canal auxiliar que suma muchas pistas (reverb, delay, master).</span></div>
+  <div class="term"><b>Compressor / Limiter</b><span>Compresor pega las capas; limiter pone el techo final.</span></div>
+  <div class="term"><b>Escala frigia</b><span>Notas con un semitono de tensión (G-Ab-Bb-C-D-Eb-F).</span></div>
+  <div class="term"><b>Hook</b><span>El motif melódico corto y repetido. La "firma" del tema.</span></div>
+  <div class="term"><b>Breakdown</b><span>Sección sin bombo: baja la energía y genera tensión.</span></div>
+  <div class="term"><b>Drop</b><span>La sección de máxima energía después del breakdown.</span></div>
+  <div class="term"><b>Sidechain</b><span>Que el bombo "pliegue" al bajo: técnicamente es ducking.</span></div>
+  <div class="term"><b>Peak-hold</b><span>El medidor guarda el máximo; hay que dejarlo caer antes de medir.</span></div>
+</div>
+
+<h2 id="repro"><span class="n">10</span> Cómo lo reproduzco / lo toco</h2>
+<pre><span class="c"># 1. reconstruir el tema desde cero (tarda ~40 s, escribe en el Ableton vivo)</span>
+cd /Users/juancruz/ableton-live12-mcp
+PYTHONPATH=src:masterclasses/scripts python3 masterclasses/scripts/build_gravity_like.py
+
+<span class="c"># 2. renombrar/colorear la grilla + exportar el mapa HTML</span>
+PYTHONPATH=src:masterclasses/scripts python3 masterclasses/scripts/organize_gravity_grid.py
+
+<span class="c"># 3. reparar buses y envíos (si se re-ejecutó el builder)</span>
+PYTHONPATH=src python3 masterclasses/scripts/repair_bus_chains.py
+
+<span class="c"># 4. inspeccionar el set vivo / medir niveles por sección</span>
+PYTHONPATH=src python3 scripts/inspect_live_set.py
+PYTHONPATH=src python3 scripts/measure_track_levels.py --start-beat 358 --seconds 4</pre>
+<table>
+<thead><tr><th>Artefacto</th><th>Ruta</th></tr></thead>
+<tbody>
+<tr><td>Set de Ableton (el tema)</td><td><code>masterclasses/peak/space92_gravity Project/space92_gravity.als</code></td></tr>
+<tr><td>Mapa visual del arreglo (HTML)</td><td><code>masterclasses/peak/space92_gravity_arrangement_map.html</code></td></tr>
+<tr><td>Este documento</td><td><code>masterclasses/peak/space92_gravity_explicacion.html</code></td></tr>
+<tr><td>Teoría de la fórmula (markdown, para devs)</td><td><code>masterclasses/SPACE92_PSYTECH_TTG_BLUEPRINT.md</code></td></tr>
+<tr><td>Skill reutilizable por cualquier agente</td><td><code>skills/ableton-techno-producer/</code></td></tr>
+<tr><td>Tests del MCP (387 en verde)</td><td><code>ABLETON_TEST_MODE=mock python3 -m pytest tests/ -q</code></td></tr>
+</tbody>
+</table>
+<div class="callout warn">
+  <b>Ojo con esto (ya me pasó):</b> el suite de tests <b>detecta solo</b> si hay un Ableton abierto y, si lo
+  hay, <b>ejecuta contra el set real</b> (le cambia el tempo, la escala y deja pistas basura).
+  Correrlo siempre con <code>ABLETON_TEST_MODE=mock</code>. Está documentado en
+  <code>docs/TROUBLESHOOTING.md</code>.
+</div>
+
+<footer>
+  Generado el 24/10/2026 · repo <code>ableton-live12-mcp</code> v1.1.0 · Ableton Live 12.4.6 Suite ·
+  todos los números de esta página salen del set real, no de Copilot.<br/>
+  <a href="space92_gravity_arrangement_map.html">→ Abrir el mapa interactivo del arreglo</a>
+</footer>
+
+</div>
+</body>
+</html>
