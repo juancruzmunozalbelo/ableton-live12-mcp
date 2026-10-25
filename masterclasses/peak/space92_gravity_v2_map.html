@@ -1,0 +1,4520 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ableton Live 12 — Mapa Visual de Grilla & Mezcla (Joris Voorn Acid Flow × Space 92)</title>
+  <style>
+    :root {
+      --void-bg: #050709;
+      --panel-bg: #0c1015;
+      --row-bg: #11161d;
+      --row-alt: #0e1319;
+      --border-dim: rgba(255, 255, 255, 0.08);
+      --border-bright: rgba(255, 255, 255, 0.18);
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+      --accent-cyan: #00f0ff;
+      --accent-acid: #d4ff00;
+      --accent-red: #ff3b30;
+      --accent-magenta: #ff2d78;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+    }
+
+    ::selection {
+      background: var(--accent-cyan);
+      color: var(--void-bg);
+    }
+
+    body {
+      background: var(--void-bg);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+      font-variant-numeric: tabular-nums;
+      line-height: 1.45;
+      padding: 24px 28px 64px;
+    }
+
+    /* Header & Specs Bar */
+    .top-bar {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 16px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border-dim);
+      margin-bottom: 20px;
+    }
+
+    .title-block h1 {
+      font-size: clamp(1.5rem, 2.6vw, 2.25rem);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      text-wrap: balance;
+      color: #ffffff;
+    }
+
+    .title-block p {
+      color: var(--text-muted);
+      font-size: 0.94rem;
+      margin-top: 4px;
+    }
+
+    .telemetry-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .pill {
+      background: var(--panel-bg);
+      border: 1px solid var(--border-bright);
+      padding: 6px 12px;
+      border-radius: 2px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .pill span {
+      color: var(--accent-acid);
+      margin-left: 6px;
+    }
+
+    /* Legend & Stem Families */
+    .stem-legend {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 10px;
+      margin-bottom: 22px;
+    }
+
+    .legend-card {
+      background: var(--panel-bg);
+      border: 1px solid var(--border-dim);
+      border-left: 4px solid var(--stem-color, #00f0ff);
+      padding: 10px 14px;
+      border-radius: 2px;
+    }
+
+    .legend-card h3 {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--stem-color);
+      margin-bottom: 3px;
+    }
+
+    .legend-card p {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    /* Arrangement Timeline Container */
+    .arranger-shell {
+      background: var(--panel-bg);
+      border: 1px solid var(--border-bright);
+      border-radius: 2px;
+      overflow-x: auto;
+      margin-bottom: 24px;
+    }
+
+    .arranger-minwidth {
+      min-width: 1180px;
+    }
+
+    /* Section Locators Header */
+    .locator-row {
+      display: grid;
+      grid-template-columns: 310px 1fr;
+      background: #080b0f;
+      border-bottom: 1px solid var(--border-bright);
+    }
+
+    .locator-label-col {
+      padding: 10px 14px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      border-right: 1px solid var(--border-bright);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .locator-timeline {
+      position: relative;
+      height: 52px;
+      background: repeating-linear-gradient(
+        to right,
+        rgba(255, 255, 255, 0.04) 0,
+        rgba(255, 255, 255, 0.04) 1px,
+        transparent 1px,
+        transparent 6.25%
+      );
+    }
+
+    .section-banner {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      border-left: 2px solid var(--sec-color, #00f0ff);
+      padding: 6px 8px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.05) 0%, transparent 100%);
+      overflow: hidden;
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+
+    .section-banner:hover {
+      background: rgba(255, 255, 255, 0.09);
+    }
+
+    .section-banner .sec-title {
+      font-size: 0.72rem;
+      font-weight: 800;
+      color: var(--sec-color, #fff);
+      white-space: nowrap;
+      letter-spacing: 0.03em;
+    }
+
+    .section-banner .sec-sub {
+      font-size: 0.67rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+      margin-top: 2px;
+    }
+
+    /* Track Rows */
+    .track-row {
+      display: grid;
+      grid-template-columns: 310px 1fr;
+      border-bottom: 1px solid var(--border-dim);
+      background: var(--row-bg);
+      transition: background 0.12s ease;
+    }
+
+    .track-row:nth-child(even) {
+      background: var(--row-alt);
+    }
+
+    .track-row:hover {
+      background: #171f2a;
+    }
+
+    .track-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      border-right: 1px solid var(--border-bright);
+      border-left: 5px solid var(--track-color, #00f0ff);
+      cursor: pointer;
+      gap: 8px;
+    }
+
+    .track-name {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: #f8fafc;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .track-meta {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .badge-eq {
+      font-size: 0.66rem;
+      padding: 2px 5px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #cbd5e1;
+      border-radius: 2px;
+    }
+
+    .badge-db {
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: var(--accent-acid);
+      min-width: 48px;
+      text-align: right;
+    }
+
+    .track-lane {
+      position: relative;
+      height: 38px;
+      background: repeating-linear-gradient(
+        to right,
+        rgba(255, 255, 255, 0.045) 0,
+        rgba(255, 255, 255, 0.045) 1px,
+        transparent 1px,
+        transparent 6.25%
+      );
+    }
+
+    /* Vertical Section Guide Lines on Lanes */
+    .lane-guide {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 1px;
+      background: rgba(255, 255, 255, 0.14);
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .lane-guide.silence-zone {
+      background: rgba(255, 59, 48, 0.18);
+      border-left: 1px dashed #ff3b30;
+      border-right: 1px dashed #ff3b30;
+    }
+
+    /* Clips inside Arrangement Lane */
+    .arr-clip {
+      position: absolute;
+      top: 4px;
+      bottom: 4px;
+      background: var(--clip-bg, #00c8ff);
+      border: 1px solid rgba(255, 255, 255, 0.38);
+      border-top: 3px solid rgba(255, 255, 255, 0.75);
+      border-radius: 2px;
+      padding: 2px 5px;
+      overflow: hidden;
+      cursor: pointer;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      transition: transform 0.1s ease, filter 0.1s ease;
+    }
+
+    .arr-clip:hover {
+      filter: brightness(1.22);
+      transform: translateY(-1px);
+      z-index: 5;
+    }
+
+    .arr-clip span {
+      font-size: 0.66rem;
+      font-weight: 800;
+      color: #050709;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      overflow: hidden;
+      letter-spacing: -0.01em;
+    }
+
+    /* Inspector Drawer & Energy Curve Section */
+    .bottom-grid {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 20px;
+    }
+
+    @media (max-width: 980px) {
+      .bottom-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .inspector-box {
+      background: var(--panel-bg);
+      border: 1px solid var(--border-bright);
+      padding: 18px 20px;
+      border-radius: 2px;
+    }
+
+    .inspector-box h2 {
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--accent-cyan);
+      margin-bottom: 10px;
+    }
+
+    .inspector-title {
+      font-size: 1.15rem;
+      font-weight: 800;
+      margin-bottom: 8px;
+      color: #fff;
+    }
+
+    .inspector-detail {
+      font-size: 0.9rem;
+      color: #cbd5e1;
+      margin-bottom: 12px;
+    }
+
+    .inspector-specs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .spec-chip {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-dim);
+      padding: 6px 10px;
+      font-size: 0.78rem;
+      border-radius: 2px;
+    }
+
+    .spec-chip strong {
+      color: var(--accent-acid);
+    }
+
+    .section-steps {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .step-item {
+      padding: 8px 12px;
+      background: rgba(255, 255, 255, 0.03);
+      border-left: 3px solid var(--step-color, #00f0ff);
+      font-size: 0.82rem;
+    }
+
+    .step-item strong {
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+
+  <header class="top-bar">
+    <div class="title-block">
+      <h1> ESQUEMA DE GRILLA ABLETON LIVE 12 — JORIS VOORN "ACID FLOW (TTG)" × SPACE 92</h1>
+      <p>Sincronizado en vivo por MCP con tu proyecto de Ableton Live 12 Suite. Hacé clic en cualquier pista o clip para inspeccionar su función, corte de EQ y automatización.</p>
+    </div>
+    <div class="telemetry-pills">
+      <div class="pill">BPM<span>138.0</span></div>
+      <div class="pill">ESCALA<span>G PHRYGIAN (Sol Frigio)</span></div>
+      <div class="pill">ESTRUCTURA<span>64 COMPASES (256 BEATS)</span></div>
+      <div class="pill">PRE-DROP SILENCE<span>COMPÁS 48 (BEATS 188–192)</span></div>
+    </div>
+  </header>
+
+  <section class="stem-legend">
+    <div class="legend-card" style="--stem-color: #FF3B30;">
+      <h3>1. ROJO — CHASIS SUB & LOW-END</h3>
+      <p>Pistas 01 a 03: Kick en Sol (49 Hz), Bajo Psy K-B-B-B en G1 y Rumble Techno filtrado en 125–360 Hz.</p>
+    </div>
+    <div class="legend-card" style="--stem-color: #FF7A00;">
+      <h3>2. NARANJA / ÁMBAR — MOTOR DUAL TB-303</h3>
+      <p>Pistas 04 y 05: 303 Principal (1/16) cambiando de color según abre el filtro + 303 Polirrítmica en 5/16.</p>
+    </div>
+    <div class="legend-card" style="--stem-color: #FF2D78;">
+      <h3>3. MAGENTA / PÚRPURA — HOOVER & REESE</h3>
+      <p>Pistas 06 y 07: Supersaw Hoover estilo Space 92 + Drone Reese en G1 que sostiene el Breakdown sin Kick.</p>
+    </div>
+    <div class="legend-card" style="--stem-color: #00C8FF;">
+      <h3>4. CIAN / AZUL — BATERÍAS TR-909</h3>
+      <p>Pistas 08 a 11: Closed Hat 1/16, 909 Open Hat en '&', 909 Acid Ride de clímax y Clap / Groove Storm.</p>
+    </div>
+    <div class="legend-card" style="--stem-color: #10B981;">
+      <h3>5. ESMERALDA / CORAL — VOCAL PAD & FX</h3>
+      <p>Pistas 12 a 14: Riser + Snare Roll (corta en 188), Pad Vocal afinado en G3 y Sub Impact en los cambios.</p>
+    </div>
+  </section>
+
+  <main class="arranger-shell">
+    <div class="arranger-minwidth">
+      <!-- Locators Row -->
+      <div class="locator-row">
+        <div class="locator-label-col">
+          <span>PISTA / CATEGORÍA</span>
+          <span>EQ / FADER</span>
+        </div>
+        <div class="locator-timeline">
+          <div class="section-banner" style="left: 0%; width: 25%; --sec-color: #FF3B30;" onclick="inspectSection(0)">
+            <div class="sec-title">1-INTRO DJ GROOVE (Comp. 1–16)</div>
+            <div class="sec-sub">Beats 0–64 • Kick + K-B-B-B + 303 Cerrada</div>
+          </div>
+          <div class="section-banner" style="left: 25%; width: 25%; --sec-color: #00C8FF;" onclick="inspectSection(1)">
+            <div class="sec-title">2-TTG 909 HAT & DUAL 303 (Comp. 17–32)</div>
+            <div class="sec-sub">Beats 64–128 • Entra 909 OH + 303 5/16 + Ride (c.25)</div>
+          </div>
+          <div class="section-banner" style="left: 50%; width: 23.4375%; --sec-color: #FF7A00;" onclick="inspectSection(2)">
+            <div class="sec-title">3-BREAKDOWN MELTDOWN (Comp. 33–47)</div>
+            <div class="sec-sub">Beats 128–188 • Sale Kick • Entra Reese G1 + 303 Scream</div>
+          </div>
+          <div class="section-banner" style="left: 73.4375%; width: 1.5625%; --sec-color: #FFFFFF; background: rgba(255,59,48,0.28);" onclick="inspectSection(3)" title="Compás 48 (Beats 188-192): Silencio total Pre-Drop">
+            <div class="sec-title">4</div>
+          </div>
+          <div class="section-banner" style="left: 75%; width: 12.5%; --sec-color: #D4FF00;" onclick="inspectSection(4)">
+            <div class="sec-title">5-PEAK DROP 1 (Comp. 49–56)</div>
+            <div class="sec-sub">Beats 192–224 • Todo al 100% + Hoover</div>
+          </div>
+          <div class="section-banner" style="left: 87.5%; width: 12.5%; --sec-color: #00F0D0;" onclick="inspectSection(5)">
+            <div class="sec-title">6-DROP 2 CLIMAX (Comp. 57–64)</div>
+            <div class="sec-sub">Beats 224–256 • + 909 Acid Ride</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dynamic Track Rows -->
+      <div id="tracks-container"></div>
+    </div>
+  </main>
+
+  <section class="bottom-grid">
+    <div class="inspector-box" id="inspector-panel">
+      <h2>INSPECTOR DE ELEMENTO (HACÉ CLIC EN UNA PISTA O CLIP ARRIBA)</h2>
+      <div class="inspector-title" id="insp-title">04 [ACID] TB-303 MAIN LEAD (1/16 G Phrygian)</div>
+      <div class="inspector-detail" id="insp-desc">
+        Línea ácida principal estilo Joris Voorn (Acid Flow). Fijate cómo en la grilla los clips de esta pista cambian de color a medida que avanza el tema: empieza en Naranja Oscuro (Filtro cerrado al 25% en la Intro), pasa a Ámbar en el compás 17, sube a Naranja Vivo en el Breakdown, se pone Rojo Fuego en el clímax (compases 45–47 con resonancia al 95%) y estalla en Verde Lima Neón en el Drop (compás 49).
+      </div>
+      <div class="inspector-specs" id="insp-specs">
+        <div class="spec-chip"><strong>Grupo:</strong> DUAL TB-303 ACID ENGINE</div>
+        <div class="spec-chip"><strong>EQ Quirúrgico:</strong> HPF 135 Hz + Cytomic OSR Reso</div>
+        <div class="spec-chip"><strong>Nivel Fader:</strong> -2.5 dB</div>
+        <div class="spec-chip"><strong>Escala:</strong> G Phrygian (G - Ab - Bb - D - Eb)</div>
+      </div>
+    </div>
+
+    <div class="inspector-box">
+      <h2>LA REGLA DE LOS 8/16 COMPASES (CÓMO LEER EL ARREGLO)</h2>
+      <div class="section-steps">
+        <div class="step-item" style="--step-color: #FF3B30;">
+          <strong>Compases 1–16 (Beats 0–64):</strong> Base limpia para mezclar con bandeja. Kick en G1 + Sub K-B-B-B + 303 bien cerrada murmurando abajo.
+        </div>
+        <div class="step-item" style="--step-color: #00C8FF;">
+          <strong>Compases 17–32 (Beats 64–128):</strong> Entra el 909 Open Hat suave en '&' y la segunda 303 en 5/16. En el compás 25 (beat 96) se suma el 909 Ride.
+        </div>
+        <div class="step-item" style="--step-color: #FF7A00;">
+          <strong>Compases 33–47 (Beats 128–188):</strong> Se apaga el Kick y entra el <em>Dark Reese Drone (pista 07)</em> para sostener el subgrave mientras las dos 303 abren el filtro al máximo y asoma el Hoover de Space 92.
+        </div>
+        <div class="step-item" style="--step-color: #D4FF00;">
+          <strong>Compás 48 (Beats 188–192) → Compás 49 (Beat 192):</strong> 4 tiempos de vacío total (<em>Pre-Drop Silence</em>) y explosión del Drop 1 con Kick + K-B-B-B + 303 al tope + Hoover. En el compás 57 entra el 909 Acid Ride para el remate final.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    const TRACKS = [
+  {
+    "index": 0,
+    "group": "LOW-END",
+    "name": "01 [LOW] KICK G1 49HZ (BOOM)",
+    "color": 14,
+    "hex": "#FF3B30",
+    "role": "El bombo: dueño exclusivo del transiente del '1'.",
+    "eq": "",
+    "fader_db": "",
+    "clip_label": "Kick G1 (49Hz)",
+    "clips": [
+      {
+        "clip_index": 0,
+        "name": "[INTRO c.1] Kick G1 (49Hz)",
+        "start_beat": 0.0,
+        "end_beat": 8.0,
+        "start_bar": 1,
+        "end_bar": 2,
+        "color_index": 14,
+        "hex": "#FF3B30"
+      },
+      {
+        "clip_index": 1,
+        "name": "[INTRO c.3] Kick G1 (49Hz)",
+        "start_beat": 8.0,
+        "end_beat": 16.0,
+        "start_bar": 3,
+        "end_bar": 4,
+        "color_index": 14,
+        "hex": "#FF3B30"
+      },
+      {
+        "clip_index": 2,
+        "name": "[INTRO c.5] Kick G1 (49Hz)",
+        "start_beat": 16.0,
+        "end_beat": 24.0,
+        "start_bar": 5,
+        "end_bar": 6,
+        "color_index": 14,
+        "hex": "#FF3B30"
+      },
+      {
+        "clip_index": 3,
+        "name": "[INTRO c.7] Kick G1 (49Hz)",
+        "start_beat": 24.0,
+        "end_beat": 32.0,
+        "start_bar": 7,
+        "end_bar": 8,
+        "color_index": 14,
+        "hex": "#FF3B30"
+      },
+      {
+        "clip_index": 4,
+        "name": "[INTRO c.9] Kick G1 (49Hz)",
+        "start_beat": 32.0,
+        "end_beat": 40.0,
+        "start_bar": 9,
+        "end_bar": 10,
+        "color_index": 14,
+        "hex": "#FF3B30"
+      },
+      {
+        "clip_index": 5,
+        "name": "[INTRO c.11] Kick G1 (49Hz)",
+        "start_beat": 40.0,
+        "end_beat": 48.0,
+        "start_bar": 11,
+        "end_bar": 12,
+        "color_index": 14,
+        "hex": "#FF3B30"
+      },
+      {
+        "clip_index": 6,
+        "name": "[INTRO c.13] Kick G1 (49Hz)",
+        "start_beat": 48.0,
+        "end_beat": 56.0,
+        "start_bar": 13,
+        "end_bar": 14,
+        "color_index": 14,
+        "hex": "#FF3B30"
+      },
+      {
+        "clip_index": 7,
+        "name": "[INTRO c.15] Kick G1 (49Hz)",
+        "start_beat": 56.0,
+        "end_beat": 64.0,
+        "start_bar": 15,
+        "end_bar": 16,
+        "color_index": 14,
+        "hex": "#FF3B30"
+      },
+      {
+        "clip_index": 8,
+        "name": "[INTRO c.17] Kick G1 (49Hz)",
+        "start_beat": 64.0,
+        "end_beat": 72.0,
+        "start_bar": 17,
+        "end_bar": 18,
+        "color_index": 14,
+        "hex": "#FF3B30"
+      },
+      {
+        "clip_index": 9,
+        "name": "[INTRO c.19] Kick G1 (49Hz)",
+        "start_beat": 72.0,
+        "end_beat": 80.0,
+        "start_bar": 19,
+        "end_bar": 20,
+        "color_index": 14,
+        "hex": "#FF3B30"
+      },
+      {
+        "clip_index": 10,
+        "name": "[INTRO c.21] Kick G1 (49Hz)",
+        "start_beat": 80.0,
+        "end_beat": 88.0,
+        "start_bar": 21,
+        "end_bar": 22,
+        "color_index": 14,
+        "hex": "#FF3B30"
+      },
+      {
+        "clip_index": 11,
+        "name": "[INTRO c.23] Kick G1 (49Hz)",
+        "start_beat": 88.0,
+        "end_beat": 96.0,
+        "start_bar": 23,
+        "end_bar": 24,
+        "color_index": 14,
+        "hex": "#FF3B30"
+      },
+      {
+        "clip_index": 12,
+        "name": "[INTRO c.25] Kick G1 (49Hz)",
+        "start_beat": 96.0,
+        "end_beat": 104.0,
+        "start_bar": 25,
+        "end_bar": 26,
+        "color_index": 14,
+        "hex": "#FF3B30"
+      },
+      {
+        "clip_index": 13,
+        "name": "[INTRO c.27] Kick G1 (49Hz)",
+        "start_beat": 104.0,
+        "end_beat": 112.0,
+        "start_bar": 27,
+        "end_bar": 28,
+        "color_index": 14,
+        "hex": "#FF3B30"
+      },
+      {
+        "clip_index": 14,
+        "name": "[INTRO c.29] Kick G1 (49Hz)",
+        "start_beat": 112.0,
+        "end_beat": 120.0,
+        "start_bar": 29,
+        "end_bar": 30,
+        "color_index": 14,
+        "hex": "#FF3B30"
+      },
+      {
+        "clip_index": 15,
+        "name": "[INTRO c.31] Kick G1 (49Hz)",
+        "start_beat": 120.0,
+        "end_beat": 128.0,
+        "start_bar": 31,
+        "end_bar": 32,
+        "color_index": 14,
+        "hex": "#FF3B30"
+      },
+      {
+        "clip_index": 16,
+        "name": "[GROOVE c.33] Kick G1 (49Hz)",
+        "start_beat": 128.0,
+        "end_beat": 136.0,
+        "start_bar": 33,
+        "end_bar": 34,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 17,
+        "name": "[GROOVE c.35] Kick G1 (49Hz)",
+        "start_beat": 136.0,
+        "end_beat": 144.0,
+        "start_bar": 35,
+        "end_bar": 36,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 18,
+        "name": "[GROOVE c.37] Kick G1 (49Hz)",
+        "start_beat": 144.0,
+        "end_beat": 152.0,
+        "start_bar": 37,
+        "end_bar": 38,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 19,
+        "name": "[GROOVE c.39] Kick G1 (49Hz)",
+        "start_beat": 152.0,
+        "end_beat": 160.0,
+        "start_bar": 39,
+        "end_bar": 40,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 20,
+        "name": "[GROOVE c.41] Kick G1 (49Hz)",
+        "start_beat": 160.0,
+        "end_beat": 168.0,
+        "start_bar": 41,
+        "end_bar": 42,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 21,
+        "name": "[GROOVE c.43] Kick G1 (49Hz)",
+        "start_beat": 168.0,
+        "end_beat": 176.0,
+        "start_bar": 43,
+        "end_bar": 44,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 22,
+        "name": "[GROOVE c.45] Kick G1 (49Hz)",
+        "start_beat": 176.0,
+        "end_beat": 184.0,
+        "start_bar": 45,
+        "end_bar": 46,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 23,
+        "name": "[GROOVE c.47] Kick G1 (49Hz)",
+        "start_beat": 184.0,
+        "end_beat": 192.0,
+        "start_bar": 47,
+        "end_bar": 48,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 24,
+        "name": "[GROOVE c.49] Kick G1 (49Hz)",
+        "start_beat": 192.0,
+        "end_beat": 200.0,
+        "start_bar": 49,
+        "end_bar": 50,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 25,
+        "name": "[GROOVE c.51] Kick G1 (49Hz)",
+        "start_beat": 200.0,
+        "end_beat": 208.0,
+        "start_bar": 51,
+        "end_bar": 52,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 26,
+        "name": "[GROOVE c.53] Kick G1 (49Hz)",
+        "start_beat": 208.0,
+        "end_beat": 216.0,
+        "start_bar": 53,
+        "end_bar": 54,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 27,
+        "name": "[GROOVE c.55] Kick G1 (49Hz)",
+        "start_beat": 216.0,
+        "end_beat": 224.0,
+        "start_bar": 55,
+        "end_bar": 56,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 28,
+        "name": "[GROOVE c.57] Kick G1 (49Hz)",
+        "start_beat": 224.0,
+        "end_beat": 232.0,
+        "start_bar": 57,
+        "end_bar": 58,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 29,
+        "name": "[GROOVE c.59] Kick G1 (49Hz)",
+        "start_beat": 232.0,
+        "end_beat": 240.0,
+        "start_bar": 59,
+        "end_bar": 60,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 30,
+        "name": "[GROOVE c.61] Kick G1 (49Hz)",
+        "start_beat": 240.0,
+        "end_beat": 248.0,
+        "start_bar": 61,
+        "end_bar": 62,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 31,
+        "name": "[GROOVE c.63] Kick G1 (49Hz)",
+        "start_beat": 248.0,
+        "end_beat": 256.0,
+        "start_bar": 63,
+        "end_bar": 64,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 32,
+        "name": "[BUILD c.93] Kick G1 (49Hz)",
+        "start_beat": 368.0,
+        "end_beat": 376.0,
+        "start_bar": 93,
+        "end_bar": 94,
+        "color_index": 55,
+        "hex": "#84CC16"
+      },
+      {
+        "clip_index": 33,
+        "name": "[BUILD c.95] Kick G1 (49Hz)",
+        "start_beat": 376.0,
+        "end_beat": 384.0,
+        "start_bar": 95,
+        "end_bar": 96,
+        "color_index": 55,
+        "hex": "#84CC16"
+      },
+      {
+        "clip_index": 34,
+        "name": "[BUILD c.97] Kick G1 (49Hz)",
+        "start_beat": 384.0,
+        "end_beat": 392.0,
+        "start_bar": 97,
+        "end_bar": 98,
+        "color_index": 55,
+        "hex": "#84CC16"
+      },
+      {
+        "clip_index": 35,
+        "name": "[BUILD c.99] Kick G1 (49Hz)",
+        "start_beat": 392.0,
+        "end_beat": 400.0,
+        "start_bar": 99,
+        "end_bar": 100,
+        "color_index": 55,
+        "hex": "#84CC16"
+      },
+      {
+        "clip_index": 36,
+        "name": "[DROP 1 c.102] Kick G1 (49Hz)",
+        "start_beat": 404.0,
+        "end_beat": 412.0,
+        "start_bar": 102,
+        "end_bar": 103,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 37,
+        "name": "[DROP 1 c.104] Kick G1 (49Hz)",
+        "start_beat": 412.0,
+        "end_beat": 420.0,
+        "start_bar": 104,
+        "end_bar": 105,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 38,
+        "name": "[DROP 1 c.106] Kick G1 (49Hz)",
+        "start_beat": 420.0,
+        "end_beat": 428.0,
+        "start_bar": 106,
+        "end_bar": 107,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 39,
+        "name": "[DROP 1 c.108] Kick G1 (49Hz)",
+        "start_beat": 428.0,
+        "end_beat": 436.0,
+        "start_bar": 108,
+        "end_bar": 109,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 40,
+        "name": "[DROP 1 c.110] Kick G1 (49Hz)",
+        "start_beat": 436.0,
+        "end_beat": 444.0,
+        "start_bar": 110,
+        "end_bar": 111,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 41,
+        "name": "[DROP 1 c.112] Kick G1 (49Hz)",
+        "start_beat": 444.0,
+        "end_beat": 452.0,
+        "start_bar": 112,
+        "end_bar": 113,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 42,
+        "name": "[DROP 1 c.114] Kick G1 (49Hz)",
+        "start_beat": 452.0,
+        "end_beat": 460.0,
+        "start_bar": 114,
+        "end_bar": 115,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 43,
+        "name": "[DROP 1 c.116] Kick G1 (49Hz)",
+        "start_beat": 460.0,
+        "end_beat": 468.0,
+        "start_bar": 116,
+        "end_bar": 117,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 44,
+        "name": "[DROP 1 c.118] Kick G1 (49Hz)",
+        "start_beat": 468.0,
+        "end_beat": 476.0,
+        "start_bar": 118,
+        "end_bar": 119,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 45,
+        "name": "[DROP 1 c.120] Kick G1 (49Hz)",
+        "start_beat": 476.0,
+        "end_beat": 484.0,
+        "start_bar": 120,
+        "end_bar": 121,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 46,
+        "name": "[DROP 1 c.122] Kick G1 (49Hz)",
+        "start_beat": 484.0,
+        "end_beat": 492.0,
+        "start_bar": 122,
+        "end_bar": 123,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 47,
+        "name": "[DROP 1 c.124] Kick G1 (49Hz)",
+        "start_beat": 492.0,
+        "end_beat": 500.0,
+        "start_bar": 124,
+        "end_bar": 125,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 48,
+        "name": "[DROP 1 c.126] Kick G1 (49Hz)",
+        "start_beat": 500.0,
+        "end_beat": 508.0,
+        "start_bar": 126,
+        "end_bar": 127,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 49,
+        "name": "[DROP 1 c.128] Kick G1 (49Hz)",
+        "start_beat": 508.0,
+        "end_beat": 516.0,
+        "start_bar": 128,
+        "end_bar": 129,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 50,
+        "name": "[DROP 1 c.130] Kick G1 (49Hz)",
+        "start_beat": 516.0,
+        "end_beat": 524.0,
+        "start_bar": 130,
+        "end_bar": 131,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 51,
+        "name": "[DROP 1 c.132] Kick G1 (49Hz)",
+        "start_beat": 524.0,
+        "end_beat": 532.0,
+        "start_bar": 132,
+        "end_bar": 133,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 52,
+        "name": "[MINI BREAK c.134] Kick G1 (49Hz)",
+        "start_beat": 532.0,
+        "end_beat": 540.0,
+        "start_bar": 134,
+        "end_bar": 135,
+        "color_index": 58,
+        "hex": "#10B981"
+      },
+      {
+        "clip_index": 53,
+        "name": "[MINI BREAK c.136] Kick G1 (49Hz)",
+        "start_beat": 540.0,
+        "end_beat": 548.0,
+        "start_bar": 136,
+        "end_bar": 137,
+        "color_index": 58,
+        "hex": "#10B981"
+      },
+      {
+        "clip_index": 54,
+        "name": "[DROP 2 c.138] Kick G1 (49Hz)",
+        "start_beat": 548.0,
+        "end_beat": 556.0,
+        "start_bar": 138,
+        "end_bar": 139,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 55,
+        "name": "[DROP 2 c.140] Kick G1 (49Hz)",
+        "start_beat": 556.0,
+        "end_beat": 564.0,
+        "start_bar": 140,
+        "end_bar": 141,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 56,
+        "name": "[DROP 2 c.142] Kick G1 (49Hz)",
+        "start_beat": 564.0,
+        "end_beat": 572.0,
+        "start_bar": 142,
+        "end_bar": 143,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 57,
+        "name": "[DROP 2 c.144] Kick G1 (49Hz)",
+        "start_beat": 572.0,
+        "end_beat": 580.0,
+        "start_bar": 144,
+        "end_bar": 145,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 58,
+        "name": "[DROP 2 c.146] Kick G1 (49Hz)",
+        "start_beat": 580.0,
+        "end_beat": 588.0,
+        "start_bar": 146,
+        "end_bar": 147,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 59,
+        "name": "[DROP 2 c.148] Kick G1 (49Hz)",
+        "start_beat": 588.0,
+        "end_beat": 596.0,
+        "start_bar": 148,
+        "end_bar": 149,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 60,
+        "name": "[DROP 2 c.150] Kick G1 (49Hz)",
+        "start_beat": 596.0,
+        "end_beat": 604.0,
+        "start_bar": 150,
+        "end_bar": 151,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 61,
+        "name": "[DROP 2 c.152] Kick G1 (49Hz)",
+        "start_beat": 604.0,
+        "end_beat": 612.0,
+        "start_bar": 152,
+        "end_bar": 153,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 62,
+        "name": "[DROP 2 c.154] Kick G1 (49Hz)",
+        "start_beat": 612.0,
+        "end_beat": 620.0,
+        "start_bar": 154,
+        "end_bar": 155,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 63,
+        "name": "[DROP 2 c.156] Kick G1 (49Hz)",
+        "start_beat": 620.0,
+        "end_beat": 628.0,
+        "start_bar": 156,
+        "end_bar": 157,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 64,
+        "name": "[DROP 2 c.158] Kick G1 (49Hz)",
+        "start_beat": 628.0,
+        "end_beat": 636.0,
+        "start_bar": 158,
+        "end_bar": 159,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 65,
+        "name": "[DROP 2 c.160] Kick G1 (49Hz)",
+        "start_beat": 636.0,
+        "end_beat": 644.0,
+        "start_bar": 160,
+        "end_bar": 161,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 66,
+        "name": "[OUTRO c.162] Kick G1 (49Hz)",
+        "start_beat": 644.0,
+        "end_beat": 652.0,
+        "start_bar": 162,
+        "end_bar": 163,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      },
+      {
+        "clip_index": 67,
+        "name": "[OUTRO c.164] Kick G1 (49Hz)",
+        "start_beat": 652.0,
+        "end_beat": 660.0,
+        "start_bar": 164,
+        "end_bar": 165,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      },
+      {
+        "clip_index": 68,
+        "name": "[OUTRO c.166] Kick G1 (49Hz)",
+        "start_beat": 660.0,
+        "end_beat": 668.0,
+        "start_bar": 166,
+        "end_bar": 167,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      },
+      {
+        "clip_index": 69,
+        "name": "[OUTRO c.168] Kick G1 (49Hz)",
+        "start_beat": 668.0,
+        "end_beat": 676.0,
+        "start_bar": 168,
+        "end_bar": 169,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      },
+      {
+        "clip_index": 70,
+        "name": "[OUTRO c.170] Kick G1 (49Hz)",
+        "start_beat": 676.0,
+        "end_beat": 684.0,
+        "start_bar": 170,
+        "end_bar": 171,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      },
+      {
+        "clip_index": 71,
+        "name": "[OUTRO c.172] Kick G1 (49Hz)",
+        "start_beat": 684.0,
+        "end_beat": 692.0,
+        "start_bar": 172,
+        "end_bar": 173,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      },
+      {
+        "clip_index": 72,
+        "name": "[OUTRO c.174] Kick G1 (49Hz)",
+        "start_beat": 692.0,
+        "end_beat": 700.0,
+        "start_bar": 174,
+        "end_bar": 175,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      },
+      {
+        "clip_index": 73,
+        "name": "[OUTRO c.176] Kick G1 (49Hz)",
+        "start_beat": 700.0,
+        "end_beat": 708.0,
+        "start_bar": 176,
+        "end_bar": 177,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      },
+      {
+        "clip_index": 74,
+        "name": "[OUTRO c.178] Kick G1 (49Hz)",
+        "start_beat": 708.0,
+        "end_beat": 716.0,
+        "start_bar": 178,
+        "end_bar": 179,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      },
+      {
+        "clip_index": 75,
+        "name": "[OUTRO c.180] Kick G1 (49Hz)",
+        "start_beat": 716.0,
+        "end_beat": 724.0,
+        "start_bar": 180,
+        "end_bar": 181,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      },
+      {
+        "clip_index": 76,
+        "name": "[OUTRO c.182] Kick G1 (49Hz)",
+        "start_beat": 724.0,
+        "end_beat": 732.0,
+        "start_bar": 182,
+        "end_bar": 183,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      },
+      {
+        "clip_index": 77,
+        "name": "[OUTRO c.184] Kick G1 (49Hz)",
+        "start_beat": 732.0,
+        "end_beat": 740.0,
+        "start_bar": 184,
+        "end_bar": 185,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      },
+      {
+        "clip_index": 78,
+        "name": "[OUTRO c.186] Kick G1 (49Hz)",
+        "start_beat": 740.0,
+        "end_beat": 748.0,
+        "start_bar": 186,
+        "end_bar": 187,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      },
+      {
+        "clip_index": 79,
+        "name": "[OUTRO c.188] Kick G1 (49Hz)",
+        "start_beat": 748.0,
+        "end_beat": 756.0,
+        "start_bar": 188,
+        "end_bar": 189,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      },
+      {
+        "clip_index": 80,
+        "name": "[OUTRO c.190] Kick G1 (49Hz)",
+        "start_beat": 756.0,
+        "end_beat": 764.0,
+        "start_bar": 190,
+        "end_bar": 191,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      },
+      {
+        "clip_index": 81,
+        "name": "[OUTRO c.192] Kick G1 (49Hz)",
+        "start_beat": 764.0,
+        "end_beat": 772.0,
+        "start_bar": 192,
+        "end_bar": 193,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      },
+      {
+        "clip_index": 82,
+        "name": "[OUTRO c.194] Kick G1 (49Hz)",
+        "start_beat": 772.0,
+        "end_beat": 780.0,
+        "start_bar": 194,
+        "end_bar": 195,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      },
+      {
+        "clip_index": 83,
+        "name": "[OUTRO c.196] Kick G1 (49Hz)",
+        "start_beat": 780.0,
+        "end_beat": 788.0,
+        "start_bar": 196,
+        "end_bar": 197,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      },
+      {
+        "clip_index": 84,
+        "name": "[OUTRO c.198] Kick G1 (49Hz)",
+        "start_beat": 788.0,
+        "end_beat": 796.0,
+        "start_bar": 198,
+        "end_bar": 199,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      },
+      {
+        "clip_index": 85,
+        "name": "[OUTRO c.200] Kick G1 (49Hz)",
+        "start_beat": 796.0,
+        "end_beat": 804.0,
+        "start_bar": 200,
+        "end_bar": 201,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      },
+      {
+        "clip_index": 86,
+        "name": "[OUTRO c.202] Kick G1 (49Hz)",
+        "start_beat": 804.0,
+        "end_beat": 812.0,
+        "start_bar": 202,
+        "end_bar": 203,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      }
+    ]
+  },
+  {
+    "index": 1,
+    "group": "LOW-END",
+    "name": "02 [LOW] PSY ROLLING SUB (K-B-B-B G1)",
+    "color": 15,
+    "hex": "#D92B2B",
+    "role": "El galope: 3 semicorcheas por negra, nunca en el '1'.",
+    "eq": "",
+    "fader_db": "",
+    "clip_label": "K-B-B-B Rolling Sub",
+    "clips": [
+      {
+        "clip_index": 0,
+        "name": "[INTRO c.1] K-B-B-B Rolling Sub",
+        "start_beat": 0.0,
+        "end_beat": 16.0,
+        "start_bar": 1,
+        "end_bar": 4,
+        "color_index": 14,
+        "hex": "#FF3B30"
+      },
+      {
+        "clip_index": 1,
+        "name": "[INTRO c.5] K-B-B-B Rolling Sub",
+        "start_beat": 16.0,
+        "end_beat": 32.0,
+        "start_bar": 5,
+        "end_bar": 8,
+        "color_index": 14,
+        "hex": "#FF3B30"
+      },
+      {
+        "clip_index": 2,
+        "name": "[INTRO c.9] K-B-B-B Rolling Sub",
+        "start_beat": 32.0,
+        "end_beat": 48.0,
+        "start_bar": 9,
+        "end_bar": 12,
+        "color_index": 14,
+        "hex": "#FF3B30"
+      },
+      {
+        "clip_index": 3,
+        "name": "[INTRO c.13] K-B-B-B Rolling Sub",
+        "start_beat": 48.0,
+        "end_beat": 64.0,
+        "start_bar": 13,
+        "end_bar": 16,
+        "color_index": 14,
+        "hex": "#FF3B30"
+      },
+      {
+        "clip_index": 4,
+        "name": "[INTRO c.17] K-B-B-B Rolling Sub",
+        "start_beat": 64.0,
+        "end_beat": 80.0,
+        "start_bar": 17,
+        "end_bar": 20,
+        "color_index": 14,
+        "hex": "#FF3B30"
+      },
+      {
+        "clip_index": 5,
+        "name": "[INTRO c.21] K-B-B-B Rolling Sub",
+        "start_beat": 80.0,
+        "end_beat": 96.0,
+        "start_bar": 21,
+        "end_bar": 24,
+        "color_index": 14,
+        "hex": "#FF3B30"
+      },
+      {
+        "clip_index": 6,
+        "name": "[INTRO c.25] K-B-B-B Rolling Sub",
+        "start_beat": 96.0,
+        "end_beat": 112.0,
+        "start_bar": 25,
+        "end_bar": 28,
+        "color_index": 14,
+        "hex": "#FF3B30"
+      },
+      {
+        "clip_index": 7,
+        "name": "[INTRO c.29] K-B-B-B Rolling Sub",
+        "start_beat": 112.0,
+        "end_beat": 128.0,
+        "start_bar": 29,
+        "end_bar": 32,
+        "color_index": 14,
+        "hex": "#FF3B30"
+      },
+      {
+        "clip_index": 8,
+        "name": "[GROOVE c.33] K-B-B-B Rolling Sub",
+        "start_beat": 128.0,
+        "end_beat": 144.0,
+        "start_bar": 33,
+        "end_bar": 36,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 9,
+        "name": "[GROOVE c.37] K-B-B-B Rolling Sub",
+        "start_beat": 144.0,
+        "end_beat": 160.0,
+        "start_bar": 37,
+        "end_bar": 40,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 10,
+        "name": "[GROOVE c.41] K-B-B-B Rolling Sub",
+        "start_beat": 160.0,
+        "end_beat": 176.0,
+        "start_bar": 41,
+        "end_bar": 44,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 11,
+        "name": "[GROOVE c.45] K-B-B-B Rolling Sub",
+        "start_beat": 176.0,
+        "end_beat": 192.0,
+        "start_bar": 45,
+        "end_bar": 48,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 12,
+        "name": "[GROOVE c.49] K-B-B-B Rolling Sub",
+        "start_beat": 192.0,
+        "end_beat": 208.0,
+        "start_bar": 49,
+        "end_bar": 52,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 13,
+        "name": "[GROOVE c.53] K-B-B-B Rolling Sub",
+        "start_beat": 208.0,
+        "end_beat": 224.0,
+        "start_bar": 53,
+        "end_bar": 56,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 14,
+        "name": "[GROOVE c.57] K-B-B-B Rolling Sub",
+        "start_beat": 224.0,
+        "end_beat": 240.0,
+        "start_bar": 57,
+        "end_bar": 60,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 15,
+        "name": "[GROOVE c.61] K-B-B-B Rolling Sub",
+        "start_beat": 240.0,
+        "end_beat": 256.0,
+        "start_bar": 61,
+        "end_bar": 64,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 16,
+        "name": "[BREAKDOWN c.65] K-B-B-B Rolling Sub",
+        "start_beat": 256.0,
+        "end_beat": 272.0,
+        "start_bar": 65,
+        "end_bar": 68,
+        "color_index": 60,
+        "hex": "#FF2D78"
+      },
+      {
+        "clip_index": 17,
+        "name": "[BREAKDOWN c.69] K-B-B-B Rolling Sub",
+        "start_beat": 272.0,
+        "end_beat": 288.0,
+        "start_bar": 69,
+        "end_bar": 72,
+        "color_index": 60,
+        "hex": "#FF2D78"
+      },
+      {
+        "clip_index": 18,
+        "name": "[BREAKDOWN c.73] K-B-B-B Rolling Sub",
+        "start_beat": 288.0,
+        "end_beat": 304.0,
+        "start_bar": 73,
+        "end_bar": 76,
+        "color_index": 60,
+        "hex": "#FF2D78"
+      },
+      {
+        "clip_index": 19,
+        "name": "[BREAKDOWN c.77] K-B-B-B Rolling Sub",
+        "start_beat": 304.0,
+        "end_beat": 320.0,
+        "start_bar": 77,
+        "end_bar": 80,
+        "color_index": 60,
+        "hex": "#FF2D78"
+      },
+      {
+        "clip_index": 20,
+        "name": "[BREAKDOWN c.81] K-B-B-B Rolling Sub",
+        "start_beat": 320.0,
+        "end_beat": 336.0,
+        "start_bar": 81,
+        "end_bar": 84,
+        "color_index": 60,
+        "hex": "#FF2D78"
+      },
+      {
+        "clip_index": 21,
+        "name": "[BREAKDOWN c.85] K-B-B-B Rolling Sub",
+        "start_beat": 336.0,
+        "end_beat": 352.0,
+        "start_bar": 85,
+        "end_bar": 88,
+        "color_index": 60,
+        "hex": "#FF2D78"
+      },
+      {
+        "clip_index": 22,
+        "name": "[BREAKDOWN c.89] K-B-B-B Rolling Sub",
+        "start_beat": 352.0,
+        "end_beat": 368.0,
+        "start_bar": 89,
+        "end_bar": 92,
+        "color_index": 60,
+        "hex": "#FF2D78"
+      },
+      {
+        "clip_index": 23,
+        "name": "[BUILD c.93] K-B-B-B Rolling Sub",
+        "start_beat": 368.0,
+        "end_beat": 384.0,
+        "start_bar": 93,
+        "end_bar": 96,
+        "color_index": 55,
+        "hex": "#84CC16"
+      },
+      {
+        "clip_index": 24,
+        "name": "[BUILD c.97] K-B-B-B Rolling Sub",
+        "start_beat": 384.0,
+        "end_beat": 400.0,
+        "start_bar": 97,
+        "end_bar": 100,
+        "color_index": 55,
+        "hex": "#84CC16"
+      },
+      {
+        "clip_index": 25,
+        "name": "[DROP 1 c.102] K-B-B-B Rolling Sub",
+        "start_beat": 404.0,
+        "end_beat": 420.0,
+        "start_bar": 102,
+        "end_bar": 105,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 26,
+        "name": "[DROP 1 c.106] K-B-B-B Rolling Sub",
+        "start_beat": 420.0,
+        "end_beat": 436.0,
+        "start_bar": 106,
+        "end_bar": 109,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 27,
+        "name": "[DROP 1 c.110] K-B-B-B Rolling Sub",
+        "start_beat": 436.0,
+        "end_beat": 452.0,
+        "start_bar": 110,
+        "end_bar": 113,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 28,
+        "name": "[DROP 1 c.114] K-B-B-B Rolling Sub",
+        "start_beat": 452.0,
+        "end_beat": 468.0,
+        "start_bar": 114,
+        "end_bar": 117,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 29,
+        "name": "[DROP 1 c.118] K-B-B-B Rolling Sub",
+        "start_beat": 468.0,
+        "end_beat": 484.0,
+        "start_bar": 118,
+        "end_bar": 121,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 30,
+        "name": "[DROP 1 c.122] K-B-B-B Rolling Sub",
+        "start_beat": 484.0,
+        "end_beat": 500.0,
+        "start_bar": 122,
+        "end_bar": 125,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 31,
+        "name": "[DROP 1 c.126] K-B-B-B Rolling Sub",
+        "start_beat": 500.0,
+        "end_beat": 516.0,
+        "start_bar": 126,
+        "end_bar": 129,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 32,
+        "name": "[DROP 1 c.130] K-B-B-B Rolling Sub",
+        "start_beat": 516.0,
+        "end_beat": 532.0,
+        "start_bar": 130,
+        "end_bar": 133,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 33,
+        "name": "[MINI BREAK c.134] K-B-B-B Rolling Sub",
+        "start_beat": 532.0,
+        "end_beat": 548.0,
+        "start_bar": 134,
+        "end_bar": 137,
+        "color_index": 58,
+        "hex": "#10B981"
+      },
+      {
+        "clip_index": 34,
+        "name": "[DROP 2 c.138] K-B-B-B Rolling Sub",
+        "start_beat": 548.0,
+        "end_beat": 564.0,
+        "start_bar": 138,
+        "end_bar": 141,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 35,
+        "name": "[DROP 2 c.142] K-B-B-B Rolling Sub",
+        "start_beat": 564.0,
+        "end_beat": 580.0,
+        "start_bar": 142,
+        "end_bar": 145,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 36,
+        "name": "[DROP 2 c.146] K-B-B-B Rolling Sub",
+        "start_beat": 580.0,
+        "end_beat": 596.0,
+        "start_bar": 146,
+        "end_bar": 149,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 37,
+        "name": "[DROP 2 c.150] K-B-B-B Rolling Sub",
+        "start_beat": 596.0,
+        "end_beat": 612.0,
+        "start_bar": 150,
+        "end_bar": 153,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 38,
+        "name": "[DROP 2 c.154] K-B-B-B Rolling Sub",
+        "start_beat": 612.0,
+        "end_beat": 628.0,
+        "start_bar": 154,
+        "end_bar": 157,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 39,
+        "name": "[DROP 2 c.158] K-B-B-B Rolling Sub",
+        "start_beat": 628.0,
+        "end_beat": 644.0,
+        "start_bar": 158,
+        "end_bar": 161,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 40,
+        "name": "[OUTRO c.162] K-B-B-B Rolling Sub",
+        "start_beat": 644.0,
+        "end_beat": 660.0,
+        "start_bar": 162,
+        "end_bar": 165,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      },
+      {
+        "clip_index": 41,
+        "name": "[OUTRO c.166] K-B-B-B Rolling Sub",
+        "start_beat": 660.0,
+        "end_beat": 676.0,
+        "start_bar": 166,
+        "end_bar": 169,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      },
+      {
+        "clip_index": 42,
+        "name": "[OUTRO c.170] K-B-B-B Rolling Sub",
+        "start_beat": 676.0,
+        "end_beat": 692.0,
+        "start_bar": 170,
+        "end_bar": 173,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      },
+      {
+        "clip_index": 43,
+        "name": "[OUTRO c.174] K-B-B-B Rolling Sub",
+        "start_beat": 692.0,
+        "end_beat": 708.0,
+        "start_bar": 174,
+        "end_bar": 177,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      },
+      {
+        "clip_index": 44,
+        "name": "[OUTRO c.178] K-B-B-B Rolling Sub",
+        "start_beat": 708.0,
+        "end_beat": 724.0,
+        "start_bar": 178,
+        "end_bar": 181,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      },
+      {
+        "clip_index": 45,
+        "name": "[OUTRO c.182] K-B-B-B Rolling Sub",
+        "start_beat": 724.0,
+        "end_beat": 740.0,
+        "start_bar": 182,
+        "end_bar": 185,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      },
+      {
+        "clip_index": 46,
+        "name": "[OUTRO c.186] K-B-B-B Rolling Sub",
+        "start_beat": 740.0,
+        "end_beat": 756.0,
+        "start_bar": 186,
+        "end_bar": 189,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      },
+      {
+        "clip_index": 47,
+        "name": "[OUTRO c.190] K-B-B-B Rolling Sub",
+        "start_beat": 756.0,
+        "end_beat": 772.0,
+        "start_bar": 190,
+        "end_bar": 193,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      },
+      {
+        "clip_index": 48,
+        "name": "[OUTRO c.194] K-B-B-B Rolling Sub",
+        "start_beat": 772.0,
+        "end_beat": 788.0,
+        "start_bar": 194,
+        "end_bar": 197,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      },
+      {
+        "clip_index": 49,
+        "name": "[OUTRO c.198] K-B-B-B Rolling Sub",
+        "start_beat": 788.0,
+        "end_beat": 804.0,
+        "start_bar": 198,
+        "end_bar": 201,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      }
+    ]
+  },
+  {
+    "index": 2,
+    "group": "LOW-END",
+    "name": "03 [LOW] RUMBLE A (COLOR/HP 125Hz)",
+    "color": 16,
+    "hex": "#E05A2B",
+    "role": "Capa de rumble con color propio (Roar) y forma (EQ).",
+    "eq": "",
+    "fader_db": "",
+    "clip_label": "Rumble A",
+    "clips": [
+      {
+        "clip_index": 0,
+        "name": "[INTRO c.1] Rumble A",
+        "start_beat": 0.0,
+        "end_beat": 16.0,
+        "start_bar": 1,
+        "end_bar": 4,
+        "color_index": 14,
+        "hex": "#FF3B30"
+      },
+      {
+        "clip_index": 1,
+        "name": "[INTRO c.5] Rumble A",
+        "start_beat": 16.0,
+        "end_beat": 32.0,
+        "start_bar": 5,
+        "end_bar": 8,
+        "color_index": 14,
+        "hex": "#FF3B30"
+      },
+      {
+        "clip_index": 2,
+        "name": "[INTRO c.9] Rumble A",
+        "start_beat": 32.0,
+        "end_beat": 48.0,
+        "start_bar": 9,
+        "end_bar": 12,
+        "color_index": 14,
+        "hex": "#FF3B30"
+      },
+      {
+        "clip_index": 3,
+        "name": "[INTRO c.13] Rumble A",
+        "start_beat": 48.0,
+        "end_beat": 64.0,
+        "start_bar": 13,
+        "end_bar": 16,
+        "color_index": 14,
+        "hex": "#FF3B30"
+      },
+      {
+        "clip_index": 4,
+        "name": "[INTRO c.17] Rumble A",
+        "start_beat": 64.0,
+        "end_beat": 80.0,
+        "start_bar": 17,
+        "end_bar": 20,
+        "color_index": 14,
+        "hex": "#FF3B30"
+      },
+      {
+        "clip_index": 5,
+        "name": "[INTRO c.21] Rumble A",
+        "start_beat": 80.0,
+        "end_beat": 96.0,
+        "start_bar": 21,
+        "end_bar": 24,
+        "color_index": 14,
+        "hex": "#FF3B30"
+      },
+      {
+        "clip_index": 6,
+        "name": "[INTRO c.25] Rumble A",
+        "start_beat": 96.0,
+        "end_beat": 112.0,
+        "start_bar": 25,
+        "end_bar": 28,
+        "color_index": 14,
+        "hex": "#FF3B30"
+      },
+      {
+        "clip_index": 7,
+        "name": "[INTRO c.29] Rumble A",
+        "start_beat": 112.0,
+        "end_beat": 128.0,
+        "start_bar": 29,
+        "end_bar": 32,
+        "color_index": 14,
+        "hex": "#FF3B30"
+      },
+      {
+        "clip_index": 8,
+        "name": "[GROOVE c.33] Rumble A",
+        "start_beat": 128.0,
+        "end_beat": 144.0,
+        "start_bar": 33,
+        "end_bar": 36,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 9,
+        "name": "[GROOVE c.37] Rumble A",
+        "start_beat": 144.0,
+        "end_beat": 160.0,
+        "start_bar": 37,
+        "end_bar": 40,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 10,
+        "name": "[GROOVE c.41] Rumble A",
+        "start_beat": 160.0,
+        "end_beat": 176.0,
+        "start_bar": 41,
+        "end_bar": 44,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 11,
+        "name": "[GROOVE c.45] Rumble A",
+        "start_beat": 176.0,
+        "end_beat": 192.0,
+        "start_bar": 45,
+        "end_bar": 48,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 12,
+        "name": "[GROOVE c.49] Rumble A",
+        "start_beat": 192.0,
+        "end_beat": 208.0,
+        "start_bar": 49,
+        "end_bar": 52,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 13,
+        "name": "[GROOVE c.53] Rumble A",
+        "start_beat": 208.0,
+        "end_beat": 224.0,
+        "start_bar": 53,
+        "end_bar": 56,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 14,
+        "name": "[GROOVE c.57] Rumble A",
+        "start_beat": 224.0,
+        "end_beat": 240.0,
+        "start_bar": 57,
+        "end_bar": 60,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 15,
+        "name": "[GROOVE c.61] Rumble A",
+        "start_beat": 240.0,
+        "end_beat": 256.0,
+        "start_bar": 61,
+        "end_bar": 64,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 16,
+        "name": "[DROP 1 c.102] Rumble A",
+        "start_beat": 404.0,
+        "end_beat": 420.0,
+        "start_bar": 102,
+        "end_bar": 105,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 17,
+        "name": "[DROP 1 c.106] Rumble A",
+        "start_beat": 420.0,
+        "end_beat": 436.0,
+        "start_bar": 106,
+        "end_bar": 109,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 18,
+        "name": "[DROP 1 c.110] Rumble A",
+        "start_beat": 436.0,
+        "end_beat": 452.0,
+        "start_bar": 110,
+        "end_bar": 113,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 19,
+        "name": "[DROP 1 c.114] Rumble A",
+        "start_beat": 452.0,
+        "end_beat": 468.0,
+        "start_bar": 114,
+        "end_bar": 117,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 20,
+        "name": "[DROP 1 c.118] Rumble A",
+        "start_beat": 468.0,
+        "end_beat": 484.0,
+        "start_bar": 118,
+        "end_bar": 121,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 21,
+        "name": "[DROP 1 c.122] Rumble A",
+        "start_beat": 484.0,
+        "end_beat": 500.0,
+        "start_bar": 122,
+        "end_bar": 125,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 22,
+        "name": "[DROP 1 c.126] Rumble A",
+        "start_beat": 500.0,
+        "end_beat": 516.0,
+        "start_bar": 126,
+        "end_bar": 129,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 23,
+        "name": "[DROP 1 c.130] Rumble A",
+        "start_beat": 516.0,
+        "end_beat": 532.0,
+        "start_bar": 130,
+        "end_bar": 133,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 24,
+        "name": "[DROP 2 c.138] Rumble A",
+        "start_beat": 548.0,
+        "end_beat": 564.0,
+        "start_bar": 138,
+        "end_bar": 141,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 25,
+        "name": "[DROP 2 c.142] Rumble A",
+        "start_beat": 564.0,
+        "end_beat": 580.0,
+        "start_bar": 142,
+        "end_bar": 145,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 26,
+        "name": "[DROP 2 c.146] Rumble A",
+        "start_beat": 580.0,
+        "end_beat": 596.0,
+        "start_bar": 146,
+        "end_bar": 149,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 27,
+        "name": "[DROP 2 c.150] Rumble A",
+        "start_beat": 596.0,
+        "end_beat": 612.0,
+        "start_bar": 150,
+        "end_bar": 153,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 28,
+        "name": "[DROP 2 c.154] Rumble A",
+        "start_beat": 612.0,
+        "end_beat": 628.0,
+        "start_bar": 154,
+        "end_bar": 157,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 29,
+        "name": "[DROP 2 c.158] Rumble A",
+        "start_beat": 628.0,
+        "end_beat": 644.0,
+        "start_bar": 158,
+        "end_bar": 161,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 30,
+        "name": "[OUTRO c.162] Rumble A",
+        "start_beat": 644.0,
+        "end_beat": 660.0,
+        "start_bar": 162,
+        "end_bar": 165,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      },
+      {
+        "clip_index": 31,
+        "name": "[OUTRO c.166] Rumble A",
+        "start_beat": 660.0,
+        "end_beat": 676.0,
+        "start_bar": 166,
+        "end_bar": 169,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      },
+      {
+        "clip_index": 32,
+        "name": "[OUTRO c.170] Rumble A",
+        "start_beat": 676.0,
+        "end_beat": 692.0,
+        "start_bar": 170,
+        "end_bar": 173,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      },
+      {
+        "clip_index": 33,
+        "name": "[OUTRO c.174] Rumble A",
+        "start_beat": 692.0,
+        "end_beat": 708.0,
+        "start_bar": 174,
+        "end_bar": 177,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      },
+      {
+        "clip_index": 34,
+        "name": "[OUTRO c.178] Rumble A",
+        "start_beat": 708.0,
+        "end_beat": 724.0,
+        "start_bar": 178,
+        "end_bar": 181,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      },
+      {
+        "clip_index": 35,
+        "name": "[OUTRO c.182] Rumble A",
+        "start_beat": 724.0,
+        "end_beat": 740.0,
+        "start_bar": 182,
+        "end_bar": 185,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      },
+      {
+        "clip_index": 36,
+        "name": "[OUTRO c.186] Rumble A",
+        "start_beat": 740.0,
+        "end_beat": 756.0,
+        "start_bar": 186,
+        "end_bar": 189,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      },
+      {
+        "clip_index": 37,
+        "name": "[OUTRO c.190] Rumble A",
+        "start_beat": 756.0,
+        "end_beat": 772.0,
+        "start_bar": 190,
+        "end_bar": 193,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      },
+      {
+        "clip_index": 38,
+        "name": "[OUTRO c.194] Rumble A",
+        "start_beat": 772.0,
+        "end_beat": 788.0,
+        "start_bar": 194,
+        "end_bar": 197,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      },
+      {
+        "clip_index": 39,
+        "name": "[OUTRO c.198] Rumble A",
+        "start_beat": 788.0,
+        "end_beat": 804.0,
+        "start_bar": 198,
+        "end_bar": 201,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      },
+      {
+        "clip_index": 40,
+        "name": "[OUTRO c.202] Rumble A",
+        "start_beat": 804.0,
+        "end_beat": 820.0,
+        "start_bar": 202,
+        "end_bar": 205,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      }
+    ]
+  },
+  {
+    "index": 3,
+    "group": "LOW-END",
+    "name": "04 [LOW] RUMBLE B (2DA CAPA/CAVA)",
+    "color": 17,
+    "hex": "#FF7A00",
+    "role": "Segunda capa de rumble (otra fuente, otro color).",
+    "eq": "",
+    "fader_db": "",
+    "clip_label": "Rumble B",
+    "clips": [
+      {
+        "clip_index": 0,
+        "name": "[GROOVE c.33] Rumble B",
+        "start_beat": 128.0,
+        "end_beat": 129.0,
+        "start_bar": 33,
+        "end_bar": 32,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 1,
+        "name": "[GROOVE c.37] Rumble B",
+        "start_beat": 144.0,
+        "end_beat": 145.0,
+        "start_bar": 37,
+        "end_bar": 36,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 2,
+        "name": "[GROOVE c.41] Rumble B",
+        "start_beat": 160.0,
+        "end_beat": 161.0,
+        "start_bar": 41,
+        "end_bar": 40,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 3,
+        "name": "[GROOVE c.45] Rumble B",
+        "start_beat": 176.0,
+        "end_beat": 177.0,
+        "start_bar": 45,
+        "end_bar": 44,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 4,
+        "name": "[GROOVE c.49] Rumble B",
+        "start_beat": 192.0,
+        "end_beat": 193.0,
+        "start_bar": 49,
+        "end_bar": 48,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 5,
+        "name": "[GROOVE c.53] Rumble B",
+        "start_beat": 208.0,
+        "end_beat": 209.0,
+        "start_bar": 53,
+        "end_bar": 52,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 6,
+        "name": "[GROOVE c.57] Rumble B",
+        "start_beat": 224.0,
+        "end_beat": 225.0,
+        "start_bar": 57,
+        "end_bar": 56,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 7,
+        "name": "[GROOVE c.61] Rumble B",
+        "start_beat": 240.0,
+        "end_beat": 241.0,
+        "start_bar": 61,
+        "end_bar": 60,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 8,
+        "name": "[BREAKDOWN c.65] Rumble B",
+        "start_beat": 256.0,
+        "end_beat": 257.0,
+        "start_bar": 65,
+        "end_bar": 64,
+        "color_index": 60,
+        "hex": "#FF2D78"
+      },
+      {
+        "clip_index": 9,
+        "name": "[BREAKDOWN c.69] Rumble B",
+        "start_beat": 272.0,
+        "end_beat": 273.0,
+        "start_bar": 69,
+        "end_bar": 68,
+        "color_index": 60,
+        "hex": "#FF2D78"
+      },
+      {
+        "clip_index": 10,
+        "name": "[BREAKDOWN c.73] Rumble B",
+        "start_beat": 288.0,
+        "end_beat": 289.0,
+        "start_bar": 73,
+        "end_bar": 72,
+        "color_index": 60,
+        "hex": "#FF2D78"
+      },
+      {
+        "clip_index": 11,
+        "name": "[BREAKDOWN c.77] Rumble B",
+        "start_beat": 304.0,
+        "end_beat": 305.0,
+        "start_bar": 77,
+        "end_bar": 76,
+        "color_index": 60,
+        "hex": "#FF2D78"
+      },
+      {
+        "clip_index": 12,
+        "name": "[BREAKDOWN c.81] Rumble B",
+        "start_beat": 320.0,
+        "end_beat": 321.0,
+        "start_bar": 81,
+        "end_bar": 80,
+        "color_index": 60,
+        "hex": "#FF2D78"
+      },
+      {
+        "clip_index": 13,
+        "name": "[BREAKDOWN c.85] Rumble B",
+        "start_beat": 336.0,
+        "end_beat": 337.0,
+        "start_bar": 85,
+        "end_bar": 84,
+        "color_index": 60,
+        "hex": "#FF2D78"
+      },
+      {
+        "clip_index": 14,
+        "name": "[BREAKDOWN c.89] Rumble B",
+        "start_beat": 352.0,
+        "end_beat": 353.0,
+        "start_bar": 89,
+        "end_bar": 88,
+        "color_index": 60,
+        "hex": "#FF2D78"
+      },
+      {
+        "clip_index": 15,
+        "name": "[DROP 1 c.102] Rumble B",
+        "start_beat": 404.0,
+        "end_beat": 405.0,
+        "start_bar": 102,
+        "end_bar": 101,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 16,
+        "name": "[DROP 1 c.106] Rumble B",
+        "start_beat": 420.0,
+        "end_beat": 421.0,
+        "start_bar": 106,
+        "end_bar": 105,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 17,
+        "name": "[DROP 1 c.110] Rumble B",
+        "start_beat": 436.0,
+        "end_beat": 437.0,
+        "start_bar": 110,
+        "end_bar": 109,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 18,
+        "name": "[DROP 1 c.114] Rumble B",
+        "start_beat": 452.0,
+        "end_beat": 453.0,
+        "start_bar": 114,
+        "end_bar": 113,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 19,
+        "name": "[DROP 1 c.118] Rumble B",
+        "start_beat": 468.0,
+        "end_beat": 469.0,
+        "start_bar": 118,
+        "end_bar": 117,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 20,
+        "name": "[DROP 1 c.122] Rumble B",
+        "start_beat": 484.0,
+        "end_beat": 485.0,
+        "start_bar": 122,
+        "end_bar": 121,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 21,
+        "name": "[DROP 1 c.126] Rumble B",
+        "start_beat": 500.0,
+        "end_beat": 501.0,
+        "start_bar": 126,
+        "end_bar": 125,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 22,
+        "name": "[DROP 1 c.130] Rumble B",
+        "start_beat": 516.0,
+        "end_beat": 517.0,
+        "start_bar": 130,
+        "end_bar": 129,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 23,
+        "name": "[DROP 2 c.138] Rumble B",
+        "start_beat": 548.0,
+        "end_beat": 549.0,
+        "start_bar": 138,
+        "end_bar": 137,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 24,
+        "name": "[DROP 2 c.142] Rumble B",
+        "start_beat": 564.0,
+        "end_beat": 565.0,
+        "start_bar": 142,
+        "end_bar": 141,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 25,
+        "name": "[DROP 2 c.146] Rumble B",
+        "start_beat": 580.0,
+        "end_beat": 581.0,
+        "start_bar": 146,
+        "end_bar": 145,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 26,
+        "name": "[DROP 2 c.150] Rumble B",
+        "start_beat": 596.0,
+        "end_beat": 597.0,
+        "start_bar": 150,
+        "end_bar": 149,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 27,
+        "name": "[DROP 2 c.154] Rumble B",
+        "start_beat": 612.0,
+        "end_beat": 613.0,
+        "start_bar": 154,
+        "end_bar": 153,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 28,
+        "name": "[DROP 2 c.158] Rumble B",
+        "start_beat": 628.0,
+        "end_beat": 629.0,
+        "start_bar": 158,
+        "end_bar": 157,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 29,
+        "name": "[OUTRO c.162] Rumble B",
+        "start_beat": 644.0,
+        "end_beat": 645.0,
+        "start_bar": 162,
+        "end_bar": 161,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      },
+      {
+        "clip_index": 30,
+        "name": "[OUTRO c.166] Rumble B",
+        "start_beat": 660.0,
+        "end_beat": 661.0,
+        "start_bar": 166,
+        "end_bar": 165,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      },
+      {
+        "clip_index": 31,
+        "name": "[OUTRO c.170] Rumble B",
+        "start_beat": 676.0,
+        "end_beat": 677.0,
+        "start_bar": 170,
+        "end_bar": 169,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      },
+      {
+        "clip_index": 32,
+        "name": "[OUTRO c.174] Rumble B",
+        "start_beat": 692.0,
+        "end_beat": 693.0,
+        "start_bar": 174,
+        "end_bar": 173,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      },
+      {
+        "clip_index": 33,
+        "name": "[OUTRO c.178] Rumble B",
+        "start_beat": 708.0,
+        "end_beat": 709.0,
+        "start_bar": 178,
+        "end_bar": 177,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      },
+      {
+        "clip_index": 34,
+        "name": "[OUTRO c.182] Rumble B",
+        "start_beat": 724.0,
+        "end_beat": 725.0,
+        "start_bar": 182,
+        "end_bar": 181,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      },
+      {
+        "clip_index": 35,
+        "name": "[OUTRO c.186] Rumble B",
+        "start_beat": 740.0,
+        "end_beat": 741.0,
+        "start_bar": 186,
+        "end_bar": 185,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      },
+      {
+        "clip_index": 36,
+        "name": "[OUTRO c.190] Rumble B",
+        "start_beat": 756.0,
+        "end_beat": 757.0,
+        "start_bar": 190,
+        "end_bar": 189,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      },
+      {
+        "clip_index": 37,
+        "name": "[OUTRO c.194] Rumble B",
+        "start_beat": 772.0,
+        "end_beat": 773.0,
+        "start_bar": 194,
+        "end_bar": 193,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      },
+      {
+        "clip_index": 38,
+        "name": "[OUTRO c.198] Rumble B",
+        "start_beat": 788.0,
+        "end_beat": 789.0,
+        "start_bar": 198,
+        "end_bar": 197,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      },
+      {
+        "clip_index": 39,
+        "name": "[OUTRO c.202] Rumble B",
+        "start_beat": 804.0,
+        "end_beat": 805.0,
+        "start_bar": 202,
+        "end_bar": 201,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      }
+    ]
+  },
+  {
+    "index": 4,
+    "group": "HOOK & LEAD",
+    "name": "05 [HOOK] GRAVITY HOOK (Gm + b2)",
+    "color": 19,
+    "hex": "#E6C700",
+    "role": "Motivo en Sol menor con tensión Ab prestada.",
+    "eq": "",
+    "fader_db": "",
+    "clip_label": "Gravity Hook",
+    "clips": [
+      {
+        "clip_index": 0,
+        "name": "[GROOVE c.33] Gravity Hook",
+        "start_beat": 128.0,
+        "end_beat": 144.0,
+        "start_bar": 33,
+        "end_bar": 36,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 1,
+        "name": "[GROOVE c.37] Gravity Hook",
+        "start_beat": 144.0,
+        "end_beat": 160.0,
+        "start_bar": 37,
+        "end_bar": 40,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 2,
+        "name": "[GROOVE c.41] Gravity Hook",
+        "start_beat": 160.0,
+        "end_beat": 176.0,
+        "start_bar": 41,
+        "end_bar": 44,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 3,
+        "name": "[GROOVE c.45] Gravity Hook",
+        "start_beat": 176.0,
+        "end_beat": 192.0,
+        "start_bar": 45,
+        "end_bar": 48,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 4,
+        "name": "[GROOVE c.49] Gravity Hook",
+        "start_beat": 192.0,
+        "end_beat": 208.0,
+        "start_bar": 49,
+        "end_bar": 52,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 5,
+        "name": "[GROOVE c.53] Gravity Hook",
+        "start_beat": 208.0,
+        "end_beat": 224.0,
+        "start_bar": 53,
+        "end_bar": 56,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 6,
+        "name": "[GROOVE c.57] Gravity Hook",
+        "start_beat": 224.0,
+        "end_beat": 240.0,
+        "start_bar": 57,
+        "end_bar": 60,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 7,
+        "name": "[GROOVE c.61] Gravity Hook",
+        "start_beat": 240.0,
+        "end_beat": 256.0,
+        "start_bar": 61,
+        "end_bar": 64,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 8,
+        "name": "[DROP 1 c.102] Gravity Hook",
+        "start_beat": 404.0,
+        "end_beat": 420.0,
+        "start_bar": 102,
+        "end_bar": 105,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 9,
+        "name": "[DROP 1 c.106] Gravity Hook",
+        "start_beat": 420.0,
+        "end_beat": 436.0,
+        "start_bar": 106,
+        "end_bar": 109,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 10,
+        "name": "[DROP 1 c.110] Gravity Hook",
+        "start_beat": 436.0,
+        "end_beat": 452.0,
+        "start_bar": 110,
+        "end_bar": 113,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 11,
+        "name": "[DROP 1 c.114] Gravity Hook",
+        "start_beat": 452.0,
+        "end_beat": 468.0,
+        "start_bar": 114,
+        "end_bar": 117,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 12,
+        "name": "[DROP 1 c.118] Gravity Hook",
+        "start_beat": 468.0,
+        "end_beat": 484.0,
+        "start_bar": 118,
+        "end_bar": 121,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 13,
+        "name": "[DROP 1 c.122] Gravity Hook",
+        "start_beat": 484.0,
+        "end_beat": 500.0,
+        "start_bar": 122,
+        "end_bar": 125,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 14,
+        "name": "[DROP 1 c.126] Gravity Hook",
+        "start_beat": 500.0,
+        "end_beat": 516.0,
+        "start_bar": 126,
+        "end_bar": 129,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 15,
+        "name": "[DROP 1 c.130] Gravity Hook",
+        "start_beat": 516.0,
+        "end_beat": 532.0,
+        "start_bar": 130,
+        "end_bar": 133,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 16,
+        "name": "[DROP 2 c.138] Gravity Hook",
+        "start_beat": 548.0,
+        "end_beat": 564.0,
+        "start_bar": 138,
+        "end_bar": 141,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 17,
+        "name": "[DROP 2 c.142] Gravity Hook",
+        "start_beat": 564.0,
+        "end_beat": 580.0,
+        "start_bar": 142,
+        "end_bar": 145,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 18,
+        "name": "[DROP 2 c.146] Gravity Hook",
+        "start_beat": 580.0,
+        "end_beat": 596.0,
+        "start_bar": 146,
+        "end_bar": 149,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 19,
+        "name": "[DROP 2 c.150] Gravity Hook",
+        "start_beat": 596.0,
+        "end_beat": 612.0,
+        "start_bar": 150,
+        "end_bar": 153,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 20,
+        "name": "[DROP 2 c.154] Gravity Hook",
+        "start_beat": 612.0,
+        "end_beat": 628.0,
+        "start_bar": 154,
+        "end_bar": 157,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 21,
+        "name": "[DROP 2 c.158] Gravity Hook",
+        "start_beat": 628.0,
+        "end_beat": 644.0,
+        "start_bar": 158,
+        "end_bar": 161,
+        "color_index": 19,
+        "hex": "#E6C700"
+      }
+    ]
+  },
+  {
+    "index": 5,
+    "group": "HOOK & LEAD",
+    "name": "06 [SYNTH] HOOVER ANTHEM (SUPERSAW)",
+    "color": 60,
+    "hex": "#FF2D78",
+    "role": "Supersaw que abre el filtro en el breakdown.",
+    "eq": "",
+    "fader_db": "",
+    "clip_label": "Hoover Anthem",
+    "clips": [
+      {
+        "clip_index": 0,
+        "name": "[BREAKDOWN c.65] Hoover Anthem",
+        "start_beat": 256.0,
+        "end_beat": 272.0,
+        "start_bar": 65,
+        "end_bar": 68,
+        "color_index": 60,
+        "hex": "#FF2D78"
+      },
+      {
+        "clip_index": 1,
+        "name": "[BREAKDOWN c.69] Hoover Anthem",
+        "start_beat": 272.0,
+        "end_beat": 288.0,
+        "start_bar": 69,
+        "end_bar": 72,
+        "color_index": 60,
+        "hex": "#FF2D78"
+      },
+      {
+        "clip_index": 2,
+        "name": "[BREAKDOWN c.73] Hoover Anthem",
+        "start_beat": 288.0,
+        "end_beat": 304.0,
+        "start_bar": 73,
+        "end_bar": 76,
+        "color_index": 60,
+        "hex": "#FF2D78"
+      },
+      {
+        "clip_index": 3,
+        "name": "[BREAKDOWN c.77] Hoover Anthem",
+        "start_beat": 304.0,
+        "end_beat": 320.0,
+        "start_bar": 77,
+        "end_bar": 80,
+        "color_index": 60,
+        "hex": "#FF2D78"
+      },
+      {
+        "clip_index": 4,
+        "name": "[BREAKDOWN c.81] Hoover Anthem",
+        "start_beat": 320.0,
+        "end_beat": 336.0,
+        "start_bar": 81,
+        "end_bar": 84,
+        "color_index": 60,
+        "hex": "#FF2D78"
+      },
+      {
+        "clip_index": 5,
+        "name": "[BREAKDOWN c.85] Hoover Anthem",
+        "start_beat": 336.0,
+        "end_beat": 352.0,
+        "start_bar": 85,
+        "end_bar": 88,
+        "color_index": 60,
+        "hex": "#FF2D78"
+      },
+      {
+        "clip_index": 6,
+        "name": "[BREAKDOWN c.89] Hoover Anthem",
+        "start_beat": 352.0,
+        "end_beat": 368.0,
+        "start_bar": 89,
+        "end_bar": 92,
+        "color_index": 60,
+        "hex": "#FF2D78"
+      },
+      {
+        "clip_index": 7,
+        "name": "[DROP 1 c.102] Hoover Anthem",
+        "start_beat": 404.0,
+        "end_beat": 420.0,
+        "start_bar": 102,
+        "end_bar": 105,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 8,
+        "name": "[DROP 1 c.106] Hoover Anthem",
+        "start_beat": 420.0,
+        "end_beat": 436.0,
+        "start_bar": 106,
+        "end_bar": 109,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 9,
+        "name": "[DROP 1 c.110] Hoover Anthem",
+        "start_beat": 436.0,
+        "end_beat": 452.0,
+        "start_bar": 110,
+        "end_bar": 113,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 10,
+        "name": "[DROP 1 c.114] Hoover Anthem",
+        "start_beat": 452.0,
+        "end_beat": 468.0,
+        "start_bar": 114,
+        "end_bar": 117,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 11,
+        "name": "[DROP 1 c.118] Hoover Anthem",
+        "start_beat": 468.0,
+        "end_beat": 484.0,
+        "start_bar": 118,
+        "end_bar": 121,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 12,
+        "name": "[DROP 1 c.122] Hoover Anthem",
+        "start_beat": 484.0,
+        "end_beat": 500.0,
+        "start_bar": 122,
+        "end_bar": 125,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 13,
+        "name": "[DROP 1 c.126] Hoover Anthem",
+        "start_beat": 500.0,
+        "end_beat": 516.0,
+        "start_bar": 126,
+        "end_bar": 129,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 14,
+        "name": "[DROP 1 c.130] Hoover Anthem",
+        "start_beat": 516.0,
+        "end_beat": 532.0,
+        "start_bar": 130,
+        "end_bar": 133,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 15,
+        "name": "[DROP 2 c.138] Hoover Anthem",
+        "start_beat": 548.0,
+        "end_beat": 564.0,
+        "start_bar": 138,
+        "end_bar": 141,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 16,
+        "name": "[DROP 2 c.142] Hoover Anthem",
+        "start_beat": 564.0,
+        "end_beat": 580.0,
+        "start_bar": 142,
+        "end_bar": 145,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 17,
+        "name": "[DROP 2 c.146] Hoover Anthem",
+        "start_beat": 580.0,
+        "end_beat": 596.0,
+        "start_bar": 146,
+        "end_bar": 149,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 18,
+        "name": "[DROP 2 c.150] Hoover Anthem",
+        "start_beat": 596.0,
+        "end_beat": 612.0,
+        "start_bar": 150,
+        "end_bar": 153,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 19,
+        "name": "[DROP 2 c.154] Hoover Anthem",
+        "start_beat": 612.0,
+        "end_beat": 628.0,
+        "start_bar": 154,
+        "end_bar": 157,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 20,
+        "name": "[DROP 2 c.158] Hoover Anthem",
+        "start_beat": 628.0,
+        "end_beat": 644.0,
+        "start_bar": 158,
+        "end_bar": 161,
+        "color_index": 19,
+        "hex": "#E6C700"
+      }
+    ]
+  },
+  {
+    "index": 6,
+    "group": "HOOK & LEAD",
+    "name": "07 [BASS PAD] DARK REESE DRONE (Gm)",
+    "color": 49,
+    "hex": "#8E44AD",
+    "role": "Suelo grave del breakdown (sin bombo).",
+    "eq": "",
+    "fader_db": "",
+    "clip_label": "Dark Reese Drone",
+    "clips": [
+      {
+        "clip_index": 0,
+        "name": "[BREAKDOWN c.65] Dark Reese Drone",
+        "start_beat": 256.0,
+        "end_beat": 272.0,
+        "start_bar": 65,
+        "end_bar": 68,
+        "color_index": 60,
+        "hex": "#FF2D78"
+      },
+      {
+        "clip_index": 1,
+        "name": "[BREAKDOWN c.69] Dark Reese Drone",
+        "start_beat": 272.0,
+        "end_beat": 288.0,
+        "start_bar": 69,
+        "end_bar": 72,
+        "color_index": 60,
+        "hex": "#FF2D78"
+      },
+      {
+        "clip_index": 2,
+        "name": "[BREAKDOWN c.73] Dark Reese Drone",
+        "start_beat": 288.0,
+        "end_beat": 304.0,
+        "start_bar": 73,
+        "end_bar": 76,
+        "color_index": 60,
+        "hex": "#FF2D78"
+      },
+      {
+        "clip_index": 3,
+        "name": "[BREAKDOWN c.77] Dark Reese Drone",
+        "start_beat": 304.0,
+        "end_beat": 320.0,
+        "start_bar": 77,
+        "end_bar": 80,
+        "color_index": 60,
+        "hex": "#FF2D78"
+      },
+      {
+        "clip_index": 4,
+        "name": "[BREAKDOWN c.81] Dark Reese Drone",
+        "start_beat": 320.0,
+        "end_beat": 336.0,
+        "start_bar": 81,
+        "end_bar": 84,
+        "color_index": 60,
+        "hex": "#FF2D78"
+      },
+      {
+        "clip_index": 5,
+        "name": "[BREAKDOWN c.85] Dark Reese Drone",
+        "start_beat": 336.0,
+        "end_beat": 352.0,
+        "start_bar": 85,
+        "end_bar": 88,
+        "color_index": 60,
+        "hex": "#FF2D78"
+      },
+      {
+        "clip_index": 6,
+        "name": "[BREAKDOWN c.89] Dark Reese Drone",
+        "start_beat": 352.0,
+        "end_beat": 368.0,
+        "start_bar": 89,
+        "end_bar": 92,
+        "color_index": 60,
+        "hex": "#FF2D78"
+      }
+    ]
+  },
+  {
+    "index": 7,
+    "group": "ATMOS",
+    "name": "08 [ATMOS] Gm9 ATMOSPHERE PAD",
+    "color": 58,
+    "hex": "#10B981",
+    "role": "Colchón de aire (rellena el espectro) + envelope follower.",
+    "eq": "",
+    "fader_db": "",
+    "clip_label": "Gm9 Atmo Pad",
+    "clips": [
+      {
+        "clip_index": 0,
+        "name": "[BREAKDOWN c.65] Gm9 Atmo Pad",
+        "start_beat": 256.0,
+        "end_beat": 272.0,
+        "start_bar": 65,
+        "end_bar": 68,
+        "color_index": 60,
+        "hex": "#FF2D78"
+      },
+      {
+        "clip_index": 1,
+        "name": "[BREAKDOWN c.69] Gm9 Atmo Pad",
+        "start_beat": 272.0,
+        "end_beat": 288.0,
+        "start_bar": 69,
+        "end_bar": 72,
+        "color_index": 60,
+        "hex": "#FF2D78"
+      },
+      {
+        "clip_index": 2,
+        "name": "[BREAKDOWN c.73] Gm9 Atmo Pad",
+        "start_beat": 288.0,
+        "end_beat": 304.0,
+        "start_bar": 73,
+        "end_bar": 76,
+        "color_index": 60,
+        "hex": "#FF2D78"
+      },
+      {
+        "clip_index": 3,
+        "name": "[BREAKDOWN c.77] Gm9 Atmo Pad",
+        "start_beat": 304.0,
+        "end_beat": 320.0,
+        "start_bar": 77,
+        "end_bar": 80,
+        "color_index": 60,
+        "hex": "#FF2D78"
+      },
+      {
+        "clip_index": 4,
+        "name": "[BREAKDOWN c.81] Gm9 Atmo Pad",
+        "start_beat": 320.0,
+        "end_beat": 336.0,
+        "start_bar": 81,
+        "end_bar": 84,
+        "color_index": 60,
+        "hex": "#FF2D78"
+      },
+      {
+        "clip_index": 5,
+        "name": "[BREAKDOWN c.85] Gm9 Atmo Pad",
+        "start_beat": 336.0,
+        "end_beat": 352.0,
+        "start_bar": 85,
+        "end_bar": 88,
+        "color_index": 60,
+        "hex": "#FF2D78"
+      },
+      {
+        "clip_index": 6,
+        "name": "[BREAKDOWN c.89] Gm9 Atmo Pad",
+        "start_beat": 352.0,
+        "end_beat": 368.0,
+        "start_bar": 89,
+        "end_bar": 92,
+        "color_index": 60,
+        "hex": "#FF2D78"
+      },
+      {
+        "clip_index": 7,
+        "name": "[MINI BREAK c.134] Gm9 Atmo Pad",
+        "start_beat": 532.0,
+        "end_beat": 548.0,
+        "start_bar": 134,
+        "end_bar": 137,
+        "color_index": 58,
+        "hex": "#10B981"
+      }
+    ]
+  },
+  {
+    "index": 8,
+    "group": "DRUMS",
+    "name": "09 [DRUMS] 909 CLOSED HATS (1/16)",
+    "color": 10,
+    "hex": "#1E6FD9",
+    "role": "Charles en semicorcheas.",
+    "eq": "",
+    "fader_db": "",
+    "clip_label": "909 Closed Hat",
+    "clips": [
+      {
+        "clip_index": 0,
+        "name": "[GROOVE c.33] 909 Closed Hat",
+        "start_beat": 128.0,
+        "end_beat": 144.0,
+        "start_bar": 33,
+        "end_bar": 36,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 1,
+        "name": "[GROOVE c.37] 909 Closed Hat",
+        "start_beat": 144.0,
+        "end_beat": 160.0,
+        "start_bar": 37,
+        "end_bar": 40,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 2,
+        "name": "[GROOVE c.41] 909 Closed Hat",
+        "start_beat": 160.0,
+        "end_beat": 176.0,
+        "start_bar": 41,
+        "end_bar": 44,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 3,
+        "name": "[GROOVE c.45] 909 Closed Hat",
+        "start_beat": 176.0,
+        "end_beat": 192.0,
+        "start_bar": 45,
+        "end_bar": 48,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 4,
+        "name": "[GROOVE c.49] 909 Closed Hat",
+        "start_beat": 192.0,
+        "end_beat": 208.0,
+        "start_bar": 49,
+        "end_bar": 52,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 5,
+        "name": "[GROOVE c.53] 909 Closed Hat",
+        "start_beat": 208.0,
+        "end_beat": 224.0,
+        "start_bar": 53,
+        "end_bar": 56,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 6,
+        "name": "[GROOVE c.57] 909 Closed Hat",
+        "start_beat": 224.0,
+        "end_beat": 240.0,
+        "start_bar": 57,
+        "end_bar": 60,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 7,
+        "name": "[GROOVE c.61] 909 Closed Hat",
+        "start_beat": 240.0,
+        "end_beat": 256.0,
+        "start_bar": 61,
+        "end_bar": 64,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 8,
+        "name": "[BUILD c.93] 909 Closed Hat",
+        "start_beat": 368.0,
+        "end_beat": 384.0,
+        "start_bar": 93,
+        "end_bar": 96,
+        "color_index": 55,
+        "hex": "#84CC16"
+      },
+      {
+        "clip_index": 9,
+        "name": "[BUILD c.97] 909 Closed Hat",
+        "start_beat": 384.0,
+        "end_beat": 400.0,
+        "start_bar": 97,
+        "end_bar": 100,
+        "color_index": 55,
+        "hex": "#84CC16"
+      },
+      {
+        "clip_index": 10,
+        "name": "[DROP 1 c.102] 909 Closed Hat",
+        "start_beat": 404.0,
+        "end_beat": 420.0,
+        "start_bar": 102,
+        "end_bar": 105,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 11,
+        "name": "[DROP 1 c.106] 909 Closed Hat",
+        "start_beat": 420.0,
+        "end_beat": 436.0,
+        "start_bar": 106,
+        "end_bar": 109,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 12,
+        "name": "[DROP 1 c.110] 909 Closed Hat",
+        "start_beat": 436.0,
+        "end_beat": 452.0,
+        "start_bar": 110,
+        "end_bar": 113,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 13,
+        "name": "[DROP 1 c.114] 909 Closed Hat",
+        "start_beat": 452.0,
+        "end_beat": 468.0,
+        "start_bar": 114,
+        "end_bar": 117,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 14,
+        "name": "[DROP 1 c.118] 909 Closed Hat",
+        "start_beat": 468.0,
+        "end_beat": 484.0,
+        "start_bar": 118,
+        "end_bar": 121,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 15,
+        "name": "[DROP 1 c.122] 909 Closed Hat",
+        "start_beat": 484.0,
+        "end_beat": 500.0,
+        "start_bar": 122,
+        "end_bar": 125,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 16,
+        "name": "[DROP 1 c.126] 909 Closed Hat",
+        "start_beat": 500.0,
+        "end_beat": 516.0,
+        "start_bar": 126,
+        "end_bar": 129,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 17,
+        "name": "[DROP 1 c.130] 909 Closed Hat",
+        "start_beat": 516.0,
+        "end_beat": 532.0,
+        "start_bar": 130,
+        "end_bar": 133,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 18,
+        "name": "[MINI BREAK c.134] 909 Closed Hat",
+        "start_beat": 532.0,
+        "end_beat": 548.0,
+        "start_bar": 134,
+        "end_bar": 137,
+        "color_index": 58,
+        "hex": "#10B981"
+      },
+      {
+        "clip_index": 19,
+        "name": "[DROP 2 c.138] 909 Closed Hat",
+        "start_beat": 548.0,
+        "end_beat": 564.0,
+        "start_bar": 138,
+        "end_bar": 141,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 20,
+        "name": "[DROP 2 c.142] 909 Closed Hat",
+        "start_beat": 564.0,
+        "end_beat": 580.0,
+        "start_bar": 142,
+        "end_bar": 145,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 21,
+        "name": "[DROP 2 c.146] 909 Closed Hat",
+        "start_beat": 580.0,
+        "end_beat": 596.0,
+        "start_bar": 146,
+        "end_bar": 149,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 22,
+        "name": "[DROP 2 c.150] 909 Closed Hat",
+        "start_beat": 596.0,
+        "end_beat": 612.0,
+        "start_bar": 150,
+        "end_bar": 153,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 23,
+        "name": "[DROP 2 c.154] 909 Closed Hat",
+        "start_beat": 612.0,
+        "end_beat": 628.0,
+        "start_bar": 154,
+        "end_bar": 157,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 24,
+        "name": "[DROP 2 c.158] 909 Closed Hat",
+        "start_beat": 628.0,
+        "end_beat": 644.0,
+        "start_bar": 158,
+        "end_bar": 161,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 25,
+        "name": "[OUTRO c.162] 909 Closed Hat",
+        "start_beat": 644.0,
+        "end_beat": 660.0,
+        "start_bar": 162,
+        "end_bar": 165,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      },
+      {
+        "clip_index": 26,
+        "name": "[OUTRO c.166] 909 Closed Hat",
+        "start_beat": 660.0,
+        "end_beat": 676.0,
+        "start_bar": 166,
+        "end_bar": 169,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      },
+      {
+        "clip_index": 27,
+        "name": "[OUTRO c.170] 909 Closed Hat",
+        "start_beat": 676.0,
+        "end_beat": 692.0,
+        "start_bar": 170,
+        "end_bar": 173,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      },
+      {
+        "clip_index": 28,
+        "name": "[OUTRO c.174] 909 Closed Hat",
+        "start_beat": 692.0,
+        "end_beat": 708.0,
+        "start_bar": 174,
+        "end_bar": 177,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      },
+      {
+        "clip_index": 29,
+        "name": "[OUTRO c.178] 909 Closed Hat",
+        "start_beat": 708.0,
+        "end_beat": 724.0,
+        "start_bar": 178,
+        "end_bar": 181,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      },
+      {
+        "clip_index": 30,
+        "name": "[OUTRO c.182] 909 Closed Hat",
+        "start_beat": 724.0,
+        "end_beat": 740.0,
+        "start_bar": 182,
+        "end_bar": 185,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      },
+      {
+        "clip_index": 31,
+        "name": "[OUTRO c.186] 909 Closed Hat",
+        "start_beat": 740.0,
+        "end_beat": 756.0,
+        "start_bar": 186,
+        "end_bar": 189,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      },
+      {
+        "clip_index": 32,
+        "name": "[OUTRO c.190] 909 Closed Hat",
+        "start_beat": 756.0,
+        "end_beat": 772.0,
+        "start_bar": 190,
+        "end_bar": 193,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      },
+      {
+        "clip_index": 33,
+        "name": "[OUTRO c.194] 909 Closed Hat",
+        "start_beat": 772.0,
+        "end_beat": 788.0,
+        "start_bar": 194,
+        "end_bar": 197,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      },
+      {
+        "clip_index": 34,
+        "name": "[OUTRO c.198] 909 Closed Hat",
+        "start_beat": 788.0,
+        "end_beat": 804.0,
+        "start_bar": 198,
+        "end_bar": 201,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      },
+      {
+        "clip_index": 35,
+        "name": "[OUTRO c.202] 909 Closed Hat",
+        "start_beat": 804.0,
+        "end_beat": 820.0,
+        "start_bar": 202,
+        "end_bar": 205,
+        "color_index": 49,
+        "hex": "#8E44AD"
+      }
+    ]
+  },
+  {
+    "index": 9,
+    "group": "DRUMS",
+    "name": "10 [DRUMS] 909 OPEN HAT (OFFBEAT &)",
+    "color": 12,
+    "hex": "#00C8FF",
+    "role": "Charles abierta en el contratiempo.",
+    "eq": "",
+    "fader_db": "",
+    "clip_label": "909 Open Hat",
+    "clips": [
+      {
+        "clip_index": 0,
+        "name": "[GROOVE c.33] 909 Open Hat",
+        "start_beat": 128.0,
+        "end_beat": 144.0,
+        "start_bar": 33,
+        "end_bar": 36,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 1,
+        "name": "[GROOVE c.37] 909 Open Hat",
+        "start_beat": 144.0,
+        "end_beat": 160.0,
+        "start_bar": 37,
+        "end_bar": 40,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 2,
+        "name": "[GROOVE c.41] 909 Open Hat",
+        "start_beat": 160.0,
+        "end_beat": 176.0,
+        "start_bar": 41,
+        "end_bar": 44,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 3,
+        "name": "[GROOVE c.45] 909 Open Hat",
+        "start_beat": 176.0,
+        "end_beat": 192.0,
+        "start_bar": 45,
+        "end_bar": 48,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 4,
+        "name": "[GROOVE c.49] 909 Open Hat",
+        "start_beat": 192.0,
+        "end_beat": 208.0,
+        "start_bar": 49,
+        "end_bar": 52,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 5,
+        "name": "[GROOVE c.53] 909 Open Hat",
+        "start_beat": 208.0,
+        "end_beat": 224.0,
+        "start_bar": 53,
+        "end_bar": 56,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 6,
+        "name": "[GROOVE c.57] 909 Open Hat",
+        "start_beat": 224.0,
+        "end_beat": 240.0,
+        "start_bar": 57,
+        "end_bar": 60,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 7,
+        "name": "[GROOVE c.61] 909 Open Hat",
+        "start_beat": 240.0,
+        "end_beat": 256.0,
+        "start_bar": 61,
+        "end_bar": 64,
+        "color_index": 15,
+        "hex": "#D92B2B"
+      },
+      {
+        "clip_index": 8,
+        "name": "[DROP 1 c.102] 909 Open Hat",
+        "start_beat": 404.0,
+        "end_beat": 420.0,
+        "start_bar": 102,
+        "end_bar": 105,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 9,
+        "name": "[DROP 1 c.106] 909 Open Hat",
+        "start_beat": 420.0,
+        "end_beat": 436.0,
+        "start_bar": 106,
+        "end_bar": 109,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 10,
+        "name": "[DROP 1 c.110] 909 Open Hat",
+        "start_beat": 436.0,
+        "end_beat": 452.0,
+        "start_bar": 110,
+        "end_bar": 113,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 11,
+        "name": "[DROP 1 c.114] 909 Open Hat",
+        "start_beat": 452.0,
+        "end_beat": 468.0,
+        "start_bar": 114,
+        "end_bar": 117,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 12,
+        "name": "[DROP 1 c.118] 909 Open Hat",
+        "start_beat": 468.0,
+        "end_beat": 484.0,
+        "start_bar": 118,
+        "end_bar": 121,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 13,
+        "name": "[DROP 1 c.122] 909 Open Hat",
+        "start_beat": 484.0,
+        "end_beat": 500.0,
+        "start_bar": 122,
+        "end_bar": 125,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 14,
+        "name": "[DROP 1 c.126] 909 Open Hat",
+        "start_beat": 500.0,
+        "end_beat": 516.0,
+        "start_bar": 126,
+        "end_bar": 129,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 15,
+        "name": "[DROP 1 c.130] 909 Open Hat",
+        "start_beat": 516.0,
+        "end_beat": 532.0,
+        "start_bar": 130,
+        "end_bar": 133,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 16,
+        "name": "[DROP 2 c.138] 909 Open Hat",
+        "start_beat": 548.0,
+        "end_beat": 564.0,
+        "start_bar": 138,
+        "end_bar": 141,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 17,
+        "name": "[DROP 2 c.142] 909 Open Hat",
+        "start_beat": 564.0,
+        "end_beat": 580.0,
+        "start_bar": 142,
+        "end_bar": 145,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 18,
+        "name": "[DROP 2 c.146] 909 Open Hat",
+        "start_beat": 580.0,
+        "end_beat": 596.0,
+        "start_bar": 146,
+        "end_bar": 149,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 19,
+        "name": "[DROP 2 c.150] 909 Open Hat",
+        "start_beat": 596.0,
+        "end_beat": 612.0,
+        "start_bar": 150,
+        "end_bar": 153,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 20,
+        "name": "[DROP 2 c.154] 909 Open Hat",
+        "start_beat": 612.0,
+        "end_beat": 628.0,
+        "start_bar": 154,
+        "end_bar": 157,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 21,
+        "name": "[DROP 2 c.158] 909 Open Hat",
+        "start_beat": 628.0,
+        "end_beat": 644.0,
+        "start_bar": 158,
+        "end_bar": 161,
+        "color_index": 19,
+        "hex": "#E6C700"
+      }
+    ]
+  },
+  {
+    "index": 10,
+    "group": "DRUMS",
+    "name": "11 [DRUMS] 909 ACID RIDE (CLIMAX)",
+    "color": 13,
+    "hex": "#00F0D0",
+    "role": "Sólo en el clímax.",
+    "eq": "",
+    "fader_db": "",
+    "clip_label": "909 Acid Ride",
+    "clips": [
+      {
+        "clip_index": 0,
+        "name": "[DROP 1 c.118] 909 Acid Ride",
+        "start_beat": 468.0,
+        "end_beat": 484.0,
+        "start_bar": 118,
+        "end_bar": 121,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 1,
+        "name": "[DROP 1 c.122] 909 Acid Ride",
+        "start_beat": 484.0,
+        "end_beat": 500.0,
+        "start_bar": 122,
+        "end_bar": 125,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 2,
+        "name": "[DROP 1 c.126] 909 Acid Ride",
+        "start_beat": 500.0,
+        "end_beat": 516.0,
+        "start_bar": 126,
+        "end_bar": 129,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 3,
+        "name": "[DROP 1 c.130] 909 Acid Ride",
+        "start_beat": 516.0,
+        "end_beat": 532.0,
+        "start_bar": 130,
+        "end_bar": 133,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 4,
+        "name": "[DROP 2 c.138] 909 Acid Ride",
+        "start_beat": 548.0,
+        "end_beat": 564.0,
+        "start_bar": 138,
+        "end_bar": 141,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 5,
+        "name": "[DROP 2 c.142] 909 Acid Ride",
+        "start_beat": 564.0,
+        "end_beat": 580.0,
+        "start_bar": 142,
+        "end_bar": 145,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 6,
+        "name": "[DROP 2 c.146] 909 Acid Ride",
+        "start_beat": 580.0,
+        "end_beat": 596.0,
+        "start_bar": 146,
+        "end_bar": 149,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 7,
+        "name": "[DROP 2 c.150] 909 Acid Ride",
+        "start_beat": 596.0,
+        "end_beat": 612.0,
+        "start_bar": 150,
+        "end_bar": 153,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 8,
+        "name": "[DROP 2 c.154] 909 Acid Ride",
+        "start_beat": 612.0,
+        "end_beat": 628.0,
+        "start_bar": 154,
+        "end_bar": 157,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 9,
+        "name": "[DROP 2 c.158] 909 Acid Ride",
+        "start_beat": 628.0,
+        "end_beat": 644.0,
+        "start_bar": 158,
+        "end_bar": 161,
+        "color_index": 19,
+        "hex": "#E6C700"
+      }
+    ]
+  },
+  {
+    "index": 11,
+    "group": "DRUMS",
+    "name": "12 [DRUMS] PEAK CLAP",
+    "color": 11,
+    "hex": "#3B82F6",
+    "role": "Clap en los drops.",
+    "eq": "",
+    "fader_db": "",
+    "clip_label": "Peak Clap",
+    "clips": [
+      {
+        "clip_index": 0,
+        "name": "[DROP 1 c.102] Peak Clap",
+        "start_beat": 404.0,
+        "end_beat": 420.0,
+        "start_bar": 102,
+        "end_bar": 105,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 1,
+        "name": "[DROP 1 c.106] Peak Clap",
+        "start_beat": 420.0,
+        "end_beat": 436.0,
+        "start_bar": 106,
+        "end_bar": 109,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 2,
+        "name": "[DROP 1 c.110] Peak Clap",
+        "start_beat": 436.0,
+        "end_beat": 452.0,
+        "start_bar": 110,
+        "end_bar": 113,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 3,
+        "name": "[DROP 1 c.114] Peak Clap",
+        "start_beat": 452.0,
+        "end_beat": 468.0,
+        "start_bar": 114,
+        "end_bar": 117,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 4,
+        "name": "[DROP 1 c.118] Peak Clap",
+        "start_beat": 468.0,
+        "end_beat": 484.0,
+        "start_bar": 118,
+        "end_bar": 121,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 5,
+        "name": "[DROP 1 c.122] Peak Clap",
+        "start_beat": 484.0,
+        "end_beat": 500.0,
+        "start_bar": 122,
+        "end_bar": 125,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 6,
+        "name": "[DROP 1 c.126] Peak Clap",
+        "start_beat": 500.0,
+        "end_beat": 516.0,
+        "start_bar": 126,
+        "end_bar": 129,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 7,
+        "name": "[DROP 1 c.130] Peak Clap",
+        "start_beat": 516.0,
+        "end_beat": 532.0,
+        "start_bar": 130,
+        "end_bar": 133,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 8,
+        "name": "[DROP 2 c.138] Peak Clap",
+        "start_beat": 548.0,
+        "end_beat": 564.0,
+        "start_bar": 138,
+        "end_bar": 141,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 9,
+        "name": "[DROP 2 c.142] Peak Clap",
+        "start_beat": 564.0,
+        "end_beat": 580.0,
+        "start_bar": 142,
+        "end_bar": 145,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 10,
+        "name": "[DROP 2 c.146] Peak Clap",
+        "start_beat": 580.0,
+        "end_beat": 596.0,
+        "start_bar": 146,
+        "end_bar": 149,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 11,
+        "name": "[DROP 2 c.150] Peak Clap",
+        "start_beat": 596.0,
+        "end_beat": 612.0,
+        "start_bar": 150,
+        "end_bar": 153,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 12,
+        "name": "[DROP 2 c.154] Peak Clap",
+        "start_beat": 612.0,
+        "end_beat": 628.0,
+        "start_bar": 154,
+        "end_bar": 157,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 13,
+        "name": "[DROP 2 c.158] Peak Clap",
+        "start_beat": 628.0,
+        "end_beat": 644.0,
+        "start_bar": 158,
+        "end_bar": 161,
+        "color_index": 19,
+        "hex": "#E6C700"
+      }
+    ]
+  },
+  {
+    "index": 12,
+    "group": "BUILD & FX",
+    "name": "13 [BUILD] RISER + SNARE ROLL (CUT 400)",
+    "color": 55,
+    "hex": "#84CC16",
+    "role": "Sube y corta en el compás 101.",
+    "eq": "",
+    "fader_db": "",
+    "clip_label": "Riser + Snare Roll",
+    "clips": [
+      {
+        "clip_index": 0,
+        "name": "[BUILD c.93] Riser + Snare Roll",
+        "start_beat": 368.0,
+        "end_beat": 384.0,
+        "start_bar": 93,
+        "end_bar": 96,
+        "color_index": 55,
+        "hex": "#84CC16"
+      },
+      {
+        "clip_index": 1,
+        "name": "[BUILD c.97] Riser + Snare Roll",
+        "start_beat": 384.0,
+        "end_beat": 400.0,
+        "start_bar": 97,
+        "end_bar": 100,
+        "color_index": 55,
+        "hex": "#84CC16"
+      }
+    ]
+  },
+  {
+    "index": 13,
+    "group": "BUILD & FX",
+    "name": "14 [BASS] GALOPE 1/8T (DROP 2)",
+    "color": 19,
+    "hex": "#E6C700",
+    "role": "Tresillos de corchea del Drop 2.",
+    "eq": "",
+    "fader_db": "",
+    "clip_label": "Galope 1/8T",
+    "clips": [
+      {
+        "clip_index": 0,
+        "name": "[DROP 2 c.138] Galope 1/8T",
+        "start_beat": 548.0,
+        "end_beat": 564.0,
+        "start_bar": 138,
+        "end_bar": 141,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 1,
+        "name": "[DROP 2 c.142] Galope 1/8T",
+        "start_beat": 564.0,
+        "end_beat": 580.0,
+        "start_bar": 142,
+        "end_bar": 145,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 2,
+        "name": "[DROP 2 c.146] Galope 1/8T",
+        "start_beat": 580.0,
+        "end_beat": 596.0,
+        "start_bar": 146,
+        "end_bar": 149,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 3,
+        "name": "[DROP 2 c.150] Galope 1/8T",
+        "start_beat": 596.0,
+        "end_beat": 612.0,
+        "start_bar": 150,
+        "end_bar": 153,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 4,
+        "name": "[DROP 2 c.154] Galope 1/8T",
+        "start_beat": 612.0,
+        "end_beat": 628.0,
+        "start_bar": 154,
+        "end_bar": 157,
+        "color_index": 19,
+        "hex": "#E6C700"
+      },
+      {
+        "clip_index": 5,
+        "name": "[DROP 2 c.158] Galope 1/8T",
+        "start_beat": 628.0,
+        "end_beat": 644.0,
+        "start_bar": 158,
+        "end_bar": 161,
+        "color_index": 19,
+        "hex": "#E6C700"
+      }
+    ]
+  },
+  {
+    "index": 14,
+    "group": "BUILD & FX",
+    "name": "15 [FX] SUB IMPACT (DROP HITS)",
+    "color": 69,
+    "hex": "#F43F5E",
+    "role": "Golpe de sub en cada drop.",
+    "eq": "",
+    "fader_db": "",
+    "clip_label": "Sub Impact",
+    "clips": [
+      {
+        "clip_index": 0,
+        "name": "[DROP 1 c.102] Sub Impact",
+        "start_beat": 404.0,
+        "end_beat": 420.0,
+        "start_bar": 102,
+        "end_bar": 105,
+        "color_index": 11,
+        "hex": "#3B82F6"
+      },
+      {
+        "clip_index": 1,
+        "name": "[DROP 2 c.138] Sub Impact",
+        "start_beat": 548.0,
+        "end_beat": 564.0,
+        "start_bar": 138,
+        "end_bar": 141,
+        "color_index": 19,
+        "hex": "#E6C700"
+      }
+    ]
+  }
+];
+
+    const SECTIONS = [
+      {
+        title: "1-INTRO DJ GROOVE (Compases 1–16 | Beats 0–64)",
+        desc: "Chasis rítmico puro pensado para que cualquier DJ pueda mezclar el tema en club. Suenan el Kick en G1, el Sub K-B-B-B, el Rumble filtrado (125–360 Hz), los Closed Hats 1/16 y la TB-303 principal con el filtro bien cerrado (25% a 42%).",
+        specs: ["Duración: 16 Compases (27.8 seg)", "Energía: 45%", "Protagonistas: Kick + K-B-B-B + 303 Cerrada"]
+      },
+      {
+        title: "2-TTG 909 OPEN HAT & DUAL 303 ACID (Compases 17–32 | Beats 64–128)",
+        desc: "Se abre el groove estilo Awakenings: entra el 909 Open Hat sedoso en el contratiempo ('&'), el Clap en 2 y 4, y la segunda TB-303 haciendo un polirritmo de 5 semicorcheas. En el compás 25 (Beat 96) entra por primera vez el 909 Acid Ride.",
+        specs: ["Duración: 16 Compases (27.8 seg)", "Energía: 72%", "Protagonistas: 909 Open Hat + Dual 303"]
+      },
+      {
+        title: "3-BREAKDOWN: ACID MELTDOWN (Compases 33–47 | Beats 128–188)",
+        desc: "Desaparece el Kick para generar ingravidez, pero entra el Dark Reese Drone (Pista 07) en G1 + el Pad Vocal en G3 (Pista 13) para que la pista no quede vacía. La TB-303 abre el filtro desde 38% hasta gritar al 95% junto con el Snare Roll y el Hoover.",
+        specs: ["Duración: 15 Compases (Beats 128–188)", "Energía: Tensión ascendente → 95%", "Protagonistas: Reese Drone + 303 Scream + Hoover"]
+      },
+      {
+        title: "4-PRE-DROP SILENCE (Compás 48 | Beats 188–192)",
+        desc: "La firma de Space 92 y Joris Voorn: exactamente 1 compás (4 negras = 1.74 segundos a 138 BPM) donde se cortan en seco todos los sintetizadores, bajos y redobles para limpiar los oídos antes del impacto del Drop.",
+        specs: ["Duración: 1 Compás (4 Beats)", "Energía: Vacío de tensión", "Corte exacto en Beat 188.0"]
+      },
+      {
+        title: "5-PEAK DROP PARTE 1 (Compases 49–56 | Beats 192–224)",
+        desc: "Vuelve el chasis completo (Kick + K-B-B-B + Rumble + Sub Impact) chocando de frente con las dos TB-303 abiertas al máximo, el Hoover Supersaw de Space 92 y el loop Groove Storm.",
+        specs: ["Duración: 8 Compases (Beats 192–224)", "Energía: 95%", "Impacto Peak-Time"]
+      },
+      {
+        title: "6-PEAK DROP PARTE 2: 909 ACID RIDE CLIMAX (Compases 57–64 | Beats 224–256)",
+        desc: "Para que los segundos 8 compases del Drop no suenen estáticos, entra el 909 Acid Ride (Pista 10) bombeando en semicorcheas y abriendo el brillo arriba de las 303 y el Hoover.",
+        specs: ["Duración: 8 Compases (Beats 224–256)", "Energía: 100% Clímax", "Entra: 909 Acid Ride"]
+      }
+    ];
+
+    function renderGrid() {
+      const container = document.getElementById("tracks-container");
+      container.innerHTML = "";
+
+      TRACKS.forEach((tr) => {
+        const row = document.createElement("div");
+        row.className = "track-row";
+
+        const header = document.createElement("div");
+        header.className = "track-header";
+        header.style.setProperty("--track-color", tr.hex);
+        header.onclick = () => inspectTrack(tr);
+
+        header.innerHTML = `
+          <div class="track-name" title="${tr.name}">${tr.name}</div>
+          <div class="track-meta">
+            <span class="badge-eq">${tr.eq.split('+')[0].trim()}</span>
+            <span class="badge-db">${tr.fader_db}</span>
+          </div>
+        `;
+
+        const lane = document.createElement("div");
+        lane.className = "track-lane";
+
+        // Add vertical section guides at 64, 128, 188..192, 224
+        [25, 50, 75, 87.5].forEach((pct) => {
+          const g = document.createElement("div");
+          g.className = "lane-guide";
+          g.style.left = pct + "%";
+          lane.appendChild(g);
+        });
+
+        // Silence zone highlight (beats 188..192 = 73.4375% to 75%)
+        const sz = document.createElement("div");
+        sz.className = "lane-guide silence-zone";
+        sz.style.left = "73.4375%";
+        sz.style.width = "1.5625%";
+        lane.appendChild(sz);
+
+        tr.clips.forEach((cl) => {
+          const clipEl = document.createElement("div");
+          clipEl.className = "arr-clip";
+          const leftPct = (cl.start_beat / 256.0) * 100.0;
+          const widthPct = ((cl.end_beat - cl.start_beat) / 256.0) * 100.0;
+          clipEl.style.left = leftPct + "%";
+          clipEl.style.width = `calc(${widthPct}% - 1px)`;
+          clipEl.style.setProperty("--clip-bg", cl.hex);
+          clipEl.title = `${cl.name} (Compás ${cl.start_bar} a ${cl.end_bar} | Beats ${cl.start_beat}–${cl.end_beat})`;
+          clipEl.innerHTML = `<span>${cl.name}</span>`;
+          clipEl.onclick = (e) => {
+            e.stopPropagation();
+            inspectClip(tr, cl);
+          };
+          lane.appendChild(clipEl);
+        });
+
+        row.appendChild(header);
+        row.appendChild(lane);
+        container.appendChild(row);
+      });
+    }
+
+    function inspectTrack(tr) {
+      document.getElementById("insp-title").textContent = tr.name;
+      document.getElementById("insp-desc").textContent = tr.role;
+      document.getElementById("insp-specs").innerHTML = `
+        <div class="spec-chip"><strong>Grupo:</strong> ${tr.group}</div>
+        <div class="spec-chip"><strong>EQ / Proceso:</strong> ${tr.eq}</div>
+        <div class="spec-chip"><strong>Fader:</strong> ${tr.fader_db}</div>
+        <div class="spec-chip"><strong>Clips en Grilla:</strong> ${tr.clips.length} bloques</div>
+      `;
+    }
+
+    function inspectClip(tr, cl) {
+      document.getElementById("insp-title").textContent = `${cl.name} — ${tr.name}`;
+      document.getElementById("insp-desc").textContent = tr.role;
+      document.getElementById("insp-specs").innerHTML = `
+        <div class="spec-chip"><strong>Posición:</strong> Compás ${cl.start_bar} al ${cl.end_bar} (Beats ${cl.start_beat} – ${cl.end_beat})</div>
+        <div class="spec-chip"><strong>Duración:</strong> ${(cl.end_beat - cl.start_beat)} beats (${((cl.end_beat - cl.start_beat)/4)} compases)</div>
+        <div class="spec-chip"><strong>EQ Pista:</strong> ${tr.eq}</div>
+        <div class="spec-chip"><strong>Nivel Fader:</strong> ${tr.fader_db}</div>
+      `;
+    }
+
+    function inspectSection(idx) {
+      const s = SECTIONS[idx];
+      document.getElementById("insp-title").textContent = s.title;
+      document.getElementById("insp-desc").textContent = s.desc;
+      document.getElementById("insp-specs").innerHTML = s.specs
+        .map((sp) => `<div class="spec-chip"><strong>•</strong> ${sp}</div>`)
+        .join("");
+    }
+
+    renderGrid();
+  </script>
+</body>
+</html>

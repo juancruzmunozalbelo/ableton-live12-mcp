@@ -89,21 +89,21 @@
   por qué cada cosa está donde está, y qué bugs del propio sistema aparecieron en el camino.
   Pensada para que la lea alguien que sabe programar pero <b>no sabe música</b>.</p>
   <div class="badges">
-    <span class="badge">archivo <b>space92_gravity.als</b></span>
-    <span class="badge"><b>138</b> BPM</span>
-    <span class="badge"><b>G Frigio</b></span>
-    <span class="badge"><b>176</b> compases</span>
-    <span class="badge"><b>14</b> pistas</span>
-    <span class="badge"><b>5:05</b> de duración</span>
+    <span class="badge">archivo <b>space92_gravity_v2.als</b></span>
+    <span class="badge"><b>132</b> BPM</span>
+    <span class="badge"><b>Sol menor</b> (Gm)</span>
+    <span class="badge"><b>201</b> compases</span>
+    <span class="badge"><b>15</b> pistas</span>
+    <span class="badge"><b>6:06</b> de duración</span>
     <span class="badge">set <b>Space 92 × Psy-Tech</b></span>
   </div>
 <div class="callout warn" style="margin-top:22px">
-  <b>⚠️ Corrección (24/10/2026):</b> esta página describe el set que construí, que es una
-  <b>reconstrucción del género</b>, no un análisis verificado del track <i>Gravity</i> de Space 92.
-  Investigando después encontré que el track real es <b>132 BPM</b> (no 138), en <b>Sol menor</b>
-  (no frigio), dura <b>6:06</b> en su extended (radio edit 4:00), y que Space 92 usa 5 técnicas
-  que este set no tiene. Todo el detalle está en
-  <code>masterclasses/SPACE92_GRAVITY_VERIFIED.md</code> — y la sección <a href="#fuentes">09b</a>.
+  <b>✅ Set v2 (verificado):</b> esta página describe <b>space92_gravity_v2.als</b>, que ya corrige
+  todo: <b>132 BPM</b> (el tempo real), <b>Sol menor</b> (la key real, Gm), <b>6:06</b> (la duración
+  del extended) y las <b>6 técnicas reales</b> del breakdown de Space 92 (rumble con color propio,
+  velocidades MIDI randomizadas, capas de atmo, envelope follower, bus en paralelo y más espacio
+  entre main y sub). La v1 (138 BPM / frigio / 5:05) quedó como referencia histórica.
+  Fuentes y correcciones: <code>masterclasses/SPACE92_GRAVITY_VERIFIED.md</code>.
 </div>
 </header>
 
@@ -219,18 +219,19 @@ Acá está cada una traducida a "qué programé" y con su analogía.</p>
 <tbody>
 <tr><td class="num">0</td><td><b>01 [LOW] KICK G1 49HZ (BOOM)</b></td><td>El bombo. El "latido" del tema: define el pulso.</td><td>EQ Eight + Glue Compressor</td><td class="num">-1.8 dB</td><td>todo menos breakdown</td></tr>
 <tr><td class="num">1</td><td><b>02 [LOW] PSY ROLLING SUB (K-B-B-B G1)</b></td><td>El bajo que galopa. El motor de la pista.</td><td>Operator + Roar</td><td class="num">-2.8 dB</td><td>todo menos el compás de silencio</td></tr>
-<tr><td class="num">2</td><td><b>03 [LOW] TECHNO RUMBLE (HPF 125Hz)</b></td><td>Ruido de cueva. El "aire" grave del fondo.</td><td>EQ Eight</td><td class="num">-7.0 dB</td><td>intro, groove, drop 1, drop 2, outro</td></tr>
-<tr><td class="num">3</td><td><b>04 [HOOK] SPACE 92 HOOK (G FRIGIO)</b></td><td>La melodía hipnótica de 4 negras. El "tema" propiamente dicho.</td><td>Drift + Roar + EQ Eight + Delay</td><td class="num">-4.5 dB</td><td>groove, drop 1, drop 2</td></tr>
-<tr><td class="num">4</td><td><b>05 [SYNTH] HOOVER ANTHEM (SUPERSAW)</b></td><td>El "pared de sonido" que se abre en el breakdown.</td><td>Wavetable + EQ Eight + Chorus + Reverb</td><td class="num">-3.2 dB</td><td>breakdown, drop 1, drop 2</td></tr>
-<tr><td class="num">5</td><td><b>06 [BASS PAD] DARK REESE DRONE (G1)</b></td><td>El suelo grave del breakdown (cuando no hay bombo).</td><td>Wavetable + Chorus + EQ Eight</td><td class="num">-4.5 dB</td><td>solo breakdown</td></tr>
-<tr><td class="num">6</td><td><b>07 [DRUMS] 909 CLOSED HATS (1/16)</b></td><td>Las charles cerradas: el "tictac".</td><td>EQ Eight</td><td class="num">-9.5 dB</td><td>groove, build, drops, outro</td></tr>
-<tr><td class="num">7</td><td><b>08 [DRUMS] 909 OPEN HAT (OFFBEAT &amp;)</b></td><td>La charle abierta en el "&amp;" (contratiempo).</td><td>EQ Eight</td><td class="num">-10.5 dB</td><td>groove, drop 1, drop 2</td></tr>
-<tr><td class="num">8</td><td><b>09 [DRUMS] 909 ACID RIDE (CLIMAX)</b></td><td>El ride: entra sólo en el clímax.</td><td>EQ Eight</td><td class="num">-10.0 dB</td><td>final del drop 1, drop 2</td></tr>
-<tr><td class="num">9</td><td><b>10 [DRUMS] PEAK CLAP</b></td><td>El clap: marca el 2 y el 4.</td><td>EQ Eight</td><td class="num">-8.5 dB</td><td>drop 1, drop 2</td></tr>
-<tr><td class="num">10</td><td><b>11 [BUILD] RISER + SNARE ROLL (CUT 352)</b></td><td>El "ruido que sube" antes del drop.</td><td>EQ Eight</td><td class="num">-7.5 dB</td><td>build (corta en 352)</td></tr>
-<tr><td class="num">11</td><td><b>12 [BASS] GALOPE 1/8T (DROP 2)</b></td><td>El bajo en tresillos del clímax.</td><td>Operator + EQ Eight + Roar</td><td class="num">-6.0 dB</td><td>solo drop 2</td></tr>
-<tr><td class="num">12</td><td><b>13 [ATMOS] G-FRIGIO VOCAL PAD</b></td><td>Un colchón de aire con voz de fondo.</td><td>EQ Eight + Reverb</td><td class="num">-5.0 dB</td><td>breakdown, mini-break</td></tr>
-<tr><td class="num">13</td><td><b>14 [FX] SUB IMPACT (DROP HITS)</b></td><td>El golpe de sub que marca cada impacto.</td><td>EQ Eight + Delay</td><td class="num">-2.2 dB</td><td>los 2 hits de drop</td></tr>
+<tr><td class="num">2</td><td><b>03 [LOW] RUMBLE A (COLOR/HP 125Hz)</b></td><td>Ruido de cueva, con "color" propio.</td><td>EQ Eight + Roar</td><td class="num">-7.5 dB</td><td>intro, groove, drops, outro</td></tr>
+<tr><td class="num">3</td><td><b>04 [LOW] RUMBLE B (2DA CAPA/CAVA)</b></td><td>Segunda capa de rumble (otra fuente, otro color).</td><td>EQ Eight + Saturator</td><td class="num">-12.0 dB</td><td>groove, breakdown, drops, outro</td></tr>
+<tr><td class="num">4</td><td><b>05 [HOOK] GRAVITY HOOK (Gm + b2)</b></td><td>La melodía hipnótica de 4 negras, en Sol menor.</td><td>Drift + Roar + EQ Eight + Delay</td><td class="num">-4.5 dB</td><td>groove, drop 1, drop 2</td></tr>
+<tr><td class="num">5</td><td><b>06 [SYNTH] HOOVER ANTHEM (SUPERSAW)</b></td><td>El "pared de sonido" que se abre en el breakdown.</td><td>Wavetable + EQ Eight + Chorus + Reverb</td><td class="num">-3.2 dB</td><td>breakdown, drops</td></tr>
+<tr><td class="num">6</td><td><b>07 [BASS PAD] DARK REESE DRONE (Gm)</b></td><td>El suelo grave del breakdown (cuando no hay bombo).</td><td>Wavetable + Chorus + EQ Eight</td><td class="num">-4.5 dB</td><td>solo breakdown</td></tr>
+<tr><td class="num">7</td><td><b>08 [ATMOS] Gm9 ATMOSPHERE PAD</b></td><td>Colchón de aire que llena el espectro.</td><td>Wavetable + EQ Eight + Reverb + Envelope Follower + Auto Filter</td><td class="num">-8.0 dB</td><td>breakdown, mini-break</td></tr>
+<tr><td class="num">8</td><td><b>09 [DRUMS] 909 CLOSED HATS (1/16)</b></td><td>Las charles cerradas: el "tictac".</td><td>EQ Eight</td><td class="num">-9.5 dB</td><td>groove, build, drops, outro</td></tr>
+<tr><td class="num">9</td><td><b>10 [DRUMS] 909 OPEN HAT (OFFBEAT &amp;)</b></td><td>La charle abierta en el "&amp;" (contratiempo).</td><td>EQ Eight</td><td class="num">-10.5 dB</td><td>groove, drop 1, drop 2</td></tr>
+<tr><td class="num">10</td><td><b>11 [DRUMS] 909 ACID RIDE (CLIMAX)</b></td><td>El ride: entra sólo en el clímax.</td><td>EQ Eight</td><td class="num">-10.0 dB</td><td>final del drop 1, drop 2</td></tr>
+<tr><td class="num">11</td><td><b>12 [DRUMS] PEAK CLAP</b></td><td>El clap: marca el 2 y el 4.</td><td>EQ Eight</td><td class="num">-8.5 dB</td><td>drop 1, drop 2</td></tr>
+<tr><td class="num">12</td><td><b>13 [BUILD] RISER + SNARE ROLL (CUT 400)</b></td><td>El "ruido que sube" antes del drop.</td><td>EQ Eight</td><td class="num">-7.5 dB</td><td>build (corta en 400)</td></tr>
+<tr><td class="num">13</td><td><b>14 [BASS] GALOPE 1/8T (DROP 2)</b></td><td>El bajo en tresillos del clímax.</td><td>Operator + EQ Eight + Roar</td><td class="num">-6.0 dB</td><td>solo drop 2</td></tr>
+<tr><td class="num">14</td><td><b>15 [FX] SUB IMPACT (DROP HITS)</b></td><td>El golpe de sub que marca cada impacto.</td><td>EQ Eight + Delay</td><td class="num">-2.2 dB</td><td>los 2 hits de drop</td></tr>
 </tbody>
 </table>
 
@@ -259,21 +260,35 @@ Acá está cada una traducida a "qué programé" y con su analogía.</p>
   </div>
 </div>
 
+<div class="card" style="margin-top:14px">
+  <h3>Las 6 técnicas reales de Space 92, aplicadas en el v2</h3>
+  <table>
+  <thead><tr><th>Leección (breakdown real)</th><th>Dónde está en el set</th></tr></thead>
+  <tbody>
+  <tr><td><b>Rumble con color y forma</b></td><td>Pistas 03 y 04: <b>dos capas</b> de rumble con fuentes distintas, cada una con su color (Roar / Saturator) y su EQ.</td></tr>
+  <tr><td><b>Velocidades MIDI randomizadas</b></td><td>Hook, sub, hoover, reese y galope: las velocities se sortean con semilla fija (reproducible) ±4 a ±10.</td></tr>
+  <tr><td><b>Hacer espacio entre main y sub</b></td><td>El hook tiene high-pass a 165 Hz y el sub es dueño exclusivo de 43–49 Hz; el rumble arranca en 125 Hz.</td></tr>
+  <tr><td><b>Capas de atmo</b></td><td>Pista 08 <i>Gm9 ATMOSPHERE PAD</i> (Wavetable + Reverb) + la 2ª capa de rumble en el breakdown.</td></tr>
+  <tr><td><b>Envelope follower</b></td><td>Pista 08: <code>Envelope Follower</code> + <code>Auto Filter</code> (attack 1 ms / release 3 ms).</td></tr>
+  <tr><td><b>Cadena en paralelo</b></td><td>Return <b>C-PARALLEL TAIL FILL</b> (EQ + Reverb + Compressor) alimentado por atmo y lead: relleno de altas en paralelo.</td></tr>
+  </tbody>
+  </table>
+</div>
 <h2 id="tiempo"><span class="n">05</span> El mapa del tiempo (176 compases)</h2>
 <p>Un compás son 4 beats. La "forma" de un tema de club es una curva de energía: se sube, se rompe,
 se vuelve a subir. Acá está el mapa con lo que suena en cada tramo.</p>
 <table>
 <thead><tr><th>Compás</th><th>Beats</th><th>Sección</th><th>Qué pasa</th><th>Emoción</th></tr></thead>
 <tbody>
-<tr><td class="num">1–32</td><td class="num">0–128</td><td><b>INTRO</b></td><td>Bombo + bajo galopando + rumble. El hook todavía no entra.</td><td>"algo arrancó"</td></tr>
-<tr><td class="num">33–64</td><td class="num">128–256</td><td><b>GROOVE</b></td><td>Entran el hook (filtrado, cerrado), las charles y la charle abierta.</td><td>"ya tengo cuerpo"</td></tr>
-<tr><td class="num">65–84</td><td class="num">256–336</td><td><b>BREAKDOWN</b></td><td><b>El bombo sale.</b> Entra el reese drone, el hoover que abre filtro y el vocal pad.</td><td>"tensión, vacío"</td></tr>
-<tr><td class="num">85–88</td><td class="num">336–352</td><td><b>BUILD</b></td><td>Vuelve el bombo + riser que sube + charles acelerando.</td><td>"va"</td></tr>
-<tr><td class="num">89</td><td class="num">352–356</td><td><b>SILENCIO</b></td><td><b>No hay absolutamente nada.</b> Un compás entero de nada.</td><td>"ahora sí"</td></tr>
-<tr><td class="num">90–121</td><td class="num">356–484</td><td><b>DROP 1</b></td><td>Todo junto: bombo + sub + hook abierto + hoover + charles + clap + el golpe de sub.</td><td>"BOOM"</td></tr>
-<tr><td class="num">122–125</td><td class="num">484–500</td><td><b>MINI BREAK</b></td><td>Se saca todo menos el bombo y el pad. Se respira.</td><td>"pausa"</td></tr>
-<tr><td class="num">126–141</td><td class="num">500–564</td><td><b>DROP 2</b></td><td>Se suma el galope en tresillos + el ride + el hook al máximo.</td><td>"más grande"</td></tr>
-<tr><td class="num">142–176</td><td class="num">564–704</td><td><b>OUTRO</b></td><td>Se van descartando elementos hasta dejar el bombo y el bajo.</td><td>"se acaba"</td></tr>
+<tr><td class="num">1–32</td><td class="num">0–128</td><td><b>INTRO</b></td><td>Bombo + bajo galopando + rumble A.</td><td>"algo arrancó"</td></tr>
+<tr><td class="num">33–64</td><td class="num">128–256</td><td><b>GROOVE</b></td><td>Entran el hook (filtrado), las charles, la charle abierta y la 2ª capa de rumble.</td><td>"ya tengo cuerpo"</td></tr>
+<tr><td class="num">65–92</td><td class="num">256–368</td><td><b>BREAKDOWN</b></td><td><b>El bombo sale.</b> Reese drone + hoover que abre filtro + pad de atmo.</td><td>"tensión, vacío"</td></tr>
+<tr><td class="num">93–100</td><td class="num">368–400</td><td><b>BUILD</b></td><td>Vuelve el bombo + riser que sube.</td><td>"va"</td></tr>
+<tr><td class="num">101</td><td class="num">400–404</td><td><b>SILENCIO</b></td><td><b>No hay absolutamente nada.</b> Un compás entero de nada.</td><td>"ahora sí"</td></tr>
+<tr><td class="num">102–133</td><td class="num">404–532</td><td><b>DROP 1</b></td><td>Todo junto: bombo + sub + hook + hoover + charles + clap + el golpe de sub.</td><td>"BOOM"</td></tr>
+<tr><td class="num">134–137</td><td class="num">532–548</td><td><b>MINI BREAK</b></td><td>Se saca todo menos el bombo y el pad.</td><td>"pausa"</td></tr>
+<tr><td class="num">138–161</td><td class="num">548–644</td><td><b>DROP 2</b></td><td>Se suma el galope en tresillos + el ride + el hook al máximo.</td><td>"más grande"</td></tr>
+<tr><td class="num">162–201</td><td class="num">644–806</td><td><b>OUTRO</b></td><td>Se van descartando elementos hasta dejar el bombo y el bajo.</td><td>"se acaba"</td></tr>
 </tbody>
 </table>
 <p class="sub">En Ableton esto quedó también como <b>locators</b> (9 marcadores en la barra de tiempo):
@@ -434,10 +449,10 @@ del release) y del <b>breakdown real</b> de <i>Gravity</i> hecho por François P
 <h2 id="repro"><span class="n">10</span> Cómo lo reproduzco / lo toco</h2>
 <pre><span class="c"># 1. reconstruir el tema desde cero (tarda ~40 s, escribe en el Ableton vivo)</span>
 cd /Users/juancruz/ableton-live12-mcp
-PYTHONPATH=src:masterclasses/scripts python3 masterclasses/scripts/build_gravity_like.py
+PYTHONPATH=src:masterclasses/scripts python3 masterclasses/scripts/build_gravity_verified.py
 
 <span class="c"># 2. renombrar/colorear la grilla + exportar el mapa HTML</span>
-PYTHONPATH=src:masterclasses/scripts python3 masterclasses/scripts/organize_gravity_grid.py
+PYTHONPATH=src:masterclasses/scripts python3 masterclasses/scripts/organize_gravity_v2_grid.py
 
 <span class="c"># 3. reparar buses y envíos (si se re-ejecutó el builder)</span>
 PYTHONPATH=src python3 masterclasses/scripts/repair_bus_chains.py
@@ -448,8 +463,8 @@ PYTHONPATH=src python3 scripts/measure_track_levels.py --start-beat 358 --second
 <table>
 <thead><tr><th>Artefacto</th><th>Ruta</th></tr></thead>
 <tbody>
-<tr><td>Set de Ableton (el tema)</td><td><code>masterclasses/peak/space92_gravity Project/space92_gravity.als</code></td></tr>
-<tr><td>Mapa visual del arreglo (HTML)</td><td><code>masterclasses/peak/space92_gravity_arrangement_map.html</code></td></tr>
+<tr><td>Set de Ableton (el tema)</td><td><code>masterclasses/peak/space92_gravity_v2 Project/space92_gravity_v2.als</code> (v2, el actual)</td></tr>
+<tr><td>Mapa visual del arreglo (HTML)</td><td><code>masterclasses/peak/space92_gravity_v2_map.html</code></td></tr>
 <tr><td>Este documento</td><td><code>masterclasses/peak/space92_gravity_explicacion.html</code></td></tr>
 <tr><td>Teoría de la fórmula (markdown, para devs)</td><td><code>masterclasses/SPACE92_PSYTECH_TTG_BLUEPRINT.md</code></td></tr>
 <tr><td>Skill reutilizable por cualquier agente</td><td><code>skills/ableton-techno-producer/</code></td></tr>
