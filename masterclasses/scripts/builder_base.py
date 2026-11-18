@@ -156,54 +156,62 @@ def save_live_set(client: Live12Client, destination_als_path: str, timeout_sec: 
     client.call_tool("live12_transport_stop")
     time.sleep(0.3)
 
-    script = f'''
-    set targetFolder to "{folder_path}"
-    set targetFile to "{base_name}"
+    script = '''
+    on run argv
+        set targetFolder to item 1 of argv
+        set targetFile to item 2 of argv
 
-    tell application "System Events"
-        set liveProc to (first process whose bundle identifier is "com.ableton.live")
-        set frontmost of liveProc to true
-        delay 0.3
+        tell application "System Events"
+            set liveProc to (first process whose bundle identifier is "com.ableton.live")
+            set frontmost of liveProc to true
+            delay 0.3
 
-        -- Trigger Save Live Set As... (Shift+Cmd+S)
-        keystroke "s" using {{command down, shift down}}
-        delay 0.6
+            -- Trigger Save Live Set As... (Shift+Cmd+S)
+            keystroke "s" using {command down, shift down}
+            delay 0.6
 
-        -- Open Go To Folder
-        keystroke "g" using {{command down, shift down}}
-        delay 0.5
+            -- Open Go To Folder
+            keystroke "g" using {command down, shift down}
+            delay 0.5
 
-        -- Type targetFolder and confirm
-        keystroke targetFolder
-        delay 0.2
-        keystroke return
-        delay 0.5
+            -- Type targetFolder and confirm
+            keystroke targetFolder
+            delay 0.2
+            keystroke return
+            delay 0.5
 
-        -- Type targetFile and confirm
-        keystroke targetFile
-        delay 0.3
-        keystroke return
-        delay 0.5
+            -- Type targetFile and confirm
+            keystroke targetFile
+            delay 0.3
+            keystroke return
+            delay 0.5
 
-        -- Replace if asked
-        delay 0.4
-        tell liveProc
-            repeat with w in windows
-                if exists sheet 1 of w then
-                    tell sheet 1 of w
-                        if exists button "Replace" then
-                            click button "Replace"
-                        else if exists button "Reemplazar" then
-                            click button "Reemplazar"
-                        end if
-                    end tell
-                end if
-            end repeat
+            -- Replace if asked
+            delay 0.4
+            tell liveProc
+                repeat with w in windows
+                    if exists sheet 1 of w then
+                        tell sheet 1 of w
+                            if exists button "Replace" then
+                                click button "Replace"
+                            else if exists button "Reemplazar" then
+                                click button "Reemplazar"
+                            end if
+                        end tell
+                    end if
+                end repeat
+            end tell
         end tell
-    end tell
-    return "done"
+        return "done"
+    end run
     '''
-    subprocess.run(["osascript", "-e", script], capture_output=True, text=True, timeout=timeout_sec)
+    subprocess.run(
+        ["osascript", "-", folder_path, base_name],
+        input=script,
+        capture_output=True,
+        text=True,
+        timeout=timeout_sec,
+    )
 
     # Poll for file creation either directly at abs_path or within any Project directory
     start_time = time.time()
@@ -282,58 +290,66 @@ def export_audio_bounce(
 
     # 3. Trigger Export Audio via AppleScript menu click and dialog automation
     logger.info("Triggering Export Audio/Video menu item in Ableton Live...")
-    script = f'''
-    set targetFolder to "{folder_path}"
-    set targetFile to "{base_name}"
+    script = '''
+    on run argv
+        set targetFolder to item 1 of argv
+        set targetFile to item 2 of argv
 
-    tell application "System Events"
-        set liveProc to (first process whose bundle identifier is "com.ableton.live")
-        set frontmost of liveProc to true
-        delay 0.2
+        tell application "System Events"
+            set liveProc to (first process whose bundle identifier is "com.ableton.live")
+            set frontmost of liveProc to true
+            delay 0.2
 
-        -- Click Export Audio/Video... from File menu
-        tell liveProc
-            click menu item "Export Audio/Video..." of menu "File" of menu bar 1
+            -- Click Export Audio/Video... from File menu
+            tell liveProc
+                click menu item "Export Audio/Video..." of menu "File" of menu bar 1
+            end tell
+            delay 0.6
+
+            -- Confirm export settings by pressing Return
+            keystroke return
+            delay 0.8
+
+            -- Open Go To Folder
+            keystroke "g" using {command down, shift down}
+            delay 0.5
+            keystroke targetFolder
+            delay 0.2
+            keystroke return
+            delay 0.5
+
+            -- Type targetFile and confirm
+            keystroke targetFile
+            delay 0.3
+            keystroke return
+            delay 0.5
+
+            -- Replace if prompted
+            delay 0.4
+            tell liveProc
+                repeat with w in windows
+                    if exists sheet 1 of w then
+                        tell sheet 1 of w
+                            if exists button "Replace" then
+                                click button "Replace"
+                            else if exists button "Reemplazar" then
+                                click button "Reemplazar"
+                            end if
+                        end tell
+                    end if
+                end repeat
+            end tell
         end tell
-        delay 0.6
-
-        -- Confirm export settings by pressing Return
-        keystroke return
-        delay 0.8
-
-        -- Open Go To Folder
-        keystroke "g" using {{command down, shift down}}
-        delay 0.5
-        keystroke targetFolder
-        delay 0.2
-        keystroke return
-        delay 0.5
-
-        -- Type targetFile and confirm
-        keystroke targetFile
-        delay 0.3
-        keystroke return
-        delay 0.5
-
-        -- Replace if prompted
-        delay 0.4
-        tell liveProc
-            repeat with w in windows
-                if exists sheet 1 of w then
-                    tell sheet 1 of w
-                        if exists button "Replace" then
-                            click button "Replace"
-                        else if exists button "Reemplazar" then
-                            click button "Reemplazar"
-                        end if
-                    end tell
-                end if
-            end repeat
-        end tell
-    end tell
-    return "done"
+        return "done"
+    end run
     '''
-    subprocess.run(["osascript", "-e", script], capture_output=True, text=True, timeout=timeout_sec)
+    subprocess.run(
+        ["osascript", "-", folder_path, base_name],
+        input=script,
+        capture_output=True,
+        text=True,
+        timeout=timeout_sec,
+    )
 
     # 4. Wait for audio rendering to stabilize on disk
     logger.info("Waiting for audio bounce completion and file stabilization...")

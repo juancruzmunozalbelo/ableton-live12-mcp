@@ -12,6 +12,7 @@ import contextlib
 import json
 import os
 import queue
+import select
 import socket
 import sys
 import threading
@@ -62,12 +63,14 @@ except ImportError:
                 pass
 
 
+from . import handlers as handlers_mod
 from .handlers import BridgeHandlers, dispatch_tool_call
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 11246
 DISCOVERY_PATH = "/tmp/ableton_live12_bridge.json"
 MAX_QUEUE_DRAIN_PER_TICK = 64
+BRIDGE_TIMEOUT_SECONDS = 25.0
 # Live.Base.Timer interval (milliseconds). Live dispatches every tick to the main
 # thread, and a 5 ms tick burns ~60% of a whole CPU core inside Ableton Live 12,
 # which starves the audio engine (silent output / dropped meter updates).
@@ -84,6 +87,7 @@ class BridgeJob:
         self.method = method
         self.params = params
         self.done_event = threading.Event()
+        self.cancelled = threading.Event()
         self.result: Any = None
         self.error: Optional[Dict[str, Any]] = None
 
@@ -149,23 +153,55 @@ class Live12ControlSurface(ControlSurface):
         )
         self._server_thread.start()
 
+    def _get_live_version(self) -> str:
+        """Queries the active Ableton Live version from Application when available."""
+        app = self.application()
+        if app is not None:
+            if (
+                hasattr(app, "get_major_version")
+                and hasattr(app, "get_minor_version")
+                and hasattr(app, "get_bugfix_version")
+            ):
+                try:
+                    major = app.get_major_version()
+                    minor = app.get_minor_version()
+                    bugfix = app.get_bugfix_version()
+                    return f"{major}.{minor}.{bugfix}"
+                except Exception as e:
+                    self.log_message(f"Live12Bridge: Failed to query Live version: {e}")
+            if hasattr(app, "get_version_string"):
+                try:
+                    ver = str(app.get_version_string()).strip()
+                    if ver:
+                        return ver
+                except Exception:
+                    pass
+        return "12.4.6"
+
     def _write_discovery_file(self) -> None:
-        """Writes bridge discovery metadata to /tmp/ableton_live12_bridge.json."""
+        """Writes bridge discovery metadata to /tmp/ableton_live12_bridge.json with 0o600 permissions."""
         meta = {
             "pid": os.getpid(),
             "port": self._port,
             "host": DEFAULT_HOST,
-            "live_version": "12.4.6",
+            "live_version": self._get_live_version(),
             "status": "ready",
             "started_at": time.time(),
         }
-        tmp_path = f"{DISCOVERY_PATH}.tmp"
+        tmp_path = f"{DISCOVERY_PATH}.tmp.{os.getpid()}"
         try:
-            with open(tmp_path, "w", encoding="utf-8") as f:
+            fd = os.open(tmp_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
                 json.dump(meta, f, indent=2)
+            os.chmod(tmp_path, 0o600)
             os.replace(tmp_path, DISCOVERY_PATH)
         except Exception as e:
             self.log_message(f"Live12Bridge: Failed to write discovery file: {e}")
+            try:
+                if os.path.exists(tmp_path):
+                    os.remove(tmp_path)
+            except Exception:
+                pass
 
     def _run_tcp_server(self) -> None:
         """Accepts incoming TCP connections and spawns client handler threads."""
@@ -210,7 +246,8 @@ class Live12ControlSurface(ControlSurface):
                     line = line.strip()
                     if not line:
                         continue
-                    self._process_raw_frame(conn, line)
+                    if not self._process_raw_frame(conn, line):
+                        return
         except (socket.timeout, ConnectionResetError, BrokenPipeError):
             pass
         except Exception as e:
@@ -223,7 +260,56 @@ class Live12ControlSurface(ControlSurface):
             except Exception:
                 pass
 
-    def _process_raw_frame(self, conn: socket.socket, line: bytes) -> None:
+    @staticmethod
+    def _is_socket_closed(conn: socket.socket) -> bool:
+        """Non-blocking probe to detect if the peer disconnected or reset the TCP socket."""
+        try:
+            if conn.fileno() < 0:
+                return True
+            if conn.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR) != 0:
+                return True
+            rlist, _, xlist = select.select([conn], [], [conn], 0.0)
+            if xlist:
+                return True
+            if rlist:
+                try:
+                    peek = conn.recv(1, socket.MSG_PEEK)
+                    if not peek:
+                        return True
+                except (BlockingIOError, InterruptedError, socket.timeout):
+                    return False
+                except (ConnectionResetError, BrokenPipeError, OSError):
+                    return True
+        except (OSError, ValueError):
+            return True
+        return False
+
+    def _wait_for_job(self, conn: socket.socket, job: BridgeJob, timeout: float = BRIDGE_TIMEOUT_SECONDS) -> Tuple[bool, bool]:
+        """Waits for job completion, cancelling on timeout or client disconnect.
+
+        Returns (completed, socket_closed).
+        """
+        if not isinstance(conn, socket.socket):
+            completed = job.done_event.wait(timeout=timeout)
+            if not completed:
+                job.cancelled.set()
+            return completed, False
+
+        deadline = time.monotonic() + timeout
+        while self._running:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0.0:
+                job.cancelled.set()
+                return False, False
+            if job.done_event.wait(timeout=min(0.25, remaining)):
+                return True, False
+            if self._is_socket_closed(conn):
+                job.cancelled.set()
+                return False, True
+        job.cancelled.set()
+        return False, True
+
+    def _process_raw_frame(self, conn: socket.socket, line: bytes) -> bool:
         """Parses a single JSON-RPC line and enqueues it to the main-thread queue."""
         try:
             req_json = json.loads(line.decode("utf-8"))
@@ -233,8 +319,7 @@ class Live12ControlSurface(ControlSurface):
                 "id": None,
                 "error": {"code": -32700, "message": "Parse error", "data": str(e)},
             }
-            self._send_response(conn, err_resp)
-            return
+            return self._send_response(conn, err_resp)
 
         if not isinstance(req_json, dict):
             err_resp = {
@@ -242,8 +327,7 @@ class Live12ControlSurface(ControlSurface):
                 "error": {"code": -32600, "message": "Invalid Request: batch not supported or not an object"},
                 "id": None,
             }
-            self._send_response(conn, err_resp)
-            return
+            return self._send_response(conn, err_resp)
 
         req_id = req_json.get("id")
         method = req_json.get("method")
@@ -255,14 +339,15 @@ class Live12ControlSurface(ControlSurface):
                 "id": req_id,
                 "error": {"code": -32600, "message": "Invalid Request: missing or invalid 'method'"},
             }
-            self._send_response(conn, err_resp)
-            return
+            return self._send_response(conn, err_resp)
 
         job = BridgeJob(req_id=req_id, method=method, params=params)
         self._request_queue.put(job)
 
-        # Wait for main-thread execution
-        completed = job.done_event.wait(timeout=20.0)
+        # Wait for main-thread execution; cancel if timed out or client disconnected
+        completed, sock_closed = self._wait_for_job(conn, job, timeout=BRIDGE_TIMEOUT_SECONDS)
+        if sock_closed:
+            return False
         if not completed:
             err_resp = {
                 "jsonrpc": "2.0",
@@ -272,21 +357,21 @@ class Live12ControlSurface(ControlSurface):
                     "message": f"Execution timed out on Ableton main thread for method '{method}'",
                 },
             }
-            self._send_response(conn, err_resp)
-            return
+            return self._send_response(conn, err_resp)
 
         if job.error:
             resp = {"jsonrpc": "2.0", "id": req_id, "error": job.error}
         else:
             resp = {"jsonrpc": "2.0", "id": req_id, "result": job.result}
 
-        self._send_response(conn, resp)
+        return self._send_response(conn, resp)
 
-    def _send_response(self, conn: socket.socket, resp: Dict[str, Any]) -> None:
-        """Encodes and sends a newline-delimited JSON response."""
+    def _send_response(self, conn: socket.socket, resp: Dict[str, Any]) -> bool:
+        """Encodes and sends a newline-delimited JSON response. Returns False if connection failed."""
         try:
             payload = json.dumps(resp).encode("utf-8") + b"\n"
             conn.sendall(payload)
+            return True
         except TypeError as e:
             self.log_message(f"Live12Bridge: Non-serializable response: {e}")
             req_id = resp.get("id") if isinstance(resp, dict) else None
@@ -298,10 +383,13 @@ class Live12ControlSurface(ControlSurface):
             try:
                 payload = json.dumps(fallback_resp).encode("utf-8") + b"\n"
                 conn.sendall(payload)
+                return True
             except Exception as e2:
                 self.log_message(f"Live12Bridge: Failed to send fallback error response: {e2}")
+                return False
         except Exception as e:
             self.log_message(f"Live12Bridge: Failed to send response: {e}")
+            return False
 
     # -------------------------------------------------------------------------
     # Main-Thread Scheduler & Execution Queue
@@ -346,18 +434,25 @@ class Live12ControlSurface(ControlSurface):
     def _drain_queue(self) -> None:
         """Drains and executes pending jobs from the request queue inside component_guard."""
         drained = 0
-        while drained < MAX_QUEUE_DRAIN_PER_TICK:
+        steps = 0
+        max_steps = MAX_QUEUE_DRAIN_PER_TICK * 16
+        while drained < MAX_QUEUE_DRAIN_PER_TICK and steps < max_steps:
             try:
                 job = self._request_queue.get_nowait()
             except queue.Empty:
                 break
 
+            steps += 1
+            if job.cancelled.is_set():
+                job.done_event.set()
+                continue
+
             drained += 1
             try:
                 with self._guard():
-                    res = dispatch_tool_call(self._handlers, job.method, job.params)
+                    res = handlers_mod.dispatch_tool_call(self._handlers, job.method, job.params)
                     job.result = res
-            except (IndexError, ValueError, KeyError, PermissionError, AttributeError, TypeError, RuntimeError) as e:
+            except (IndexError, ValueError, KeyError, PermissionError) as e:
                 # Normal client validation/boundary error - return clean RPC error without dumping traceback to host Log.txt
                 job.error = {
                     "code": -32603,
@@ -437,11 +532,20 @@ class Live12ControlSurface(ControlSurface):
                     pass
             self._active_connections.clear()
 
+        if self._handlers and hasattr(self._handlers, "close_open_undo_steps"):
+            try:
+                self._handlers.close_open_undo_steps()
+            except Exception as e:
+                self.log_message(f"Live12Bridge: Error closing open undo steps on disconnect: {e}")
+
         if os.path.exists(DISCOVERY_PATH):
             try:
-                os.remove(DISCOVERY_PATH)
-            except Exception:
-                pass
+                with open(DISCOVERY_PATH, "r", encoding="utf-8") as f:
+                    meta = json.load(f)
+                if isinstance(meta, dict) and meta.get("pid") == os.getpid():
+                    os.remove(DISCOVERY_PATH)
+            except Exception as e:
+                self.log_message(f"Live12Bridge: Failed to remove discovery file: {e}")
 
         self.log_message("Live12Bridge: Control surface disconnected cleanly.")
         try:

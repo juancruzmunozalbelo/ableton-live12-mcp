@@ -12,6 +12,7 @@ import json
 import os
 import socket
 import sys
+import threading
 import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
@@ -89,38 +90,74 @@ class Live12Client:
         self,
         host: Optional[str] = None,
         port: Optional[int] = None,
-        timeout: float = 10.0,
+        timeout: float = 25.0,
         discovery_path: Optional[str] = None,
     ):
         self.timeout = timeout
         self.discovery_path = discovery_path or DEFAULT_DISCOVERY_PATH
         self._req_id = 0
+        self._req_lock = threading.Lock()
 
-        # Resolve host and port with priority: explicit arg > env var > discovery file > defaults
-        resolved_host = host or os.environ.get("ABLETON_BRIDGE_HOST")
-        resolved_port = port or (int(os.environ["ABLETON_BRIDGE_PORT"]) if "ABLETON_BRIDGE_PORT" in os.environ else None)
+        # Preserve pinned overrides (explicit arg or environment variable).
+        env_host = os.environ.get("ABLETON_BRIDGE_HOST")
+        env_port = os.environ.get("ABLETON_BRIDGE_PORT")
+        self._pinned_host: Optional[str] = host if host is not None else (env_host or None)
+        self._pinned_port: Optional[int] = int(port) if port is not None else (int(env_port) if env_port else None)
+
+        self.host = DEFAULT_HOST
+        self.port = DEFAULT_PORT
+        self._refresh_endpoint()
+
+    @staticmethod
+    def _is_pid_alive(pid: Any) -> bool:
+        """Returns True if pid refers to a currently running OS process."""
+        try:
+            pid_int = int(pid)
+        except (TypeError, ValueError):
+            return False
+        if pid_int <= 0:
+            return False
+        try:
+            os.kill(pid_int, 0)
+            return True
+        except ProcessLookupError:
+            return False
+        except PermissionError:
+            return True
+        except OSError:
+            return False
+
+    def _refresh_endpoint(self) -> Tuple[str, int]:
+        """Resolves host/port dynamically from discovery_path unless pinned via args/env."""
+        resolved_host = self._pinned_host
+        resolved_port = self._pinned_port
 
         if (resolved_host is None or resolved_port is None) and self.discovery_path and os.path.exists(self.discovery_path):
             try:
                 with open(self.discovery_path, "r", encoding="utf-8") as f:
                     meta = json.load(f)
-                    if resolved_port is None and "port" in meta:
-                        resolved_port = int(meta["port"])
-                    if resolved_host is None and "host" in meta:
-                        resolved_host = str(meta["host"])
+                if isinstance(meta, dict):
+                    pid = meta.get("pid")
+                    pid_valid = True if pid is None else self._is_pid_alive(pid)
+                    if pid_valid:
+                        if resolved_port is None and meta.get("port") is not None:
+                            resolved_port = int(meta["port"])
+                        if resolved_host is None and meta.get("host"):
+                            resolved_host = str(meta["host"])
             except Exception:
                 pass
 
         self.host = resolved_host or DEFAULT_HOST
         self.port = resolved_port or DEFAULT_PORT
+        return self.host, self.port
 
     def is_reachable(self, probe_timeout: float = 0.3) -> bool:
         """Checks whether the Live 12 TCP bridge is reachable."""
+        host, port = self._refresh_endpoint()
         try:
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.settimeout(probe_timeout)
-            s.connect((self.host, self.port))
-            s.close()
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.settimeout(probe_timeout)
+                s.connect((host, port))
             return True
         except Exception:
             return False
@@ -134,8 +171,10 @@ class Live12Client:
         """
         Executes a JSON-RPC 2.0 call against the bridge, raising Live12RpcError on failure.
         """
-        self._req_id += 1
-        req_id = self._req_id
+        with self._req_lock:
+            self._req_id += 1
+            req_id = self._req_id
+
         req_payload = {
             "jsonrpc": "2.0",
             "id": req_id,
@@ -143,36 +182,60 @@ class Live12Client:
             "params": params or {},
         }
         data = (json.dumps(req_payload) + "\n").encode("utf-8")
-        req_timeout = timeout or self.timeout
+        req_timeout = self.timeout if timeout is None else timeout
+        host, port = self._refresh_endpoint()
+
+        def _exchange(target_host: str, target_port: int) -> bytes:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.settimeout(req_timeout)
+                s.connect((target_host, target_port))
+                s.sendall(data)
+
+                chunks = []
+                while True:
+                    chunk = s.recv(8192)
+                    if not chunk:
+                        break
+                    chunks.append(chunk)
+                    if b"\n" in chunk:
+                        break
+                return b"".join(chunks)
 
         try:
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.settimeout(req_timeout)
-            s.connect((self.host, self.port))
-            s.sendall(data)
+            try:
+                raw_bytes = _exchange(host, port)
+            except ConnectionRefusedError as e:
+                if self._pinned_host is None or self._pinned_port is None:
+                    new_host, new_port = self._refresh_endpoint()
+                    if (new_host, new_port) != (host, port):
+                        host, port = new_host, new_port
+                        raw_bytes = _exchange(host, port)
+                    else:
+                        raise e
+                else:
+                    raise e
 
-            chunks = []
-            while True:
-                chunk = s.recv(8192)
-                if not chunk:
-                    break
-                chunks.append(chunk)
-                if b"\n" in chunk:
-                    break
-            s.close()
-
-            raw_bytes = b"".join(chunks).strip()
-            if not raw_bytes:
+            first_frame = raw_bytes.split(b"\n", 1)[0].strip()
+            if not first_frame:
                 raise Live12ConnectionError("Empty response received from Live 12 bridge")
 
-            resp = json.loads(raw_bytes.decode("utf-8"))
+            resp = json.loads(first_frame.decode("utf-8"))
+            if not isinstance(resp, dict):
+                raise Live12ClientError(
+                    f"Invalid JSON-RPC response type from bridge: {type(resp).__name__}"
+                )
+
+            if "id" in resp and not ("error" in resp and resp["id"] is None) and resp["id"] != req_id:
+                raise Live12ClientError(
+                    f"Mismatched JSON-RPC response id: expected {req_id}, got {resp['id']!r}"
+                )
 
             if "error" in resp:
                 err = resp["error"]
                 code = err.get("code", -32000)
                 msg = err.get("message", "Unknown RPC error")
-                data = err.get("data")
-                raise Live12RpcError(code, msg, data)
+                err_data = err.get("data")
+                raise Live12RpcError(code, msg, err_data)
 
             return resp.get("result")
 
@@ -180,7 +243,8 @@ class Live12Client:
             raise Live12TimeoutError(f"Request '{method}' timed out after {req_timeout}s") from e
         except ConnectionRefusedError as e:
             raise Live12ConnectionError(
-                f"Connection refused to Live 12 bridge at {self.host}:{self.port}. Is Ableton Live running?"
+                f"Connection refused to Live 12 bridge at {host}:{port}. "
+                "Is Ableton Live 12 running with Live12Bridge enabled?"
             ) from e
         except json.JSONDecodeError as e:
             raise Live12ClientError(f"Failed to decode bridge JSON response: {e}") from e

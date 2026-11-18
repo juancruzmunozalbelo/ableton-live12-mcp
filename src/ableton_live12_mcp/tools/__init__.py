@@ -1,10 +1,10 @@
 """
-Ableton Live 12 MCP Server - 75-Tool Catalog & Schema Engine
+Ableton Live 12 MCP Server - 77-Tool Catalog & Schema Engine
 ============================================================
-Aggregates all 75 MCP tools across 6 functional domains:
+Aggregates all 77 MCP tools across 6 functional domains:
 - Domain 1: Transport, Song & Arrangement (15 tools)
-- Domain 2: Tracks, TakeLanes, Scenes & Routing (15 tools)
-- Domain 3: Clips, Extended MIDI & Warping (16 tools)
+- Domain 2: Tracks, TakeLanes, Scenes & Routing (16 tools)
+- Domain 3: Clips, Extended MIDI & Warping (17 tools)
 - Domain 4: Browser, Devices, Racks & Parameters (17 tools)
 - Domain 5: View, Native Dialogs & OS Actions (8 tools)
 - Domain 6: Universal LOM Escape Hatch (4 tools)
@@ -26,6 +26,7 @@ from .view_tools import VIEW_TOOLS
 ALL_TOOLS: List[Dict[str, Any]] = (
     SONG_TOOLS
     + TRACK_TOOLS
+    + TAKE_LANE_TOOLS
     + CLIP_TOOLS
     + DEVICE_TOOLS
     + VIEW_TOOLS
@@ -34,13 +35,11 @@ ALL_TOOLS: List[Dict[str, Any]] = (
 
 EXTRA_TOOLS: List[Dict[str, Any]] = list(TAKE_LANE_TOOLS)
 
-TOOL_MAP: Dict[str, Dict[str, Any]] = {tool["name"]: tool for tool in (ALL_TOOLS + EXTRA_TOOLS)}
+TOOL_MAP: Dict[str, Dict[str, Any]] = {tool["name"]: tool for tool in ALL_TOOLS}
 
 
-def get_tool_catalog(include_extensions: bool = False) -> List[Dict[str, Any]]:
-    """Returns the MCP catalog with Draft-07 schemas."""
-    if include_extensions:
-        return list(ALL_TOOLS + EXTRA_TOOLS)
+def get_tool_catalog(include_extensions: bool = True) -> List[Dict[str, Any]]:
+    """Returns the MCP catalog with Draft-07 schemas (all 77 tools)."""
     return list(ALL_TOOLS)
 
 
@@ -63,6 +62,7 @@ __all__ = [
     "TOOL_MAP",
     "get_tool_catalog",
     "get_tool_by_name",
+    "validate_argument_dict",
     "validate_tool_call",
     "ValidationError",
     "SONG_TOOLS",

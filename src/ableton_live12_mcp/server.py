@@ -5,8 +5,8 @@ Implements pure Python stdlib Model Context Protocol (MCP) server:
 - Newline-delimited JSON-RPC 2.0 framing over stdin/stdout.
 - Clean stderr logging (zero stdout pollution).
 - Lifecycle handshake: initialize (2024-11-05), notifications/initialized, ping.
-- Discovery: tools/list (61 tools with Draft-07 schemas).
-- Invocation: tools/call dispatching to Live12Client with MockAbletonBridge fallback.
+- Discovery: tools/list (77 tools with Draft-07 schemas).
+- Invocation: tools/call dispatching to Live12Client and macOS dialogs.
 - Standard JSON-RPC error codes and MCP isError result handling.
 - Graceful shutdown on EOF and POSIX signals (SIGINT, SIGTERM).
 """
@@ -18,12 +18,13 @@ import inspect
 import json
 import logging
 import os
+import select
 import signal
 import sys
 from typing import Any, Callable, Dict, List, Optional, TextIO, Union
 
 from .client import DEFAULT_DISCOVERY_PATH, Live12Client, LiveTcpClient, ToolResult
-from .tools import ValidationError, get_tool_catalog, validate_tool_call
+from .tools import ValidationError, get_tool_catalog, validate_argument_dict, validate_tool_call
 from .tools.take_lane_tools import TAKE_LANE_TOOLS
 from . import dialogs
 from .dialogs import DialogError
@@ -32,7 +33,7 @@ logger = logging.getLogger("ableton_live12_mcp.server")
 
 MCP_PROTOCOL_VERSION = "2024-11-05"
 SERVER_NAME = "ableton-live12-mcp"
-SERVER_VERSION = "1.0.0"
+SERVER_VERSION = "1.1.0"
 
 
 class JsonRpcProtocolError(Exception):
@@ -63,10 +64,12 @@ class McpServer:
         self.discovery_path = discovery_path or DEFAULT_DISCOVERY_PATH
         self._running = False
         self.initialized = False
+        self._wakeup_r: Optional[int] = None
+        self._wakeup_w: Optional[int] = None
 
         # Live TCP Client
         self._live_client: Optional[Live12Client] = None
-        # Mock Bridge fallback
+        # Mock Bridge (only initialized in explicit mock mode)
         self._mock_bridge: Optional[Any] = None
 
         # Registered tool extensions (e.g. live12_take_lane_create_audio_clip)
@@ -81,29 +84,24 @@ class McpServer:
     def _init_backend(self) -> None:
         """Initializes client connectors and evaluates mock/live execution mode."""
         env_mode = os.environ.get("ABLETON_TEST_MODE", "").lower()
-        if self.mode == "auto":
-            if env_mode == "mock":
-                self.mode = "mock"
-            else:
-                probe_client = Live12Client(
-                    host=self.host, port=self.port, discovery_path=self.discovery_path
-                )
-                if probe_client.is_reachable(probe_timeout=0.3):
-                    self.mode = "live"
-                else:
-                    self.mode = "mock"
-                    logger.info("Live bridge not reachable; initialized in offline mock mode.")
-
-        if self.mode == "live":
-            self._live_client = Live12Client(
-                host=self.host, port=self.port, discovery_path=self.discovery_path
-            )
-            logger.info(
-                f"McpServer initialized in LIVE mode targeting {self._live_client.host}:{self._live_client.port}"
-            )
-        else:
+        if self.mode == "mock" or (self.mode == "auto" and env_mode == "mock"):
+            self.mode = "mock"
             self._mock_bridge = self._init_mock_bridge()
             logger.info("McpServer initialized in MOCK mode.")
+            return
+
+        if self.mode not in ("auto", "live"):
+            raise ValueError(f"Invalid server mode {self.mode!r}; expected 'auto', 'live', or 'mock'.")
+
+        # Never silently fall back to MockAbletonBridge when Ableton Live is closed.
+        # Keep live routing active so Live12Client dynamically discovers Live whenever it starts.
+        self.mode = "live"
+        self._live_client = Live12Client(
+            host=self.host, port=self.port, discovery_path=self.discovery_path
+        )
+        logger.info(
+            f"McpServer initialized in LIVE mode targeting {self._live_client.host}:{self._live_client.port}"
+        )
 
     def _init_mock_bridge(self) -> Optional[Any]:
         """Loads MockAbletonBridge from tests.harness with repo path resolution."""
@@ -167,11 +165,13 @@ class McpServer:
                     result = dialogs.save_set(
                         destination_path=arguments["destination_path"],
                         timeout_sec=arguments.get("timeout_sec", 10.0),
+                        overwrite=arguments.get("overwrite", True),
                     )
                 elif name == "live12_os_open_set":
                     result = dialogs.open_set(
                         als_path=arguments["als_path"],
                         timeout_sec=arguments.get("timeout_sec", 10.0),
+                        discard_unsaved=arguments.get("discard_unsaved", True),
                     )
                 elif name == "live12_os_export_audio":
                     result = dialogs.export_audio(
@@ -224,8 +224,9 @@ class McpServer:
         return {}
 
     def _handle_tools_list(self, params: Optional[Dict[str, Any]]) -> Dict[str, Any]:
-        catalog = get_tool_catalog()
-        return {"tools": catalog}
+        merged: Dict[str, Dict[str, Any]] = {t["name"]: t for t in get_tool_catalog()}
+        merged.update(self._registered_tools)
+        return {"tools": list(merged.values())}
 
     def _handle_tools_call(self, params: Optional[Dict[str, Any]]) -> Dict[str, Any]:
         if not isinstance(params, dict):
@@ -242,7 +243,14 @@ class McpServer:
             raise JsonRpcProtocolError(-32602, "Invalid params: 'arguments' must be a JSON object if provided")
 
         try:
-            validate_tool_call(tool_name, arguments)
+            if tool_name in self._registered_tools:
+                validate_argument_dict(
+                    self._registered_tools[tool_name].get("inputSchema", {}),
+                    arguments,
+                    path=tool_name,
+                )
+            else:
+                validate_tool_call(tool_name, arguments)
         except ValidationError as e:
             err_dict = {
                 "error": str(e),
@@ -409,6 +417,11 @@ class McpServer:
                 },
             }
 
+    def _write_response(self, stdout: TextIO, resp: Union[Dict[str, Any], List[Dict[str, Any]]]) -> None:
+        payload = json.dumps(resp, separators=(",", ":"))
+        stdout.write(payload + "\n")
+        stdout.flush()
+
     def run(self, stdin: TextIO = sys.stdin, stdout: TextIO = sys.stdout) -> None:
         """Main stdio loop reading line-by-line from stdin and writing to stdout."""
         if hasattr(stdin, "reconfigure"):
@@ -425,6 +438,84 @@ class McpServer:
         self._running = True
         logger.info(f"Ableton Live 12 MCP Server running over stdio (mode={self.mode}).")
 
+        stdin_fd: Optional[int] = None
+        if hasattr(stdin, "fileno"):
+            try:
+                stdin_fd = stdin.fileno()
+            except Exception:
+                stdin_fd = None
+
+        if stdin_fd is not None:
+            self._wakeup_r, self._wakeup_w = os.pipe()
+            buf = b""
+            try:
+                while self._running:
+                    try:
+                        readable, _, _ = select.select([stdin_fd, self._wakeup_r], [], [])
+                    except InterruptedError:
+                        continue
+                    except KeyboardInterrupt:
+                        logger.info("KeyboardInterrupt received. Stopping.")
+                        break
+
+                    if not self._running or self._wakeup_r in readable:
+                        break
+
+                    if stdin_fd in readable:
+                        chunk = os.read(stdin_fd, 65536)
+                        if not chunk:
+                            if buf.strip():
+                                try:
+                                    stripped = buf.decode("utf-8").strip()
+                                    if stripped:
+                                        response = self.handle_line(stripped)
+                                        if response is not None:
+                                            self._write_response(stdout, response)
+                                except UnicodeDecodeError as e:
+                                    err_resp = {
+                                        "jsonrpc": "2.0",
+                                        "id": None,
+                                        "error": {"code": -32700, "message": f"Parse error: invalid UTF-8: {e}"},
+                                    }
+                                    self._write_response(stdout, err_resp)
+                            logger.info("EOF encountered on stdin. Terminating server loop.")
+                            break
+
+                        buf += chunk
+                        while b"\n" in buf and self._running:
+                            raw_line, buf = buf.split(b"\n", 1)
+                            try:
+                                stripped = raw_line.decode("utf-8").strip()
+                            except UnicodeDecodeError as e:
+                                logger.warning(f"UnicodeDecodeError on stdin: {e}")
+                                err_resp = {
+                                    "jsonrpc": "2.0",
+                                    "id": None,
+                                    "error": {"code": -32700, "message": f"Parse error: invalid UTF-8: {e}"},
+                                }
+                                self._write_response(stdout, err_resp)
+                                continue
+                            if not stripped:
+                                continue
+                            response = self.handle_line(stripped)
+                            if response is not None:
+                                self._write_response(stdout, response)
+            except KeyboardInterrupt:
+                logger.info("KeyboardInterrupt received. Stopping.")
+            except Exception as e:
+                logger.error(f"Unexpected error in server loop: {e}", exc_info=True)
+            finally:
+                for pipe_fd in (self._wakeup_r, self._wakeup_w):
+                    if pipe_fd is not None:
+                        try:
+                            os.close(pipe_fd)
+                        except OSError:
+                            pass
+                self._wakeup_r = None
+                self._wakeup_w = None
+                self.stop()
+            return
+
         while self._running:
             try:
                 line = stdin.readline()
@@ -437,9 +528,7 @@ class McpServer:
 
                 response = self.handle_line(stripped)
                 if response is not None:
-                    payload = json.dumps(response, separators=(",", ":"))
-                    stdout.write(payload + "\n")
-                    stdout.flush()
+                    self._write_response(stdout, response)
             except UnicodeDecodeError as e:
                 logger.warning(f"UnicodeDecodeError on stdin: {e}")
                 err_resp = {
@@ -447,9 +536,7 @@ class McpServer:
                     "id": None,
                     "error": {"code": -32700, "message": f"Parse error: invalid UTF-8: {e}"},
                 }
-                payload = json.dumps(err_resp, separators=(",", ":"))
-                stdout.write(payload + "\n")
-                stdout.flush()
+                self._write_response(stdout, err_resp)
                 continue
             except KeyboardInterrupt:
                 logger.info("KeyboardInterrupt received. Stopping.")
@@ -461,8 +548,14 @@ class McpServer:
         self.stop()
 
     def stop(self) -> None:
-        """Signals server termination and cleans up resources."""
+        """Signals server termination and wakes up the stdio loop (signal-safe)."""
         self._running = False
+        wakeup_w = self._wakeup_w
+        if wakeup_w is not None:
+            try:
+                os.write(wakeup_w, b"\x00")
+            except OSError:
+                pass
 
 
 def main(argv: Optional[List[str]] = None) -> int:
@@ -498,18 +591,17 @@ def main(argv: Optional[List[str]] = None) -> int:
             sys.stderr.write(f"Live bridge not reachable at {client.host}:{client.port}\n")
             return 1
 
-    mode = "auto"
-    if args.mock or os.environ.get("ABLETON_TEST_MODE", "").lower() == "mock":
-        mode = "mock"
-    elif args.live:
+    if args.live:
         mode = "live"
+    elif args.mock or os.environ.get("ABLETON_TEST_MODE", "").lower() == "mock":
+        mode = "mock"
+    else:
+        mode = "auto"
 
     server = McpServer(host=args.host, port=args.port, mode=mode)
 
     def _sig_handler(sig, frame):
-        logger.info(f"Signal {sig} intercepted, shutting down cleanly...")
         server.stop()
-        sys.exit(0)
 
     try:
         signal.signal(signal.SIGINT, _sig_handler)

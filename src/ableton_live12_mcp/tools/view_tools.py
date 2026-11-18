@@ -91,6 +91,11 @@ VIEW_TOOLS: List[Dict[str, Any]] = [
                     "type": "string",
                     "minLength": 1,
                     "description": "Absolute destination filesystem path ending in .als."
+                },
+                "overwrite": {
+                    "type": "boolean",
+                    "default": True,
+                    "description": "If false, raise an error instead of overwriting an existing .als target."
                 }
             },
             "required": ["destination_path"]
@@ -106,6 +111,11 @@ VIEW_TOOLS: List[Dict[str, Any]] = [
                     "type": "string",
                     "minLength": 1,
                     "description": "Absolute filesystem path to the .als file."
+                },
+                "discard_unsaved": {
+                    "type": "boolean",
+                    "default": True,
+                    "description": "If true, dismisses 'Save changes' prompts by choosing Don't Save; if false, fails when unsaved changes block opening."
                 }
             },
             "required": ["als_path"]

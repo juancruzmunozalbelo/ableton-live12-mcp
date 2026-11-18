@@ -33,7 +33,7 @@ TRACK_TOOLS: List[Dict[str, Any]] = [
     },
     {
         "name": "live12_track_delete",
-        "description": "Deletes a track in Ableton Live 12 by its zero-based index (Song.delete_track).",
+        "description": "Deletes a track in Ableton Live 12 by its zero-based index (Song.delete_track or Song.delete_return_track).",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -41,6 +41,12 @@ TRACK_TOOLS: List[Dict[str, Any]] = [
                     "type": "integer",
                     "minimum": 0,
                     "description": "Zero-based index of the track to delete."
+                },
+                "track_type": {
+                    "type": "string",
+                    "enum": ["regular", "return", "master"],
+                    "default": "regular",
+                    "description": "Target track category: 'regular', 'return', or 'master'."
                 }
             },
             "required": ["track_index"]
@@ -68,9 +74,17 @@ TRACK_TOOLS: List[Dict[str, Any]] = [
             "type": "object",
             "properties": {
                 "track_index": {
-                    "type": "integer",
-                    "minimum": 0,
-                    "description": "Zero-based index of target track."
+                    "anyOf": [
+                        {"type": "integer", "minimum": 0},
+                        {"type": "integer", "enum": [-100]}
+                    ],
+                    "description": "Zero-based index of target track (-100 for master track)."
+                },
+                "track_type": {
+                    "type": "string",
+                    "enum": ["regular", "return", "master"],
+                    "default": "regular",
+                    "description": "Target track category: 'regular', 'return', or 'master'."
                 },
                 "name": {
                     "type": "string",
@@ -237,9 +251,17 @@ TRACK_TOOLS: List[Dict[str, Any]] = [
             "type": "object",
             "properties": {
                 "track_index": {
-                    "type": "integer",
-                    "minimum": 0,
-                    "description": "Zero-based track index."
+                    "anyOf": [
+                        {"type": "integer", "minimum": 0},
+                        {"type": "integer", "enum": [-100]}
+                    ],
+                    "description": "Zero-based track index (-100 for master track)."
+                },
+                "track_type": {
+                    "type": "string",
+                    "enum": ["regular", "return", "master"],
+                    "default": "regular",
+                    "description": "Target track category: 'regular', 'return', or 'master'."
                 },
                 "input_type": {
                     "type": "string",
@@ -273,15 +295,29 @@ TRACK_TOOLS: List[Dict[str, Any]] = [
             "type": "object",
             "properties": {
                 "track_index": {
-                    "type": "integer",
-                    "minimum": 0,
-                    "description": "Zero-based track index."
+                    "anyOf": [
+                        {"type": "integer", "minimum": 0},
+                        {"type": "integer", "enum": [-100]}
+                    ],
+                    "description": "Zero-based track index (-100 for master track)."
+                },
+                "track_type": {
+                    "type": "string",
+                    "enum": ["regular", "return", "master"],
+                    "default": "regular",
+                    "description": "Target track category: 'regular', 'return', or 'master'."
                 },
                 "volume": {
                     "type": "number",
-                    "minimum": 0.0,
-                    "maximum": 1.0,
-                    "description": "Mixer fader volume normalized between 0.0 and 1.0 (where 0.85 represents unity gain / 0 dB)."
+                    "minimum": -70.0,
+                    "maximum": 6.0,
+                    "description": "Mixer fader volume normalized between 0.0 and 1.0 (where 0.85 represents unity gain / 0 dB) or legacy dB [-70.0..6.0]."
+                },
+                "volume_db": {
+                    "type": "number",
+                    "minimum": -70.0,
+                    "maximum": 6.0,
+                    "description": "Mixer fader volume in dB [-70.0..6.0] (converted to Live's normalized fader range)."
                 },
                 "pan": {
                     "type": "number",
@@ -297,6 +333,19 @@ TRACK_TOOLS: List[Dict[str, Any]] = [
                         "maximum": 1.0
                     },
                     "description": "Dictionary mapping zero-based send index strings to send level amounts [0.0, 1.0] (e.g. {'0': 0.5, '1': 0.25})."
+                },
+                "send_index": {
+                    "anyOf": [
+                        {"type": "integer", "minimum": 0},
+                        {"type": "string"}
+                    ],
+                    "description": "Optional single send index (0, 1, 'A', 'B') when used with send_value."
+                },
+                "send_value": {
+                    "type": "number",
+                    "minimum": 0.0,
+                    "maximum": 1.0,
+                    "description": "Optional single send value [0.0..1.0] when used with send_index."
                 },
                 "crossfader": {
                     "type": "string",
@@ -375,9 +424,17 @@ TRACK_TOOLS: List[Dict[str, Any]] = [
             "type": "object",
             "properties": {
                 "track_index": {
-                    "type": "integer",
-                    "minimum": 0,
-                    "description": "Zero-based track index."
+                    "anyOf": [
+                        {"type": "integer", "minimum": 0},
+                        {"type": "integer", "enum": [-100]}
+                    ],
+                    "description": "Zero-based track index (-100 for master track)."
+                },
+                "track_type": {
+                    "type": "string",
+                    "enum": ["regular", "return", "master"],
+                    "default": "regular",
+                    "description": "Target track category: 'regular', 'return', or 'master'."
                 }
             },
             "required": ["track_index"]

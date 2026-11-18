@@ -489,3 +489,191 @@ def test_clip_delete_arrangement_tool_schema_registered():
     tool = get_tool_by_name("live12_clip_delete_arrangement")
     assert tool is not None
     assert tool["inputSchema"]["required"] == ["track_index", "clip_index"]
+
+
+# ==============================================================================
+# 8. Envelope create / insert_step / parameter_index / length regressions
+# ==============================================================================
+
+def test_clip_envelope_control_create_and_insert_step_with_parameter_index():
+    """Validates action='create' and action='insert_step' with parameter_index and length."""
+    clip = MockClipWithEnvelope()
+    dev = MockDevice()
+
+    class MockSlot:
+        def __init__(self, c):
+            self.clip = c
+
+    class MockTrack:
+        def __init__(self, c, d):
+            self.clip_slots = [MockSlot(c)]
+            self.devices = [d]
+
+    class MockSong:
+        def __init__(self, tr):
+            self.tracks = [tr]
+
+    song = MockSong(MockTrack(clip, dev))
+    cs = MockCS(song=song)
+    handlers = BridgeHandlers(cs=cs)
+
+    res_create = handlers.live12_clip_envelope_control(
+        track_index=0,
+        slot_index=0,
+        action="create",
+        device_index=0,
+        parameter_index=0,
+    )
+    assert res_create["status"] == "success"
+    assert res_create["envelope_created"] is True
+    assert res_create["parameter_name"] == "Filter Freq"
+
+    res_insert = handlers.live12_clip_envelope_control(
+        track_index=0,
+        slot_index=0,
+        action="insert_step",
+        device_index=0,
+        parameter_index=1,
+        time=2.0,
+        length=1.5,
+        value=0.65,
+    )
+    assert res_insert["status"] == "success"
+    assert res_insert["envelope_updated"] is True
+    assert clip.envelope.steps == [(2.0, 1.5, 0.65)]
+
+
+# ==============================================================================
+# 9. Device parameter_index, clamping, and track_type ('return' / 'master')
+# ==============================================================================
+
+def test_device_set_parameter_with_parameter_index_and_track_type():
+    class BoundedParam:
+        def __init__(self, name, val=0.0, min_v=0.0, max_v=10.0):
+            self.name = name
+            self.value = val
+            self.min = min_v
+            self.max = max_v
+
+    class DummyDev:
+        def __init__(self):
+            self.name = "EQ Eight"
+            self.parameters = [BoundedParam("Device On", 1.0, 0.0, 1.0), BoundedParam("1 Filter Type A", 3.0, 0.0, 7.0)]
+
+    class DummyTrack:
+        def __init__(self):
+            self.devices = [DummyDev()]
+
+    class DummySong:
+        def __init__(self):
+            self.tracks = [DummyTrack()]
+            self.return_tracks = [DummyTrack()]
+            self.master_track = DummyTrack()
+
+    s = DummySong()
+    handlers = BridgeHandlers(cs=MockCS(song=s))
+
+    # Set via parameter_index on regular track and verify clamping
+    res = handlers.live12_device_set_parameter(
+        track_index=0,
+        device_index=0,
+        parameter_index=1,
+        value=99.0,
+    )
+    assert res["parameter_name"] == "1 Filter Type A"
+    assert res["value"] == 7.0
+
+    # Set on return track and master track
+    res_ret = handlers.live12_device_set_parameter(
+        track_index=0,
+        device_index=0,
+        parameter_index=1,
+        value=0.0,
+        track_type="return",
+    )
+    assert res_ret["value"] == 0.0
+    assert s.return_tracks[0].devices[0].parameters[1].value == 0.0
+
+    res_mst = handlers.live12_device_set_parameter(
+        track_index=-100,
+        device_index=0,
+        parameter_index=1,
+        value=5.0,
+        track_type="master",
+    )
+    assert res_mst["value"] == 5.0
+    assert s.master_track.devices[0].parameters[1].value == 5.0
+
+
+# ==============================================================================
+# 10. Mixer dB conversion and send_index/send_value alias
+# ==============================================================================
+
+def test_mixer_set_db_conversion_and_send_index_alias():
+    class BoundedMixerParam:
+        def __init__(self, val=0.85, min_v=0.0, max_v=1.0):
+            self.value = val
+            self.min = min_v
+            self.max = max_v
+
+    class DummyMixer:
+        def __init__(self):
+            self.volume = BoundedMixerParam(0.85, 0.0, 1.0)
+            self.panning = BoundedMixerParam(0.0, -1.0, 1.0)
+            self.sends = [BoundedMixerParam(0.0, 0.0, 1.0), BoundedMixerParam(0.0, 0.0, 1.0)]
+
+    class DummyTrack:
+        def __init__(self):
+            self.mixer_device = DummyMixer()
+
+    class DummySong:
+        def __init__(self):
+            self.tracks = [DummyTrack()]
+
+    s = DummySong()
+    handlers = BridgeHandlers(cs=MockCS(song=s))
+    res = handlers.live12_mixer_set(
+        track_index=0,
+        volume=-6.0,
+        send_index=1,
+        send_value=0.35,
+    )
+    assert 0.0 < res["volume"] < 0.85
+    assert math.isclose(res["sends"]["1"], 0.35)
+
+
+# ==============================================================================
+# 11. Browser fast Pass 1 lookup, alias mapping, and undo/redo invocation
+# ==============================================================================
+
+def test_browser_find_item_alias_and_undo_redo():
+    autopan_item = MockBrowserItem("Auto Pan-Tremolo", "query:AudioFx#Auto%20Pan-Tremolo", is_loadable=True)
+
+    class BrowserWithAudioFx:
+        def __init__(self):
+            self.audio_effects = MockBrowserItem("Audio Effects", "live:cat:audio_effects", is_folder=True, children=[autopan_item])
+
+    class UndoableSong:
+        def __init__(self):
+            self.can_undo = True
+            self.can_redo = True
+            self.undo_called = 0
+            self.redo_called = 0
+
+        def undo(self):
+            self.undo_called += 1
+
+        def redo(self):
+            self.redo_called += 1
+
+    s = UndoableSong()
+    b = BrowserWithAudioFx()
+    handlers = BridgeHandlers(cs=MockCS(song=s, app=MockApplication(b)))
+
+    found = handlers._find_browser_item(b, "Auto Pan")
+    assert found is autopan_item
+
+    handlers.live12_undo_redo("undo")
+    handlers.live12_undo_redo("redo")
+    assert s.undo_called == 1
+    assert s.redo_called == 1

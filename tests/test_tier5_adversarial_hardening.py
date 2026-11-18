@@ -470,19 +470,35 @@ class TestTier5ReflectionCyclesAndSecurity:
 class TestTier5DialogEngineAndPathAnomalies:
     """Stress tests path normalization, timeout exceptions, and dialog parsing."""
 
-    def test_save_set_stale_file_false_positive(self):
+    def test_save_set_stale_file_false_positive(self, monkeypatch):
         """
-        Adversarial Test (Gap 6): Pre-existing file at destination_path causes false success
-        without verifying actual save execution.
+        Adversarial Test (Gap 6): Pre-existing file at destination_path must NOT
+        cause false success if AppleScript fails to update the file on disk, and
+        overwrite=False must fail fast before invoking UI automation.
         """
         with tempfile.NamedTemporaryFile(suffix=".als", delete=False) as tf:
             tf.write(b"pre-existing content")
             stale_path = tf.name
 
         try:
-            # When path already exists, polling loop can immediately exit
-            assert os.path.exists(stale_path)
-            assert os.path.getsize(stale_path) > 0
+            monkeypatch.setattr(dialogs, "is_macos", lambda: True)
+            called = []
+
+            def fake_run_applescript(script, args=None, timeout_sec=10.0):
+                called.append((args, timeout_sec))
+                return True, "triggered", ""
+
+            monkeypatch.setattr(dialogs, "run_applescript", fake_run_applescript)
+
+            # overwrite=False rejects pre-existing file before calling AppleScript
+            with pytest.raises(DialogValidationError, match="overwrite=False"):
+                dialogs.save_set(stale_path, timeout_sec=0.3, overwrite=False)
+            assert called == []
+
+            # overwrite=True still rejects stale file if mtime_ns is not updated by Live
+            with pytest.raises(TimeoutExpiredError, match="not verified"):
+                dialogs.save_set(stale_path, timeout_sec=0.3, overwrite=True)
+            assert len(called) == 1
         finally:
             if os.path.exists(stale_path):
                 os.remove(stale_path)

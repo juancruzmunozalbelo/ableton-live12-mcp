@@ -39,14 +39,22 @@ DEVICE_TOOLS: List[Dict[str, Any]] = [
             "type": "object",
             "properties": {
                 "track_index": {
-                    "type": "integer",
-                    "minimum": 0,
-                    "description": "Zero-based target track index."
+                    "anyOf": [
+                        {"type": "integer", "minimum": 0},
+                        {"type": "integer", "enum": [-100]}
+                    ],
+                    "description": "Zero-based target track index (-100 for master track)."
                 },
                 "browser_item_uri": {
                     "type": "string",
                     "minLength": 1,
-                    "description": "Canonical browser item URI from browser search (e.g. 'live:device:drift', 'live:device:wavetable')."
+                    "description": "Canonical browser item URI, LOM path, or device/preset name (e.g. 'live:device:drift', 'EQ Eight')."
+                },
+                "track_type": {
+                    "type": "string",
+                    "enum": ["regular", "return", "master"],
+                    "default": "regular",
+                    "description": "Target track category: 'regular', 'return', or 'master'."
                 },
                 "chain_index": {
                     "type": "integer",
@@ -69,9 +77,17 @@ DEVICE_TOOLS: List[Dict[str, Any]] = [
             "type": "object",
             "properties": {
                 "track_index": {
-                    "type": "integer",
-                    "minimum": 0,
-                    "description": "Zero-based track index."
+                    "anyOf": [
+                        {"type": "integer", "minimum": 0},
+                        {"type": "integer", "enum": [-100]}
+                    ],
+                    "description": "Zero-based track index (-100 for master track)."
+                },
+                "track_type": {
+                    "type": "string",
+                    "enum": ["regular", "return", "master"],
+                    "default": "regular",
+                    "description": "Target track category: 'regular', 'return', or 'master'."
                 }
             },
             "required": ["track_index"]
@@ -84,14 +100,22 @@ DEVICE_TOOLS: List[Dict[str, Any]] = [
             "type": "object",
             "properties": {
                 "track_index": {
-                    "type": "integer",
-                    "minimum": 0,
-                    "description": "Zero-based track index."
+                    "anyOf": [
+                        {"type": "integer", "minimum": 0},
+                        {"type": "integer", "enum": [-100]}
+                    ],
+                    "description": "Zero-based track index (-100 for master track)."
                 },
                 "device_index": {
                     "type": "integer",
                     "minimum": 0,
                     "description": "Zero-based device index."
+                },
+                "track_type": {
+                    "type": "string",
+                    "enum": ["regular", "return", "master"],
+                    "default": "regular",
+                    "description": "Target track category: 'regular', 'return', or 'master'."
                 }
             },
             "required": ["track_index", "device_index"]
@@ -104,9 +128,11 @@ DEVICE_TOOLS: List[Dict[str, Any]] = [
             "type": "object",
             "properties": {
                 "track_index": {
-                    "type": "integer",
-                    "minimum": 0,
-                    "description": "Zero-based track index."
+                    "anyOf": [
+                        {"type": "integer", "minimum": 0},
+                        {"type": "integer", "enum": [-100]}
+                    ],
+                    "description": "Zero-based track index (-100 for master track)."
                 },
                 "device_index": {
                     "type": "integer",
@@ -120,17 +146,37 @@ DEVICE_TOOLS: List[Dict[str, Any]] = [
                     ],
                     "description": "Parameter name or index."
                 },
+                "parameter_index": {
+                    "anyOf": [
+                        {"type": "string"},
+                        {"type": "integer", "minimum": 0}
+                    ],
+                    "description": "Alias for parameter_identifier (zero-based parameter index or name)."
+                },
                 "value": {
-                    "type": "number",
+                    "anyOf": [
+                        {"type": "number"},
+                        {"type": "string"}
+                    ],
                     "description": "New parameter value."
                 },
                 "normalized": {
                     "type": "boolean",
                     "default": False,
                     "description": "If true, 'value' is interpreted as a normalized float between 0.0 (min) and 1.0 (max)."
+                },
+                "track_type": {
+                    "type": "string",
+                    "enum": ["regular", "return", "master"],
+                    "default": "regular",
+                    "description": "Target track category: 'regular', 'return', or 'master'."
                 }
             },
-            "required": ["track_index", "device_index", "parameter_identifier", "value"]
+            "required": ["track_index", "device_index", "value"],
+            "anyOf": [
+                {"required": ["parameter_identifier"]},
+                {"required": ["parameter_index"]}
+            ]
         }
     },
     {
@@ -140,9 +186,11 @@ DEVICE_TOOLS: List[Dict[str, Any]] = [
             "type": "object",
             "properties": {
                 "track_index": {
-                    "type": "integer",
-                    "minimum": 0,
-                    "description": "Zero-based track index."
+                    "anyOf": [
+                        {"type": "integer", "minimum": 0},
+                        {"type": "integer", "enum": [-100]}
+                    ],
+                    "description": "Zero-based track index (-100 for master track)."
                 },
                 "device_index": {
                     "type": "integer",
@@ -152,6 +200,12 @@ DEVICE_TOOLS: List[Dict[str, Any]] = [
                 "enabled": {
                     "type": "boolean",
                     "description": "True to activate the device; False to bypass/disable."
+                },
+                "track_type": {
+                    "type": "string",
+                    "enum": ["regular", "return", "master"],
+                    "default": "regular",
+                    "description": "Target track category: 'regular', 'return', or 'master'."
                 }
             },
             "required": ["track_index", "device_index", "enabled"]
@@ -264,7 +318,7 @@ DEVICE_TOOLS: List[Dict[str, Any]] = [
     },
     {
         "name": "live12_simpler_control",
-        "description": "Controls specialized features of Ableton Simpler, including transient slicing to a Drum Rack or replacing the loaded sample audio file.",
+        "description": "Controls specialized features of Ableton Simpler, including state inspection, playback mode switching, transient slicing, slicing to a Drum Rack, or replacing the loaded sample audio file.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -280,12 +334,25 @@ DEVICE_TOOLS: List[Dict[str, Any]] = [
                 },
                 "action": {
                     "type": "string",
-                    "enum": ["slice", "replace_sample"],
-                    "description": "Simpler action: 'slice' to create slice points, 'replace_sample' to load audio file."
+                    "enum": ["get_state", "set_playback_mode", "slice", "slice_to_drum_rack", "replace_sample"],
+                    "description": "Simpler action: 'get_state' inspects state, 'set_playback_mode' sets playback mode, 'slice' slices sample, 'slice_to_drum_rack' converts slices to a Drum Rack, 'replace_sample' loads audio file."
+                },
+                "playback_mode": {
+                    "anyOf": [
+                        {"type": "string", "enum": ["Classic", "1-Shot", "One-Shot", "One Shot", "Slicing", "classic", "1-shot", "one-shot", "oneshot", "one shot", "slicing"]},
+                        {"type": "integer", "minimum": 0, "maximum": 2}
+                    ],
+                    "description": "Simpler playback mode ('Classic', '1-Shot', 'Slicing' or 0/1/2) for 'set_playback_mode'."
+                },
+                "sensitivity": {
+                    "type": "number",
+                    "minimum": 0.0,
+                    "maximum": 100.0,
+                    "description": "Transient slicing sensitivity ([0.0..1.0] or [0.0..100.0])."
                 },
                 "params": {
                     "type": "object",
-                    "description": "Action-specific parameters (e.g. {'sample_path': '/path/to/sample.wav'})."
+                    "description": "Action-specific parameters (e.g. {'sample_path': '/path/to/sample.wav', 'playback_mode': 'Slicing'})."
                 }
             },
             "required": ["track_index", "device_index", "action"]

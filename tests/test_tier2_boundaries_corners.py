@@ -22,13 +22,13 @@ class TestTier2Domain1TransportBoundaries:
 
     def test_domain1_b01_tempo_lower_bound_rejection(self, client: Live12TestClient):
         # Tempo < 20.0 should be rejected
-        res = client.call_tool("live12_transport_set_tempo", {"tempo": 10.0})
+        res = client.call_tool("live12_transport_set_tempo", {"tempo": 10.0}, validate=False)
         assert res.is_error
         assert "out of bounds" in str(res.data).lower()
 
     def test_domain1_b02_tempo_upper_bound_rejection(self, client: Live12TestClient):
         # Tempo > 999.0 should be rejected
-        res = client.call_tool("live12_transport_set_tempo", {"tempo": 1000.0})
+        res = client.call_tool("live12_transport_set_tempo", {"tempo": 1000.0}, validate=False)
         assert res.is_error
         assert "out of bounds" in str(res.data).lower()
 
@@ -85,19 +85,25 @@ class TestTier2Domain2TrackBoundaries:
         assert "out of range" in str(res.data).lower()
 
     def test_domain2_b02_track_invalid_type_rejection(self, client: Live12TestClient):
-        res = client.call_tool("live12_track_create", {"type": "synth"})
+        res = client.call_tool("live12_track_create", {"type": "synth"}, validate=False)
         assert res.is_error
         assert "invalid track type" in str(res.data).lower()
 
     def test_domain2_b03_mixer_volume_out_of_bounds(self, client: Live12TestClient):
         t_idx, _ = client.create_sandboxed_track("midi", "mix_bnd")
-        # Volume > 1.0
-        res_high = client.call_tool("live12_mixer_set", {"track_index": t_idx, "volume": 1.5})
+        # Legacy dB / normalized volume > 6.0 and < -70.0 should be rejected
+        res_high = client.call_tool("live12_mixer_set", {"track_index": t_idx, "volume": 10.0})
         assert res_high.is_error
 
-        # Volume < 0.0
-        res_low = client.call_tool("live12_mixer_set", {"track_index": t_idx, "volume": -0.1})
+        res_low = client.call_tool("live12_mixer_set", {"track_index": t_idx, "volume": -75.0})
         assert res_low.is_error
+
+        # Explicit volume_db outside [-70.0, 6.0] should also be rejected
+        res_db_high = client.call_tool("live12_mixer_set", {"track_index": t_idx, "volume_db": 10.0})
+        assert res_db_high.is_error
+
+        res_db_low = client.call_tool("live12_mixer_set", {"track_index": t_idx, "volume_db": -75.0})
+        assert res_db_low.is_error
 
     def test_domain2_b04_mixer_pan_out_of_bounds(self, client: Live12TestClient):
         t_idx, _ = client.create_sandboxed_track("midi", "pan_bnd")
@@ -289,7 +295,7 @@ class TestTier2Domain5ViewAndOSBoundaries:
     """Domain 5: Boundaries & View Edge Cases."""
 
     def test_domain5_b01_view_invalid_name_rejection(self, client: Live12TestClient):
-        res = client.call_tool("live12_view_switch", {"view_name": "VirtualRealityHolodeck"})
+        res = client.call_tool("live12_view_switch", {"view_name": "VirtualRealityHolodeck"}, validate=False)
         assert res.is_error
         assert "invalid view name" in str(res.data).lower()
 
@@ -321,7 +327,7 @@ class TestTier2Domain6LOMBoundaries:
     """Domain 6: Boundaries & Dynamic LOM Edge Cases."""
 
     def test_domain6_b01_lom_inspect_empty_path_rejection(self, client: Live12TestClient):
-        res = client.call_tool("live12_lom_inspect", {"target_path": ""})
+        res = client.call_tool("live12_lom_inspect", {"target_path": ""}, validate=False)
         assert res.is_error
         assert "empty" in str(res.data).lower()
 

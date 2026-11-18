@@ -243,6 +243,15 @@ class TestChapter05TakeLanesAndComping:
         res_list = client.call_tool("live12_take_lane_list", {"track_index": t_idx})
         assert not res_list.is_error
 
+        # Create audio clip directly on take lane
+        res_tl_clip = client.call_tool("live12_take_lane_create_audio_clip", {
+            "track_index": t_idx,
+            "take_lane_index": lane_idx,
+            "file_path": "/tmp/mock_vocal_take.wav",
+            "time": 0.0,
+        })
+        assert not res_tl_clip.is_error
+
         # Comp region
         res_comp = client.call_tool("live12_take_lane_comp_region", {
             "track_index": t_idx,
@@ -1058,7 +1067,7 @@ class TestAll75ToolsExercisedVerification:
             src = f.read()
 
         catalog_names = set(t["name"] if isinstance(t, dict) else t.name for t in ALL_TOOLS)
-        assert len(catalog_names) == 76, f"Expected 76 tools in catalog, found {len(catalog_names)}"
+        assert len(catalog_names) == 77, f"Expected 77 tools in catalog, found {len(catalog_names)}"
 
         missing_from_tests = [t for t in catalog_names if f'"{t}"' not in src and f"'{t}'" not in src]
         assert not missing_from_tests, f"The following MCP tools are not referenced in the test suite: {missing_from_tests}"

@@ -465,6 +465,7 @@ class MockAbletonBridge:
             MockTrack("A-Reverb", "return"),
             MockTrack("B-Delay", "return")
         ]
+        self.master_track: MockTrack = MockTrack("Master", "master")
         self.scenes: List[MockScene] = [MockScene(f"Scene {i+1}") for i in range(8)]
 
         # View state
@@ -522,7 +523,7 @@ class MockAbletonBridge:
 
     def _tool_live12_transport_play(self, restart: bool = False) -> dict:
         self.is_playing = True
-        return {"status": "playing", "restart": restart, "tempo": self.tempo}
+        return {"status": "playing", "restart": restart, "tempo": self.tempo, "is_playing": True}
 
     def _tool_live12_transport_stop(self) -> dict:
         self.is_playing = False
@@ -584,10 +585,12 @@ class MockAbletonBridge:
             "signature_denominator": self.signature_denominator,
             "is_playing": self.is_playing,
             "is_recording": self.is_recording,
+            "record_mode": self.is_recording,
             "metronome": self.metronome,
             "loop": self.loop,
             "loop_start": self.loop_start,
             "loop_length": self.loop_length,
+            "root_note": self.scale_root_note,
             "scale_root_note": self.scale_root_note,
             "scale_name": self.scale_name,
             "tuning_system": self.tuning_system,
@@ -741,8 +744,36 @@ class MockAbletonBridge:
                 idx = index
         return {"status": "success", "track_index": idx, "name": new_track.name, "type": type}
 
-    def _tool_live12_track_delete(self, track_index: int) -> dict:
+    def _resolve_mock_track(self, track_index: int, track_type: str = "regular") -> Tuple[int, MockTrack]:
+        t_idx = int(track_index)
+        t_type = str(track_type or "regular").lower()
+        if t_type not in ("regular", "return", "master"):
+            raise ValueError(f"Invalid track_type '{track_type}'; expected 'regular', 'return', or 'master'")
+        if t_type == "master" or t_idx == -100:
+            return t_idx, self.master_track
+        if t_type == "return":
+            if 0 <= t_idx < len(self.return_tracks):
+                return t_idx, self.return_tracks[t_idx]
+            raise IndexError(f"Return track index {t_idx} out of range [0, {len(self.return_tracks)-1}]")
+        if 0 <= t_idx < len(self.tracks):
+            return t_idx, self.tracks[t_idx]
+        raise IndexError(f"Track index {t_idx} out of range [0, {len(self.tracks)-1}]")
+
+    def _tool_live12_track_delete(self, track_index: int, track_type: str = "regular") -> dict:
         idx = int(track_index)
+        t_type = str(track_type or "regular").lower()
+        if t_type == "master":
+            raise ValueError("Cannot delete master track")
+        if t_type == "return":
+            if idx < 0 or idx >= len(self.return_tracks):
+                raise IndexError(f"Return track index {idx} out of range [0, {len(self.return_tracks)-1}]")
+            deleted = self.return_tracks.pop(idx)
+            return {
+                "status": "success",
+                "deleted_track": deleted.name,
+                "remaining_count": len(self.return_tracks),
+                "track_type": "return",
+            }
         if idx < 0 or idx >= len(self.tracks):
             raise IndexError(f"Track index {idx} out of range [0, {len(self.tracks)-1}]")
         deleted = self.tracks.pop(idx)
@@ -769,12 +800,10 @@ class MockAbletonBridge:
         color_rgb: Optional[List[int]] = None,
         solo: Optional[bool] = None,
         mute: Optional[bool] = None,
-        arm: Optional[bool] = None
+        arm: Optional[bool] = None,
+        track_type: str = "regular",
     ) -> dict:
-        idx = int(track_index)
-        if idx < 0 or idx >= len(self.tracks):
-            raise IndexError(f"Track index {idx} out of range")
-        track = self.tracks[idx]
+        idx, track = self._resolve_mock_track(track_index, track_type)
         if name is not None:
             track.name = str(name)
         color_state = self._apply_mock_color(track, color, color_index, color_rgb)
@@ -793,6 +822,8 @@ class MockAbletonBridge:
             "mute": track.mute,
             "arm": track.arm
         }
+        if track_type != "regular":
+            res["track_type"] = track_type
         res.update(color_state)
         return res
 
@@ -850,7 +881,14 @@ class MockAbletonBridge:
         track = self.tracks[idx]
         lane = MockTakeLane(f"Lane {len(track.take_lanes)+1}")
         track.take_lanes.append(lane)
-        return {"status": "success", "lane_index": len(track.take_lanes) - 1, "name": lane.name}
+        lane_idx = len(track.take_lanes) - 1
+        return {
+            "status": "success",
+            "track_index": idx,
+            "lane_index": lane_idx,
+            "take_lane_index": lane_idx,
+            "name": lane.name,
+        }
 
     def _tool_live12_take_lane_list(self, track_index: int) -> dict:
         idx = int(track_index)
@@ -936,12 +974,10 @@ class MockAbletonBridge:
         input_channel: Optional[str] = None,
         output_type: Optional[str] = None,
         output_channel: Optional[str] = None,
-        monitoring: Optional[str] = None
+        monitoring: Optional[str] = None,
+        track_type: str = "regular",
     ) -> dict:
-        idx = int(track_index)
-        if idx < 0 or idx >= len(self.tracks):
-            raise IndexError("Track index out of range")
-        track = self.tracks[idx]
+        idx, track = self._resolve_mock_track(track_index, track_type)
         if input_type:
             track.input_routing_type = input_type
         if input_channel:
@@ -950,11 +986,13 @@ class MockAbletonBridge:
             track.output_routing_type = output_type
         if output_channel:
             track.output_routing_channel = output_channel
-        if monitoring:
-            if monitoring not in ("In", "Auto", "Off"):
+        if monitoring is not None:
+            mon_map = {"in": "In", "auto": "Auto", "off": "Off"}
+            mon_norm = mon_map.get(str(monitoring).lower())
+            if not mon_norm:
                 raise ValueError(f"Invalid monitoring state: {monitoring}")
-            track.monitoring = monitoring
-        return {
+            track.monitoring = mon_norm
+        res = {
             "status": "success",
             "track_index": idx,
             "input_type": track.input_routing_type,
@@ -963,31 +1001,57 @@ class MockAbletonBridge:
             "output_channel": track.output_routing_channel,
             "monitoring": track.monitoring
         }
+        if track_type != "regular":
+            res["track_type"] = track_type
+        return res
+
+    @staticmethod
+    def _db_to_normalized(db_val: float) -> float:
+        if math.isnan(db_val) or math.isinf(db_val) or not (-70.0 <= db_val <= 6.0):
+            raise ValueError(f"Volume dB {db_val} out of range [-70.0, 6.0]")
+        if db_val <= -70.0:
+            return 0.0
+        if db_val <= 0.0:
+            return max(0.0, min(1.0, 0.85 * (10.0 ** (db_val / 40.0))))
+        return max(0.0, min(1.0, 0.85 + (db_val / 6.0) * 0.15))
 
     def _tool_live12_mixer_set(
         self,
         track_index: int,
         volume: Optional[float] = None,
+        volume_db: Optional[float] = None,
         pan: Optional[float] = None,
         sends: Optional[Dict[str, float]] = None,
-        crossfader: Optional[str] = None
+        crossfader: Optional[str] = None,
+        track_type: str = "regular",
+        send_index: Optional[Union[str, int]] = None,
+        send_value: Optional[float] = None,
     ) -> dict:
-        idx = int(track_index)
-        if idx < 0 or idx >= len(self.tracks):
-            raise IndexError("Track index out of range")
-        track = self.tracks[idx]
-        if volume is not None:
+        idx, track = self._resolve_mock_track(track_index, track_type)
+        if volume_db is not None:
+            track.volume = self._db_to_normalized(float(volume_db))
+        elif volume is not None:
             v = float(volume)
-            if math.isnan(v) or math.isinf(v) or not (0.0 <= v <= 1.0):
-                raise ValueError("Volume must be between 0.0 and 1.0")
-            track.volume = v
+            if math.isnan(v) or math.isinf(v) or not (-70.0 <= v <= 6.0):
+                raise ValueError("Volume must be in [0.0..1.0] (normalized) or [-70.0..6.0] (dB)")
+            if 0.0 <= v <= 1.0:
+                track.volume = v
+            else:
+                track.volume = self._db_to_normalized(v)
         if pan is not None:
             p = float(pan)
             if math.isnan(p) or math.isinf(p) or not (-1.0 <= p <= 1.0):
                 raise ValueError("Pan must be between -1.0 and 1.0")
             track.pan = p
-        if sends is not None:
-            for s_idx, val in sends.items():
+
+        merged_sends: Optional[Dict[Any, float]] = dict(sends) if sends is not None else None
+        if send_index is not None and send_value is not None:
+            if merged_sends is None:
+                merged_sends = {}
+            merged_sends[send_index] = float(send_value)
+
+        if merged_sends is not None:
+            for s_idx, val in merged_sends.items():
                 s_int = None
                 if isinstance(s_idx, int):
                     s_int = s_idx
@@ -1011,20 +1075,24 @@ class MockAbletonBridge:
                             s_int = None
                 if s_int is not None:
                     v_send = float(val)
-                    if not math.isnan(v_send) and not math.isinf(v_send):
-                        track.sends[s_int] = v_send
+                    if math.isnan(v_send) or math.isinf(v_send) or not (0.0 <= v_send <= 1.0):
+                        raise ValueError("Send value must be between 0.0 and 1.0")
+                    track.sends[s_int] = v_send
         if crossfader is not None:
             if crossfader not in ("A", "B", "None"):
                 raise ValueError("Crossfader must be 'A', 'B', or 'None'")
             track.crossfader = crossfader
-        return {
+        res = {
             "status": "success",
             "track_index": idx,
             "volume": track.volume,
             "pan": track.pan,
-            "sends": track.sends,
-            "crossfader": track.crossfader
+            "sends": {str(k): v for k, v in track.sends.items()},
+            "crossfader": track.crossfader,
         }
+        if track_type != "regular":
+            res["track_type"] = track_type
+        return res
 
     def _tool_live12_scene_set_properties(
         self,
@@ -1079,12 +1147,9 @@ class MockAbletonBridge:
         res.update(color_state)
         return res
 
-    def _tool_live12_routing_get(self, track_index: int) -> dict:
-        idx = int(track_index)
-        if idx < 0 or idx >= len(self.tracks):
-            raise IndexError("Track index out of range")
-        tr = self.tracks[idx]
-        return {
+    def _tool_live12_routing_get(self, track_index: int, track_type: str = "regular") -> dict:
+        idx, tr = self._resolve_mock_track(track_index, track_type)
+        res = {
             "track_index": idx,
             "input_routing_type": getattr(tr, "input_routing_type", "All Ins"),
             "input_routing_channel": getattr(tr, "input_routing_channel", "All Channels"),
@@ -1096,6 +1161,9 @@ class MockAbletonBridge:
             "available_output_routing_types": getattr(tr, "available_output_routing_types", ["Master"]),
             "available_output_routing_channels": getattr(tr, "available_output_routing_channels", ["1/2"]),
         }
+        if track_type != "regular":
+            res["track_type"] = track_type
+        return res
 
     # -------------------------------------------------------------------------
     # Domain 3: Clips, Extended MIDI & Audio Warping
@@ -1394,16 +1462,31 @@ class MockAbletonBridge:
     ) -> dict:
         t_idx = int(track_index)
         s_idx = int(slot_index)
-        clip = self.tracks[t_idx].clip_slots[s_idx].clip
+        if t_idx < 0 or t_idx >= len(self.tracks):
+            raise IndexError("Track index out of range")
+        tr = self.tracks[t_idx]
+        if s_idx < 0 or s_idx >= len(tr.clip_slots):
+            raise IndexError("Slot index out of range")
+        clip = tr.clip_slots[s_idx].clip
         if not clip:
             raise IndexError("Clip not found")
         if warping is not None:
             clip.warping = bool(warping)
         if warp_mode is not None:
-            valid_modes = ("Beats", "Tones", "Texture", "Re-Pitch", "Complex", "Complex Pro")
-            if warp_mode not in valid_modes:
+            warp_aliases = {
+                "beats": "Beats",
+                "tones": "Tones",
+                "texture": "Texture",
+                "repitch": "Re-Pitch",
+                "re-pitch": "Re-Pitch",
+                "complex": "Complex",
+                "complex_pro": "Complex Pro",
+                "complex pro": "Complex Pro",
+            }
+            canonical = warp_aliases.get(str(warp_mode).lower())
+            if not canonical:
                 raise ValueError(f"Invalid warp mode: {warp_mode}")
-            clip.warp_mode = warp_mode
+            clip.warp_mode = canonical
         if pitch_shift is not None:
             clip.pitch_shift = float(pitch_shift)
         if gain is not None:
@@ -1601,12 +1684,17 @@ class MockAbletonBridge:
         action: str,
         device_index: Optional[int] = None,
         parameter_identifier: Optional[Union[str, int]] = None,
+        parameter_index: Optional[Union[str, int]] = None,
         time: Optional[float] = None,
+        length: Optional[float] = None,
         value: Optional[float] = None,
+        normalized: bool = False,
     ) -> dict:
+        if parameter_identifier is None and parameter_index is not None:
+            parameter_identifier = parameter_index
         t_idx = int(track_index)
         s_idx = int(slot_index)
-        valid_actions = ("inspect", "set_step", "clear", "clear_all", "re_enable")
+        valid_actions = ("inspect", "create", "set_step", "insert_step", "clear", "clear_all", "re_enable")
         if action not in valid_actions:
             raise ValueError(f"Invalid envelope action '{action}', must be one of {valid_actions}")
 
@@ -1619,21 +1707,59 @@ class MockAbletonBridge:
         if not clip:
             raise IndexError("Clip slot has no clip")
 
-        res = {"status": "success", "action": action, "track_index": t_idx, "slot_index": s_idx}
-        param_name = str(parameter_identifier) if parameter_identifier is not None else "Volume"
+        res: Dict[str, Any] = {"status": "success", "action": action, "track_index": t_idx, "slot_index": s_idx}
+        target_param = None
+        dev_idx_to_use = int(device_index) if device_index is not None else 0
+        if 0 <= dev_idx_to_use < len(tr.devices) and parameter_identifier is not None:
+            dev = tr.devices[dev_idx_to_use]
+            if isinstance(parameter_identifier, int) or (
+                isinstance(parameter_identifier, str) and parameter_identifier.isdigit()
+            ):
+                p_idx = int(parameter_identifier)
+                if 0 <= p_idx < len(dev.parameters):
+                    target_param = dev.parameters[p_idx]
+            else:
+                for p_obj in dev.parameters:
+                    if p_obj.name.lower() == str(parameter_identifier).lower():
+                        target_param = p_obj
+                        break
+
+        param_name = target_param.name if target_param is not None else (
+            str(parameter_identifier) if parameter_identifier is not None else "Volume"
+        )
 
         if action == "inspect":
             res["has_envelopes"] = clip.has_envelopes
             res["envelopes_count"] = len(clip.envelopes) if clip.has_envelopes else 0
-        elif action == "set_step":
+        elif action == "create":
+            clip.has_envelopes = True
+            clip.envelopes.setdefault(param_name, [])
+            res["envelope_created"] = True
+            res["parameter_name"] = param_name
+        elif action in ("set_step", "insert_step"):
             step_time = float(time if time is not None else 0.0)
+            step_len = float(length if length is not None else 0.25)
             step_val = float(value if value is not None else 1.0)
+            if math.isnan(step_time) or math.isinf(step_time) or step_time < 0.0:
+                raise ValueError(f"Step time must be non-negative, got {step_time}")
+            if math.isnan(step_len) or math.isinf(step_len) or step_len <= 0.0:
+                raise ValueError(f"Step length must be positive, got {step_len}")
+            if math.isnan(step_val) or math.isinf(step_val):
+                raise ValueError(f"Step value must be finite, got {step_val}")
+            actual_val = step_val
+            if target_param is not None:
+                if normalized:
+                    actual_val = target_param.min + step_val * (target_param.max - target_param.min)
+                actual_val = max(target_param.min, min(target_param.max, actual_val))
             res["time"] = step_time
-            res["value"] = step_val
+            res["length"] = step_len
+            res["value"] = actual_val
+            res["normalized"] = bool(normalized)
+            res["envelope_updated"] = True
             clip.has_envelopes = True
             if param_name not in clip.envelopes:
                 clip.envelopes[param_name] = []
-            clip.envelopes[param_name].append((step_time, step_val))
+            clip.envelopes[param_name].append((step_time, step_len, actual_val))
         elif action == "clear":
             clip.clear_envelope(param_name)
             res["cleared_parameter"] = param_name
@@ -1734,19 +1860,24 @@ class MockAbletonBridge:
         for name, item in self.browser_catalog.items():
             if (category == "all" or item["category"] == category) and (q_lower in name.lower()):
                 results.append(item)
-        return {"query": query, "category": category, "results": results, "count": len(results)}
+        return {
+            "query": query,
+            "category": category,
+            "results": results,
+            "items": results,
+            "count": len(results),
+            "results_count": len(results),
+        }
 
     def _tool_live12_browser_load_item(
         self,
         track_index: int,
         browser_item_uri: str,
+        track_type: str = "regular",
         chain_index: int = -1,
         drum_pad_index: int = -1
     ) -> dict:
-        t_idx = int(track_index)
-        if t_idx < 0 or t_idx >= len(self.tracks):
-            raise IndexError("Track index out of range")
-        track = self.tracks[t_idx]
+        t_idx, track = self._resolve_mock_track(track_index, track_type)
         matched = None
         for item in self.browser_catalog.values():
             if item["uri"] == browser_item_uri or item["name"].lower() in browser_item_uri.lower():
@@ -1755,48 +1886,64 @@ class MockAbletonBridge:
         name = matched["name"] if matched else browser_item_uri.split(":")[-1].capitalize()
         dev = MockDevice(name=name, device_type="instrument" if "drum" in name.lower() or "drift" in name.lower() or "synth" in name.lower() else "audio_effect")
         track.devices.append(dev)
-        return {
+        res = {
             "status": "success",
             "track_index": t_idx,
             "device_index": len(track.devices) - 1,
             "device_name": dev.name
         }
+        if track_type != "regular":
+            res["track_type"] = track_type
+        return res
 
-    def _tool_live12_device_list(self, track_index: int) -> dict:
-        t_idx = int(track_index)
-        if t_idx < 0 or t_idx >= len(self.tracks):
-            raise IndexError("Track index out of range")
-        track = self.tracks[t_idx]
-        return {
+    def _tool_live12_device_list(self, track_index: int, track_type: str = "regular") -> dict:
+        t_idx, track = self._resolve_mock_track(track_index, track_type)
+        res = {
             "track_index": t_idx,
             "devices": [dev.to_dict(i) for i, dev in enumerate(track.devices)]
         }
+        if track_type != "regular":
+            res["track_type"] = track_type
+        return res
 
-    def _tool_live12_device_get_parameters(self, track_index: int, device_index: int) -> dict:
-        t_idx = int(track_index)
+    def _tool_live12_device_get_parameters(
+        self,
+        track_index: int,
+        device_index: int,
+        track_type: str = "regular",
+    ) -> dict:
+        t_idx, track = self._resolve_mock_track(track_index, track_type)
         d_idx = int(device_index)
-        track = self.tracks[t_idx]
         if d_idx < 0 or d_idx >= len(track.devices):
             raise IndexError("Device index out of range")
         dev = track.devices[d_idx]
-        return {
+        res = {
             "track_index": t_idx,
             "device_index": d_idx,
             "device_name": dev.name,
             "parameters": [p.to_dict(i) for i, p in enumerate(dev.parameters)]
         }
+        if track_type != "regular":
+            res["track_type"] = track_type
+        return res
 
     def _tool_live12_device_set_parameter(
         self,
         track_index: int,
         device_index: int,
-        parameter_identifier: Union[str, int],
-        value: float,
-        normalized: bool = False
+        parameter_identifier: Optional[Union[str, int]] = None,
+        value: Union[float, str] = 0.0,
+        normalized: bool = False,
+        parameter_index: Optional[Union[str, int]] = None,
+        track_type: str = "regular",
     ) -> dict:
-        t_idx = int(track_index)
+        if parameter_identifier is None and parameter_index is not None:
+            parameter_identifier = parameter_index
+        if parameter_identifier is None:
+            raise ValueError("Either parameter_identifier or parameter_index is required")
+
+        t_idx, track = self._resolve_mock_track(track_index, track_type)
         d_idx = int(device_index)
-        track = self.tracks[t_idx]
         if d_idx < 0 or d_idx >= len(track.devices):
             raise IndexError("Device index out of range")
         dev = track.devices[d_idx]
@@ -1813,28 +1960,63 @@ class MockAbletonBridge:
         if not param:
             raise ValueError(f"Parameter '{parameter_identifier}' not found")
 
-        v = float(value)
-        if normalized:
-            v = param.min + v * (param.max - param.min)
+        if isinstance(value, str):
+            try:
+                v = float(value)
+                if normalized:
+                    v = param.min + v * (param.max - param.min)
+            except ValueError:
+                if hasattr(param, "value_for_string"):
+                    v = float(param.value_for_string(value))
+                elif hasattr(param, "value_items"):
+                    items = [str(x).lower() for x in getattr(param, "value_items", [])]
+                    if value.lower() in items:
+                        v = float(items.index(value.lower()))
+                    else:
+                        raise ValueError(f"Invalid string value '{value}' for parameter '{param.name}'")
+                elif param.is_quantized:
+                    v = float(param.max) if value.lower() in ("on", "true", "1") else float(param.min)
+                else:
+                    raise ValueError(f"Non-numeric string value '{value}' not valid for parameter '{param.name}'")
+        else:
+            v = float(value)
+            if math.isnan(v) or math.isinf(v):
+                raise ValueError(f"Invalid non-finite parameter value: {v}")
+            if normalized:
+                v = param.min + v * (param.max - param.min)
+
         v = max(param.min, min(param.max, v))
         param.value = v
-        return {
+        res = {
             "status": "success",
+            "track_index": t_idx,
+            "device_index": d_idx,
             "parameter_name": param.name,
             "value": param.value,
             "normalized_value": (param.value - param.min) / (param.max - param.min) if param.max > param.min else 0.0
         }
+        if track_type != "regular":
+            res["track_type"] = track_type
+        return res
 
-    def _tool_live12_device_toggle(self, track_index: int, device_index: int, enabled: bool) -> dict:
-        t_idx = int(track_index)
+    def _tool_live12_device_toggle(
+        self,
+        track_index: int,
+        device_index: int,
+        enabled: bool,
+        track_type: str = "regular",
+    ) -> dict:
+        t_idx, track = self._resolve_mock_track(track_index, track_type)
         d_idx = int(device_index)
-        track = self.tracks[t_idx]
         if d_idx < 0 or d_idx >= len(track.devices):
             raise IndexError("Device index out of range")
         dev = track.devices[d_idx]
         dev.is_active = bool(enabled)
         dev.parameters[0].value = 1.0 if enabled else 0.0
-        return {"status": "success", "device_index": d_idx, "is_active": dev.is_active}
+        res = {"status": "success", "device_index": d_idx, "is_active": dev.is_active}
+        if track_type != "regular":
+            res["track_type"] = track_type
+        return res
 
     def _tool_live12_rack_macro_control(
         self,
@@ -1846,7 +2028,12 @@ class MockAbletonBridge:
         t_idx = int(track_index)
         d_idx = int(device_index)
         m_idx = int(macro_index)
-        dev = self.tracks[t_idx].devices[d_idx]
+        if t_idx < 0 or t_idx >= len(self.tracks):
+            raise IndexError("Track index out of range")
+        tr = self.tracks[t_idx]
+        if d_idx < 0 or d_idx >= len(tr.devices):
+            raise IndexError("Device index out of range")
+        dev = tr.devices[d_idx]
         if m_idx < 0 or m_idx >= len(dev.macros):
             raise IndexError("Macro index out of range [0..15]")
         dev.macros[m_idx] = float(value)
@@ -1861,7 +2048,12 @@ class MockAbletonBridge:
     ) -> dict:
         t_idx = int(track_index)
         d_idx = int(device_index)
-        dev = self.tracks[t_idx].devices[d_idx]
+        if t_idx < 0 or t_idx >= len(self.tracks):
+            raise IndexError("Track index out of range")
+        tr = self.tracks[t_idx]
+        if d_idx < 0 or d_idx >= len(tr.devices):
+            raise IndexError("Device index out of range")
+        dev = tr.devices[d_idx]
         if action == "store":
             snapshot = list(dev.macros)
             dev.variations.append({"index": len(dev.variations), "values": snapshot})
@@ -1917,16 +2109,63 @@ class MockAbletonBridge:
         track_index: int,
         device_index: int,
         action: str,
-        params: Optional[dict] = None
+        playback_mode: Optional[Union[str, int]] = None,
+        sensitivity: Optional[float] = None,
+        params: Optional[dict] = None,
     ) -> dict:
+        valid_actions = ("get_state", "set_playback_mode", "slice", "slice_to_drum_rack", "replace_sample")
+        if action not in valid_actions:
+            raise ValueError(f"Invalid simpler action '{action}', must be one of {valid_actions}")
         t_idx = int(track_index)
         d_idx = int(device_index)
-        dev = self.tracks[t_idx].devices[d_idx]
-        if action == "slice":
+        if t_idx < 0 or t_idx >= len(self.tracks):
+            raise IndexError("Track index out of range")
+        tr = self.tracks[t_idx]
+        if d_idx < 0 or d_idx >= len(tr.devices):
+            raise IndexError("Device index out of range")
+        dev = tr.devices[d_idx]
+        p = params or {}
+        if not hasattr(dev, "playback_mode"):
+            dev.playback_mode = "Classic"
+        if not hasattr(dev, "sensitivity"):
+            dev.sensitivity = 0.5
+        if not hasattr(dev, "sample_path"):
+            dev.sample_path = ""
+
+        if action == "get_state":
+            return {
+                "status": "success",
+                "track_index": t_idx,
+                "device_index": d_idx,
+                "playback_mode": dev.playback_mode,
+                "sensitivity": dev.sensitivity,
+                "slices_count": len(dev.slices),
+                "sample_path": dev.sample_path,
+            }
+        elif action == "set_playback_mode":
+            mode = playback_mode if playback_mode is not None else p.get("playback_mode", "Classic")
+            mode_names = {0: "Classic", 1: "1-Shot", 2: "Slicing"}
+            if isinstance(mode, int) and not isinstance(mode, bool):
+                mode_str = mode_names.get(mode, str(mode))
+            else:
+                mode_str = str(mode)
+            dev.playback_mode = mode_str
+            return {"status": "success", "playback_mode": mode_str}
+        elif action == "slice":
+            if sensitivity is not None or "sensitivity" in p:
+                dev.sensitivity = float(sensitivity if sensitivity is not None else p["sensitivity"])
             dev.slices = [0.0, 0.25, 0.5, 0.75, 1.0]
-            return {"status": "sliced", "slices_count": len(dev.slices)}
+            return {"status": "sliced", "slices_count": len(dev.slices), "sensitivity": dev.sensitivity}
+        elif action == "slice_to_drum_rack":
+            return {
+                "status": "success",
+                "action": "slice_to_drum_rack",
+                "slices_count": len(dev.slices) if dev.slices else 5,
+            }
         elif action == "replace_sample":
-            return {"status": "sample_replaced", "path": params.get("sample_path", "") if params else ""}
+            path = str(p.get("sample_path", ""))
+            dev.sample_path = path
+            return {"status": "sample_replaced", "path": path}
         return {"status": "ok"}
 
     def _tool_live12_meld_control(self, track_index: int, device_index: int, engine_params: dict) -> dict:
@@ -2184,7 +2423,7 @@ class MockAbletonBridge:
         if view_name not in valid_views:
             raise ValueError(f"Invalid view name: {view_name}")
         self.selected_view = view_name
-        return {"status": "success", "active_view": self.selected_view}
+        return {"status": "success", "active_view": self.selected_view, "current_view": self.selected_view}
 
     def _tool_live12_view_select(
         self,
@@ -2238,7 +2477,7 @@ class MockAbletonBridge:
             "open_dialog_count": len(self.open_dialogs),
         }
 
-    def _tool_live12_os_open_set(self, als_path: str) -> dict:
+    def _tool_live12_os_open_set(self, als_path: str, discard_unsaved: bool = True) -> dict:
         try:
             from ableton_live12_mcp import dialogs
         except ImportError:
@@ -2249,7 +2488,7 @@ class MockAbletonBridge:
         validated_path = dialogs.validate_als_open_path(als_path)
         return {"status": "success", "opened_set": validated_path, "opened": True, "path": validated_path}
 
-    def _tool_live12_os_save_set(self, destination_path: str) -> dict:
+    def _tool_live12_os_save_set(self, destination_path: str, overwrite: bool = True) -> dict:
         try:
             from ableton_live12_mcp import dialogs
         except ImportError:
@@ -2258,6 +2497,8 @@ class MockAbletonBridge:
                 sys.path.insert(0, src_dir)
             from ableton_live12_mcp import dialogs
         validated_path = dialogs.validate_als_save_path(destination_path)
+        if not overwrite and os.path.exists(validated_path):
+            raise dialogs.ValidationError(f"Target Live Set already exists and overwrite=False: '{validated_path}'")
         os.makedirs(os.path.dirname(validated_path), exist_ok=True)
         with open(validated_path, "wb") as f:
             f.write(b"MOCK_LIVE_SET_DATA")
@@ -2425,46 +2666,46 @@ class MockAbletonBridge:
 class LiveTcpClient:
     """Connects to the Ableton Live 12 Remote Script TCP Bridge."""
 
-    def __init__(self, host: str = "127.0.0.1", port: int = 11246, timeout: float = 2.0):
+    def __init__(self, host: str = "127.0.0.1", port: int = 11246, timeout: float = 25.0):
         self.host = host
         self.port = port
         self.timeout = timeout
         self.req_id = 0
 
     def is_reachable(self) -> bool:
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.settimeout(0.2)
         try:
-            s.connect((self.host, self.port))
-            s.close()
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.settimeout(0.2)
+                s.connect((self.host, self.port))
             return True
         except Exception:
             return False
 
     def call_rpc(self, method: str, params: Dict[str, Any]) -> ToolResult:
         self.req_id += 1
+        req_id = self.req_id
         payload = {
             "jsonrpc": "2.0",
-            "id": self.req_id,
+            "id": req_id,
             "method": method,
             "params": params
         }
         data = (json.dumps(payload) + "\n").encode("utf-8")
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.settimeout(self.timeout)
         try:
-            s.connect((self.host, self.port))
-            s.sendall(data)
-            chunks = []
-            while True:
-                chunk = s.recv(4096)
-                if not chunk:
-                    break
-                chunks.append(chunk)
-                if b"\n" in chunk:
-                    break
-            s.close()
-            resp = json.loads(b"".join(chunks).decode("utf-8"))
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.settimeout(self.timeout)
+                s.connect((self.host, self.port))
+                s.sendall(data)
+                chunks = []
+                while True:
+                    chunk = s.recv(4096)
+                    if not chunk:
+                        break
+                    chunks.append(chunk)
+                    if b"\n" in chunk:
+                        break
+            first_frame = b"".join(chunks).split(b"\n", 1)[0].strip()
+            resp = json.loads(first_frame.decode("utf-8"))
             if "error" in resp:
                 err = resp["error"]
                 return ToolResult(
@@ -2501,20 +2742,15 @@ class Live12TestClient:
         self.session_tracks: List[int] = []
         self.session_scenes: List[int] = []
 
-        # Determine mode
+        # Safety default: NEVER silently attach to a running Ableton session unless
+        # explicitly requested via mode="live", ABLETON_TEST_MODE="live", or "--live".
         env_mode = os.environ.get("ABLETON_TEST_MODE", "").lower()
-        if mode:
+        if mode and mode.lower() in ("mock", "live"):
             self.mode = mode.lower()
-        elif env_mode in ("mock", "live"):
-            self.mode = env_mode
+        elif env_mode == "live" or "--live" in sys.argv:
+            self.mode = "live"
         else:
-            # Auto-detect live bridge
             self.mode = "mock"
-            port = int(os.environ.get("ABLETON_BRIDGE_PORT", 11246))
-            host = os.environ.get("ABLETON_BRIDGE_HOST", "127.0.0.1")
-            client = LiveTcpClient(host=host, port=port)
-            if client.is_reachable():
-                self.mode = "live"
 
         if self.mode == "live":
             port = int(os.environ.get("ABLETON_BRIDGE_PORT", 11246))
@@ -2525,8 +2761,31 @@ class Live12TestClient:
             self._live_client = None
             self._mock_bridge = MockAbletonBridge()
 
-    def call_tool(self, tool_name: str, arguments: Optional[Dict[str, Any]] = None) -> ToolResult:
+    def call_tool(
+        self,
+        tool_name: str,
+        arguments: Optional[Dict[str, Any]] = None,
+        validate: bool = True,
+    ) -> ToolResult:
         args = arguments or {}
+        if validate:
+            try:
+                from ableton_live12_mcp.tools import ValidationError, validate_tool_call
+            except ImportError:
+                src_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
+                if src_dir not in sys.path:
+                    sys.path.insert(0, src_dir)
+                from ableton_live12_mcp.tools import ValidationError, validate_tool_call
+            try:
+                validate_tool_call(tool_name, args)
+            except ValidationError as e:
+                err_dict = {"error": str(e), "type": "ValidationError"}
+                return ToolResult(
+                    is_error=True,
+                    content=[{"type": "text", "text": json.dumps(err_dict)}],
+                    raw=err_dict,
+                )
+
         if self.mode == "live" and self._live_client:
             return self._live_client.call_rpc(tool_name, args)
         else:

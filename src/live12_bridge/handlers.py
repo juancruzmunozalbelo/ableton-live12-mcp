@@ -9,9 +9,16 @@ and the Universal LOM reflection interface.
 
 from __future__ import annotations
 
+import collections
 import math
 import os
+import re
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+
+try:
+    import Live
+except ImportError:
+    Live = None
 
 from .reflection import (
     dict_to_midi_note_spec,
@@ -21,8 +28,12 @@ from .reflection import (
     lom_inspect,
     lom_set,
     midi_note_to_dict,
+    resolve_path,
     serialize_lom_value,
 )
+
+MAX_UNDO_DEPTH = 8
+MAX_BROWSER_SEARCH_NODES = 2000
 
 VALID_TRACK_TYPES = ("midi", "audio", "return")
 VALID_MONITORING_STATES = ("in", "auto", "off")
@@ -45,6 +56,7 @@ class BridgeHandlers:
 
     def __init__(self, cs: Any):
         self.cs = cs
+        self._undo_depth: int = 0
 
     def song(self) -> Any:
         if self.cs is None:
@@ -62,7 +74,8 @@ class BridgeHandlers:
         elif key == "application":
             return self.application()
         elif key == "control_surfaces":
-            return getattr(self.cs, "_control_surfaces", [self.cs])
+            app = self.application()
+            return getattr(app, "control_surfaces", [self.cs]) if app is not None else [self.cs]
         elif key == "this_device":
             return self.cs
         return self.song()
@@ -89,18 +102,25 @@ class BridgeHandlers:
         return {"is_playing": False}
 
     def live12_transport_record(self, record_mode: str = "arrangement") -> Dict[str, Any]:
+        mode = str(record_mode or "arrangement").lower()
+        if mode not in ("arrangement", "session"):
+            raise ValueError(f"Invalid record_mode '{record_mode}', must be 'arrangement' or 'session'")
         s = self.song()
         if s:
-            if record_mode == "session":
+            if mode == "session":
                 if hasattr(s, "session_record"):
                     s.session_record = True
             else:
                 s.record_mode = True
+            rec_mode = bool(getattr(s, "record_mode", False))
+            sess_rec = bool(getattr(s, "session_record", False))
             return {
-                "record_mode": bool(getattr(s, "record_mode", True)),
-                "session_record": bool(getattr(s, "session_record", False)),
+                "status": "recording",
+                "record_mode": rec_mode,
+                "session_record": sess_rec,
+                "is_recording": rec_mode or sess_rec,
             }
-        return {"record_mode": True, "session_record": False}
+        return {"status": "recording", "record_mode": True, "session_record": False, "is_recording": True}
 
     def live12_transport_set_tempo(self, tempo: float) -> Dict[str, Any]:
         val = float(tempo)
@@ -170,12 +190,19 @@ class BridgeHandlers:
 
     def live12_song_capture_midi(self) -> Dict[str, Any]:
         s = self.song()
-        if s and hasattr(s, "capture_midi"):
-            try:
+        if s:
+            can_capture = bool(getattr(s, "can_capture_midi", True))
+            if not can_capture:
+                return {
+                    "status": "success",
+                    "captured": False,
+                    "can_capture_midi": False,
+                    "reason": "No recently played MIDI available to capture",
+                }
+            if hasattr(s, "capture_midi"):
                 s.capture_midi()
-            except Exception:
-                pass
-        return {"status": "success", "captured": True, "captured_notes": 4, "destination_track": 0}
+            return {"status": "success", "captured": True, "can_capture_midi": True}
+        return {"status": "success", "captured": True}
 
     def live12_song_get_state(self) -> Dict[str, Any]:
         s = self.song()
@@ -200,14 +227,22 @@ class BridgeHandlers:
                 "scenes_count": 0,
             }
 
-        scale_name = "Major"
-        root_note = 0
-        if hasattr(s, "scale_information") and s.scale_information:
-            scale_name = getattr(s.scale_information, "name", "Major")
-            root_note = getattr(s.scale_information, "root_note", 0)
+        if hasattr(s, "scale_name"):
+            scale_name = str(getattr(s, "scale_name", "Major"))
+        elif hasattr(s, "scale_information") and hasattr(s.scale_information, "name"):
+            scale_name = str(s.scale_information.name)
         else:
-            scale_name = getattr(s, "scale_name", "Major")
-            root_note = getattr(s, "root_note", 0)
+            scale_name = "Major"
+
+        if hasattr(s, "root_note"):
+            root_note = int(getattr(s, "root_note", 0))
+        elif hasattr(s, "scale_information") and hasattr(s.scale_information, "root_note"):
+            root_note = int(s.scale_information.root_note)
+        else:
+            root_note = 0
+
+        ts = getattr(s, "tuning_system", None)
+        live_tuning = str(getattr(ts, "name", "Equal Temperament")) if ts is not None else "Equal Temperament"
 
         is_rec = bool(getattr(s, "record_mode", False) or getattr(s, "session_record", False))
         return {
@@ -225,7 +260,7 @@ class BridgeHandlers:
             "scale_name": scale_name,
             "root_note": root_note,
             "scale_root_note": root_note,
-            "tuning_system": tuning,
+            "tuning_system": live_tuning,
             "tracks_count": len(getattr(s, "tracks", [])),
             "scenes_count": len(getattr(s, "scenes", [])),
         }
@@ -263,17 +298,14 @@ class BridgeHandlers:
             if hasattr(s, "scale_name"):
                 try:
                     s.scale_name = live_scale_name
-                except Exception:
-                    try:
+                except (ValueError, RuntimeError):
+                    if sn != live_scale_name:
                         s.scale_name = sn
-                    except Exception:
-                        pass
-            if hasattr(s, "scale_information") and s.scale_information:
-                try:
-                    s.scale_information.root_note = rn
-                    s.scale_information.name = live_scale_name
-                except Exception:
-                    pass
+                    else:
+                        raise
+            if hasattr(s, "scale_information") and hasattr(s.scale_information, "name"):
+                s.scale_information.root_note = rn
+                s.scale_information.name = live_scale_name
         return {"root_note": rn, "scale_name": sn}
 
     def live12_song_set_tuning_system(self, tuning_name: str) -> Dict[str, Any]:
@@ -289,8 +321,24 @@ class BridgeHandlers:
             raise ValueError("tuning_name exceeds maximum length of 256 characters")
         if not tuning_name.strip():
             raise ValueError("tuning_name cannot be empty")
-        self._current_tuning_system = str(tuning_name)
-        return {"tuning_system": tuning_name, "status": "loaded"}
+        s = self.song()
+        if s is None:
+            self._current_tuning_system = str(tuning_name)
+            return {"tuning_system": tuning_name, "status": "loaded"}
+
+        if hasattr(s, "load_tuning_system") and callable(getattr(s, "load_tuning_system")):
+            s.load_tuning_system(tuning_name)
+            return {"tuning_system": tuning_name, "status": "loaded"}
+
+        ts = getattr(s, "tuning_system", None)
+        cleaned = tuning_name.strip().lower()
+        if ts is not None and str(getattr(ts, "name", "")).strip().lower() == cleaned:
+            return {"tuning_system": str(getattr(ts, "name", tuning_name)), "status": "already_active"}
+        if ts is None and cleaned in ("equal temperament", "12-tet", "default"):
+            return {"tuning_system": "Equal Temperament", "status": "already_active"}
+        raise NotImplementedError(
+            f"Ableton Live 12's Python LOM exposes Song.tuning_system as read-only and cannot programmatically load '{tuning_name}'."
+        )
 
     def live12_cue_point_control(
         self,
@@ -303,6 +351,11 @@ class BridgeHandlers:
         valid_actions = ("create", "delete", "jump", "list")
         if action not in valid_actions:
             raise ValueError(f"Invalid cue action '{action}', must be one of {valid_actions}")
+
+        if action == "create" and time is not None:
+            t_check = float(time)
+            if t_check < 0.0 or math.isnan(t_check) or math.isinf(t_check):
+                raise ValueError("Cue point time must be non-negative")
 
         if not s:
             return {"action": action, "cue_points": [], "success": True}
@@ -328,12 +381,19 @@ class BridgeHandlers:
                 if abs(float(getattr(cp, "time", -1.0)) - target_time) < 0.01:
                     existing_cp = cp
                     break
-            if not existing_cp and hasattr(s, "current_song_time"):
-                orig_time = s.current_song_time
-                s.current_song_time = target_time
-                if hasattr(s, "set_or_delete_cue"):
+            if not existing_cp and hasattr(s, "set_or_delete_cue"):
+                if time is not None and hasattr(s, "current_song_time"):
+                    orig_time = float(s.current_song_time)
+                    if abs(orig_time - target_time) > 1e-6:
+                        try:
+                            s.current_song_time = target_time
+                            s.set_or_delete_cue()
+                        finally:
+                            s.current_song_time = orig_time
+                    else:
+                        s.set_or_delete_cue()
+                else:
                     s.set_or_delete_cue()
-                s.current_song_time = orig_time
             updated_cues = list(getattr(s, "cue_points", []))
             created_cp = None
             for cp in updated_cues:
@@ -358,16 +418,17 @@ class BridgeHandlers:
                 raise IndexError(f"Cue index {idx} out of range (0..{len(cue_points)-1})")
             target_cp = cue_points[idx]
             cp_time = float(getattr(target_cp, "time", 0.0))
-            if hasattr(s, "current_song_time"):
-                orig_time = s.current_song_time
-                s.current_song_time = cp_time
+            orig_time = float(s.current_song_time) if hasattr(s, "current_song_time") else None
+            try:
+                if hasattr(target_cp, "jump"):
+                    target_cp.jump()
+                elif hasattr(s, "current_song_time"):
+                    s.current_song_time = cp_time
                 if hasattr(s, "set_or_delete_cue"):
                     s.set_or_delete_cue()
-                s.current_song_time = orig_time
-            elif hasattr(target_cp, "jump"):
-                target_cp.jump()
-                if hasattr(s, "set_or_delete_cue"):
-                    s.set_or_delete_cue()
+            finally:
+                if orig_time is not None and hasattr(s, "current_song_time"):
+                    s.current_song_time = orig_time
             return {"action": "delete", "success": True, "cue_index": idx}
 
         elif action == "jump":
@@ -470,14 +531,30 @@ class BridgeHandlers:
         # In Live, track created at index target_idx
         return {"track_index": target_idx, "type": t_type}
 
-    def live12_track_delete(self, track_index: int) -> Dict[str, Any]:
+    def live12_track_delete(self, track_index: int, track_type: str = "regular") -> Dict[str, Any]:
         t_idx = int(track_index)
+        t_type = str(track_type or "regular").lower()
+        if t_type not in ("regular", "return", "master"):
+            raise ValueError(f"Invalid track_type '{track_type}'. Must be 'regular', 'return', or 'master'")
+        if t_type == "master" or t_idx == -100:
+            raise ValueError("Cannot delete master track")
         s = self.song()
         if s:
-            if t_idx < 0 or t_idx >= len(s.tracks):
-                raise IndexError(f"Track index {t_idx} out of range [0, {len(s.tracks)})")
-            s.delete_track(t_idx)
-        return {"deleted": True, "track_index": t_idx}
+            if t_type == "return":
+                ret_tracks = getattr(s, "return_tracks", [])
+                if t_idx < 0 or t_idx >= len(ret_tracks):
+                    raise IndexError(f"Return track index {t_idx} out of range [0, {len(ret_tracks)})")
+                if not hasattr(s, "delete_return_track"):
+                    raise NotImplementedError("Song.delete_return_track is not available")
+                s.delete_return_track(t_idx)
+            else:
+                if t_idx < 0 or t_idx >= len(s.tracks):
+                    raise IndexError(f"Track index {t_idx} out of range [0, {len(s.tracks)})")
+                s.delete_track(t_idx)
+        res: Dict[str, Any] = {"deleted": True, "track_index": t_idx}
+        if t_type != "regular":
+            res["track_type"] = t_type
+        return res
 
     def live12_track_duplicate(self, track_index: int) -> Dict[str, Any]:
         t_idx = int(track_index)
@@ -486,7 +563,7 @@ class BridgeHandlers:
             if t_idx < 0 or t_idx >= len(s.tracks):
                 raise IndexError(f"Track index {t_idx} out of range [0, {len(s.tracks)})")
             s.duplicate_track(t_idx)
-        return {"duplicated": True, "track_index": t_idx}
+        return {"duplicated": True, "source_track_index": t_idx, "track_index": t_idx + 1}
 
     def live12_track_set_properties(
         self,
@@ -498,14 +575,15 @@ class BridgeHandlers:
         solo: Optional[bool] = None,
         mute: Optional[bool] = None,
         arm: Optional[bool] = None,
+        track_type: str = "regular",
     ) -> Dict[str, Any]:
         t_idx = int(track_index)
         s = self.song()
         res: Dict[str, Any] = {"track_index": t_idx}
+        if track_type != "regular":
+            res["track_type"] = track_type
         if s:
-            if t_idx < 0 or t_idx >= len(s.tracks):
-                raise IndexError(f"Track index {t_idx} out of range [0, {len(s.tracks)})")
-            tr = s.tracks[t_idx]
+            tr = self._resolve_target_track(s, t_idx, track_type)
             if name is not None:
                 tr.name = str(name)
             color_state = self._apply_color(tr, color, color_index, color_rgb)
@@ -546,45 +624,40 @@ class BridgeHandlers:
         if not track_indices:
             raise ValueError("track_indices must not be empty")
         indices = [int(i) for i in track_indices]
-        if s:
-            for idx in indices:
-                if idx < 0 or idx >= len(s.tracks):
-                    raise IndexError(f"Track index {idx} out of range [0, {len(s.tracks)})")
-            if hasattr(s, "group_tracks") and callable(getattr(s, "group_tracks")):
-                grp_track = s.group_tracks(indices)
-                grp_idx = list(s.tracks).index(grp_track) if grp_track in s.tracks else min(indices)
-                return {"grouped": True, "group_track_index": grp_idx, "tracks": indices}
-            else:
-                if hasattr(s, "view") and hasattr(s.view, "selected_track"):
-                    s.view.selected_track = s.tracks[indices[0]]
-                return {
-                    "grouped": True,
-                    "group_track_index": indices[0],
-                    "tracks": indices,
-                    "target_track_name": getattr(s.tracks[indices[0]], "name", ""),
-                }
-        return {"grouped": True, "group_track_index": indices[0], "tracks": indices}
+        if s is None:
+            return {"grouped": True, "group_track_index": indices[0], "tracks": indices}
+
+        for idx in indices:
+            if idx < 0 or idx >= len(s.tracks):
+                raise IndexError(f"Track index {idx} out of range [0, {len(s.tracks)})")
+        if hasattr(s, "group_tracks") and callable(getattr(s, "group_tracks")):
+            grp_track = s.group_tracks(indices)
+            grp_idx = list(s.tracks).index(grp_track) if grp_track in s.tracks else min(indices)
+            return {"grouped": True, "group_track_index": grp_idx, "tracks": indices}
+        raise NotImplementedError(
+            "Ableton Live 12's Python LOM does not expose Song.group_tracks; grouping tracks must be performed in the Live GUI."
+        )
 
     def live12_track_ungroup(self, group_track_index: int) -> Dict[str, Any]:
         idx = int(group_track_index)
         s = self.song()
-        if s:
-            if idx < 0 or idx >= len(s.tracks):
-                raise IndexError(f"Track index {idx} out of range [0, {len(s.tracks)})")
-            tr = s.tracks[idx]
-            if hasattr(s, "ungroup_track") and callable(getattr(s, "ungroup_track")):
-                s.ungroup_track(idx)
-            elif hasattr(tr, "ungroup") and callable(getattr(tr, "ungroup")):
-                tr.ungroup()
-            else:
-                if hasattr(s, "view") and hasattr(s.view, "selected_track"):
-                    s.view.selected_track = tr
-            return {
-                "ungrouped": True,
-                "group_track_index": idx,
-                "name": getattr(tr, "name", ""),
-            }
-        return {"ungrouped": True, "group_track_index": idx}
+        if s is None:
+            return {"ungrouped": True, "group_track_index": idx}
+
+        if idx < 0 or idx >= len(s.tracks):
+            raise IndexError(f"Track index {idx} out of range [0, {len(s.tracks)})")
+        tr = s.tracks[idx]
+        if hasattr(s, "ungroup_track") and callable(getattr(s, "ungroup_track")):
+            s.ungroup_track(idx)
+            return {"ungrouped": True, "group_track_index": idx, "name": getattr(tr, "name", "")}
+        if hasattr(tr, "ungroup") and callable(getattr(tr, "ungroup")):
+            tr.ungroup()
+            return {"ungrouped": True, "group_track_index": idx, "name": getattr(tr, "name", "")}
+        if not getattr(tr, "is_foldable", False):
+            raise ValueError(f"Track {idx} ('{getattr(tr, 'name', '')}') is not a group track")
+        raise NotImplementedError(
+            "Ableton Live 12's Python LOM does not expose an ungroup_track/ungroup API; ungrouping must be performed in the Live GUI."
+        )
 
     def live12_take_lane_create(self, track_index: int) -> Dict[str, Any]:
         t_idx = int(track_index)
@@ -631,20 +704,31 @@ class BridgeHandlers:
         if l_idx < 0:
             raise IndexError(f"Lane index {l_idx} out of range")
         s = self.song()
-        if s:
-            if t_idx >= len(s.tracks):
-                raise IndexError(f"Track index {t_idx} out of range [0, {len(s.tracks)})")
-            tr = s.tracks[t_idx]
-            take_lanes = getattr(tr, "take_lanes", [])
-            if l_idx >= len(take_lanes):
-                raise IndexError(f"Lane index {l_idx} out of range [0, {len(take_lanes)})")
-        return {
-            "comped": True,
-            "track_index": t_idx,
-            "lane_index": l_idx,
-            "start": st,
-            "length": ln,
-        }
+        if s is None:
+            return {
+                "comped": True,
+                "track_index": t_idx,
+                "lane_index": l_idx,
+                "start": st,
+                "length": ln,
+            }
+
+        if t_idx >= len(s.tracks):
+            raise IndexError(f"Track index {t_idx} out of range [0, {len(s.tracks)})")
+        tr = s.tracks[t_idx]
+        take_lanes = getattr(tr, "take_lanes", [])
+        if l_idx >= len(take_lanes):
+            raise IndexError(f"Lane index {l_idx} out of range [0, {len(take_lanes)})")
+        lane = take_lanes[l_idx]
+        if hasattr(lane, "comp_region") and callable(getattr(lane, "comp_region")):
+            lane.comp_region(st, ln)
+            return {"comped": True, "track_index": t_idx, "lane_index": l_idx, "start": st, "length": ln}
+        if hasattr(tr, "comp_region") and callable(getattr(tr, "comp_region")):
+            tr.comp_region(l_idx, st, ln)
+            return {"comped": True, "track_index": t_idx, "lane_index": l_idx, "start": st, "length": ln}
+        raise NotImplementedError(
+            "Ableton Live 12's Python LOM (Live.TakeLane.TakeLane) does not expose a comp_region API; comping must be performed in the Live GUI."
+        )
 
     def live12_take_lane_create_audio_clip(
         self,
@@ -705,7 +789,23 @@ class BridgeHandlers:
             if idx < 0 or idx >= len(s.scenes):
                 raise IndexError(f"Scene index {idx} out of range")
             s.scenes[idx].fire()
-        return {"fired": True, "scene_index": idx}
+        return {"fired": True, "is_playing": True, "scene_index": idx}
+
+    @staticmethod
+    def _match_routing_option(options: Any, target: str, label: str) -> Any:
+        opts = list(options or [])
+        target_s = str(target).strip()
+        target_l = target_s.lower()
+        for opt in opts:
+            name = str(getattr(opt, "display_name", opt))
+            if name == target_s:
+                return opt
+        for opt in opts:
+            name = str(getattr(opt, "display_name", opt))
+            if name.lower() == target_l:
+                return opt
+        avail = [str(getattr(o, "display_name", o)) for o in opts]
+        raise ValueError(f"Requested {label} '{target}' is not available. Available: {avail}")
 
     def live12_routing_set(
         self,
@@ -715,25 +815,46 @@ class BridgeHandlers:
         output_type: Optional[str] = None,
         output_channel: Optional[str] = None,
         monitoring: Optional[str] = None,
+        track_type: str = "regular",
     ) -> Dict[str, Any]:
         t_idx = int(track_index)
         if monitoring is not None and monitoring.lower() not in VALID_MONITORING_STATES:
             raise ValueError(f"Invalid monitoring state '{monitoring}'. Must be one of {VALID_MONITORING_STATES}")
 
         res: Dict[str, Any] = {"track_index": t_idx}
+        if track_type != "regular":
+            res["track_type"] = track_type
         s = self.song()
         if s:
-            if t_idx < 0 or t_idx >= len(s.tracks):
-                raise IndexError(f"Track index {t_idx} out of range")
-            tr = s.tracks[t_idx]
+            tr = self._resolve_target_track(s, t_idx, track_type)
             if input_type is not None:
-                res["input_type"] = input_type
+                if hasattr(tr, "available_input_routing_types"):
+                    matched = self._match_routing_option(tr.available_input_routing_types, input_type, "input_type")
+                    tr.input_routing_type = matched
+                    res["input_type"] = str(getattr(matched, "display_name", matched))
+                else:
+                    res["input_type"] = input_type
             if input_channel is not None:
-                res["input_channel"] = input_channel
+                if hasattr(tr, "available_input_routing_channels"):
+                    matched = self._match_routing_option(tr.available_input_routing_channels, input_channel, "input_channel")
+                    tr.input_routing_channel = matched
+                    res["input_channel"] = str(getattr(matched, "display_name", matched))
+                else:
+                    res["input_channel"] = input_channel
             if output_type is not None:
-                res["output_type"] = output_type
+                if hasattr(tr, "available_output_routing_types"):
+                    matched = self._match_routing_option(tr.available_output_routing_types, output_type, "output_type")
+                    tr.output_routing_type = matched
+                    res["output_type"] = str(getattr(matched, "display_name", matched))
+                else:
+                    res["output_type"] = output_type
             if output_channel is not None:
-                res["output_channel"] = output_channel
+                if hasattr(tr, "available_output_routing_channels"):
+                    matched = self._match_routing_option(tr.available_output_routing_channels, output_channel, "output_channel")
+                    tr.output_routing_channel = matched
+                    res["output_channel"] = str(getattr(matched, "display_name", matched))
+                else:
+                    res["output_channel"] = output_channel
             if monitoring is not None:
                 res["monitoring"] = monitoring
                 if hasattr(tr, "current_monitoring_state"):
@@ -776,58 +897,129 @@ class BridgeHandlers:
                 return None
         return None
 
+    def _resolve_target_track(self, s: Any, track_index: int, track_type: str = "regular") -> Any:
+        t_idx = int(track_index)
+        t_type = str(track_type or "regular").lower()
+        if t_type not in ("regular", "return", "master"):
+            raise ValueError(f"Invalid track_type '{track_type}'. Must be 'regular', 'return', or 'master'")
+        if t_type == "master" or t_idx == -100:
+            master = getattr(s, "master_track", None)
+            if master is None:
+                raise IndexError("Master track is not available")
+            return master
+        if t_type == "return":
+            ret_tracks = getattr(s, "return_tracks", [])
+            if 0 <= t_idx < len(ret_tracks):
+                return ret_tracks[t_idx]
+            raise IndexError(f"Return track index {t_idx} out of range")
+        tracks = getattr(s, "tracks", [])
+        if 0 <= t_idx < len(tracks):
+            return tracks[t_idx]
+        raise IndexError(f"Track index {t_idx} out of range")
+
+    @staticmethod
+    def _db_to_fader(db: float) -> float:
+        """Converts Ableton Live dB [-70.0..+6.0] continuously to normalized fader [0.0..1.0]."""
+        db_f = float(db)
+        if math.isnan(db_f) or math.isinf(db_f) or db_f < -70.0 or db_f > 6.0:
+            raise ValueError(f"Volume dB {db_f} out of range [-70.0, 6.0]")
+        if db_f <= -70.0:
+            return 0.0
+        if db_f == 0.0:
+            return 0.85
+        if db_f < 0.0:
+            return max(0.0, min(1.0, 0.85 * (10.0 ** (db_f / 40.0))))
+        return max(0.0, min(1.0, 0.85 + (db_f / 6.0) * 0.15))
+
     def live12_mixer_set(
         self,
         track_index: int,
         volume: Optional[float] = None,
+        volume_db: Optional[float] = None,
         pan: Optional[float] = None,
         sends: Optional[Dict[str, float]] = None,
         crossfader: Optional[str] = None,
+        track_type: str = "regular",
+        send_index: Optional[Union[str, int]] = None,
+        send_value: Optional[float] = None,
     ) -> Dict[str, Any]:
         t_idx = int(track_index)
-        if volume is not None:
-            vol = float(volume)
-            if math.isnan(vol) or math.isinf(vol) or vol < -70.0 or vol > 6.0:
-                raise ValueError(f"Volume {vol} out of range [-70.0, 6.0]")
+        vol_amp: Optional[float] = None
+        if volume_db is not None:
+            vol_amp = self._db_to_fader(float(volume_db))
+        elif volume is not None:
+            vol_f = float(volume)
+            if math.isnan(vol_f) or math.isinf(vol_f) or vol_f < -70.0 or vol_f > 6.0:
+                raise ValueError(f"Volume {vol_f} out of range [-70.0, 6.0]")
+            if 0.0 <= vol_f <= 1.0:
+                vol_amp = vol_f
+            else:
+                vol_amp = self._db_to_fader(vol_f)
+
         if pan is not None:
             p = float(pan)
             if math.isnan(p) or math.isinf(p) or p < -1.0 or p > 1.0:
                 raise ValueError(f"Pan {p} out of range [-1.0, 1.0]")
 
+        xf_val: Optional[int] = None
+        if crossfader is not None:
+            xf_map = {"a": 0, "none": 1, "b": 2}
+            xf_key = str(crossfader).strip().lower()
+            if xf_key not in xf_map:
+                raise ValueError(f"Invalid crossfader '{crossfader}'. Must be 'A', 'None', or 'B'")
+            xf_val = xf_map[xf_key]
+
+        merged_sends: Optional[Dict[str, float]] = dict(sends) if sends else None
+        if send_index is not None and send_value is not None:
+            if merged_sends is None:
+                merged_sends = {}
+            merged_sends[str(send_index)] = float(send_value)
+
         s = self.song()
         res: Dict[str, Any] = {"track_index": t_idx}
+        if track_type != "regular":
+            res["track_type"] = track_type
+        if volume_db is not None:
+            res["volume_db"] = float(volume_db)
         if s:
-            if t_idx < 0 or t_idx >= len(s.tracks):
-                raise IndexError(f"Track index {t_idx} out of range")
-            tr = s.tracks[t_idx]
+            tr = self._resolve_target_track(s, t_idx, track_type)
             mixer = getattr(tr, "mixer_device", None)
             if mixer:
-                if volume is not None and hasattr(mixer, "volume"):
-                    mixer.volume.value = float(volume)
+                if vol_amp is not None and hasattr(mixer, "volume"):
+                    v_min = float(getattr(mixer.volume, "min", 0.0))
+                    v_max = float(getattr(mixer.volume, "max", 1.0))
+                    mixer.volume.value = max(v_min, min(v_max, vol_amp))
                     res["volume"] = mixer.volume.value
                 if pan is not None and hasattr(mixer, "panning"):
-                    mixer.panning.value = float(pan)
+                    p_min = float(getattr(mixer.panning, "min", -1.0))
+                    p_max = float(getattr(mixer.panning, "max", 1.0))
+                    mixer.panning.value = max(p_min, min(p_max, float(pan)))
                     res["pan"] = mixer.panning.value
-                if sends and hasattr(mixer, "sends"):
+                if merged_sends and hasattr(mixer, "sends"):
                     res_sends = {}
-                    for k, v in sends.items():
+                    for k, v in merged_sends.items():
                         s_idx = self._parse_send_index(k)
                         if s_idx is not None and 0 <= s_idx < len(mixer.sends):
                             val = float(v)
-                            if not math.isnan(val) and not math.isinf(val):
-                                mixer.sends[s_idx].value = val
-                                res_sends[str(s_idx)] = mixer.sends[s_idx].value
+                            if math.isnan(val) or math.isinf(val):
+                                raise ValueError(f"Send value must be finite, got {val}")
+                            s_min = float(getattr(mixer.sends[s_idx], "min", 0.0))
+                            s_max = float(getattr(mixer.sends[s_idx], "max", 1.0))
+                            mixer.sends[s_idx].value = max(s_min, min(s_max, val))
+                            res_sends[str(s_idx)] = mixer.sends[s_idx].value
                     res["sends"] = res_sends
-                if crossfader is not None and hasattr(mixer, "crossfade_assign"):
+                if xf_val is not None:
+                    if hasattr(mixer, "crossfade_assign"):
+                        mixer.crossfade_assign = xf_val
                     res["crossfader"] = crossfader
         else:
-            if volume is not None:
-                res["volume"] = float(volume)
+            if vol_amp is not None:
+                res["volume"] = vol_amp
             if pan is not None:
                 res["pan"] = float(pan)
-            if sends is not None:
+            if merged_sends is not None:
                 res_sends = {}
-                for k, v in sends.items():
+                for k, v in merged_sends.items():
                     s_idx = self._parse_send_index(k)
                     if s_idx is not None:
                         val = float(v)
@@ -866,9 +1058,9 @@ class BridgeHandlers:
                 raise ValueError(
                     f"color_index {idx_val} out of range [0, {LIVE_COLOR_INDEX_MAX}]"
                 )
-            try:
+            if hasattr(obj, "color_index"):
                 obj.color_index = idx_val
-            except Exception:
+            else:
                 obj.color = idx_val
             state["color_index"] = getattr(obj, "color_index", idx_val)
         if color_rgb is not None:
@@ -878,19 +1070,14 @@ class BridgeHandlers:
             for v in rgb[:3]:
                 if v < 0 or v > 255:
                     raise ValueError(f"color_rgb component {v} out of range [0, 255]")
-            try:
-                obj.color = tuple(rgb)
-            except Exception:
-                obj.color = rgb
+            packed_rgb = ((rgb[0] & 0xFF) << 16) | ((rgb[1] & 0xFF) << 8) | (rgb[2] & 0xFF)
+            obj.color = packed_rgb
             state["color_rgb"] = rgb
         elif color is not None and not (0 <= int(color) <= LIVE_COLOR_INDEX_MAX):
             packed = int(color)
-            rgb = ((packed >> 16) & 0xFF, (packed >> 8) & 0xFF, packed & 0xFF)
-            try:
-                obj.color = rgb
-            except Exception:
-                obj.color = packed
-            state["color_rgb"] = list(rgb)
+            rgb = [(packed >> 16) & 0xFF, (packed >> 8) & 0xFF, packed & 0xFF]
+            obj.color = packed
+            state["color_rgb"] = rgb
         return state
 
     def live12_scene_set_properties(
@@ -911,8 +1098,11 @@ class BridgeHandlers:
         if idx < 0:
             raise IndexError("Scene index must be non-negative")
         res: Dict[str, Any] = {"scene_index": idx, "status": "success"}
-        if s and hasattr(s, "scenes") and 0 <= idx < len(s.scenes):
-            scene = s.scenes[idx]
+        if s:
+            scenes = getattr(s, "scenes", [])
+            if idx >= len(scenes):
+                raise IndexError(f"Scene index {idx} out of range [0, {len(scenes)})")
+            scene = scenes[idx]
             if name is not None:
                 scene.name = str(name)
             color_state = self._apply_color(scene, color, color_index, color_rgb)
@@ -936,9 +1126,14 @@ class BridgeHandlers:
             if time_signature_enabled is not None:
                 scene.time_signature_enabled = bool(time_signature_enabled)
             res.update(color_state)
+            raw_color = getattr(scene, "color", color or 0)
+            if isinstance(raw_color, (tuple, list)) and len(raw_color) >= 3:
+                color_out = ((int(raw_color[0]) & 0xFF) << 16) | ((int(raw_color[1]) & 0xFF) << 8) | (int(raw_color[2]) & 0xFF)
+            else:
+                color_out = int(raw_color) if raw_color is not None else 0
             res.update({
                 "name": str(getattr(scene, "name", name or "")),
-                "color": int(getattr(scene, "color", color or 0)),
+                "color": color_out,
                 "tempo": float(getattr(scene, "tempo", tempo or 120.0)),
                 "tempo_enabled": bool(getattr(scene, "tempo_enabled", tempo_enabled or False)),
                 "time_signature_numerator": int(getattr(scene, "time_signature_numerator", time_signature_numerator or 4)),
@@ -962,13 +1157,11 @@ class BridgeHandlers:
                 res["time_signature_enabled"] = bool(time_signature_enabled)
         return res
 
-    def live12_routing_get(self, track_index: int) -> Dict[str, Any]:
+    def live12_routing_get(self, track_index: int, track_type: str = "regular") -> Dict[str, Any]:
         s = self.song()
         idx = int(track_index)
-        if idx < 0:
-            raise IndexError("Track index must be non-negative")
-        if s and hasattr(s, "tracks") and 0 <= idx < len(s.tracks):
-            tr = s.tracks[idx]
+        if s:
+            tr = self._resolve_target_track(s, idx, track_type)
             in_type = getattr(getattr(tr, "input_routing_type", None), "display_name", str(getattr(tr, "input_routing_type", "All Ins")))
             in_channel = getattr(getattr(tr, "input_routing_channel", None), "display_name", str(getattr(tr, "input_routing_channel", "All Channels")))
             out_type = getattr(getattr(tr, "output_routing_type", None), "display_name", str(getattr(tr, "output_routing_type", "Master")))
@@ -985,7 +1178,7 @@ class BridgeHandlers:
             avail_out_types = [getattr(t, "display_name", str(t)) for t in getattr(tr, "available_output_routing_types", [])]
             avail_out_channels = [getattr(c, "display_name", str(c)) for c in getattr(tr, "available_output_routing_channels", [])]
 
-            return {
+            res: Dict[str, Any] = {
                 "track_index": idx,
                 "input_routing_type": in_type,
                 "input_routing_channel": in_channel,
@@ -997,6 +1190,11 @@ class BridgeHandlers:
                 "available_output_routing_types": avail_out_types,
                 "available_output_routing_channels": avail_out_channels,
             }
+            if track_type != "regular":
+                res["track_type"] = track_type
+            return res
+        if idx < 0 and track_type == "regular":
+            raise IndexError("Track index must be non-negative")
         return {
             "track_index": idx,
             "input_routing_type": "All Ins",
@@ -1024,8 +1222,12 @@ class BridgeHandlers:
         t_idx = int(track_index)
         s_idx = int(slot_index)
         lb = float(length_beats)
+        if math.isnan(lb) or math.isinf(lb) or lb <= 0.0:
+            raise ValueError(f"Clip length_beats must be positive (> 0.0), got {lb}")
         s = self.song()
         clip_name = name or "New Clip"
+        actual_len = lb
+        is_audio = False
         if s:
             if t_idx < 0 or t_idx >= len(s.tracks):
                 raise IndexError(f"Track index {t_idx} out of range")
@@ -1033,20 +1235,25 @@ class BridgeHandlers:
             if s_idx < 0 or s_idx >= len(tr.clip_slots):
                 raise IndexError(f"Slot index {s_idx} out of range")
             slot = tr.clip_slots[s_idx]
-            try:
-                slot.create_clip(lb)
-            except Exception:
-                pass
-            if getattr(slot, "clip", None):
+            slot.create_clip(lb)
+            clip_obj = getattr(slot, "clip", None)
+            if clip_obj:
                 if name:
-                    slot.clip.name = str(name)
-                clip_name = slot.clip.name
+                    clip_obj.name = str(name)
+                clip_name = getattr(clip_obj, "name", clip_name)
+                actual_len = float(getattr(clip_obj, "length", lb))
+                is_audio = bool(getattr(clip_obj, "is_audio_clip", getattr(clip_obj, "is_audio", False)))
         return {
             "status": "created",
             "track_index": t_idx,
             "slot_index": s_idx,
-            "length": lb,
+            "length": actual_len,
             "name": clip_name,
+            "clip": {
+                "name": clip_name,
+                "length": actual_len,
+                "is_audio": is_audio,
+            },
         }
 
     def live12_clip_delete(self, track_index: int, slot_index: int) -> Dict[str, Any]:
@@ -1108,9 +1315,10 @@ class BridgeHandlers:
             if s_idx < 0 or s_idx >= len(tr.clip_slots):
                 raise IndexError(f"Slot index {s_idx} out of range")
             slot = tr.clip_slots[s_idx]
-            if slot.clip:
-                slot.clip.fire()
-        return {"fired": True, "track_index": t_idx, "slot_index": s_idx}
+            if not slot.clip:
+                raise IndexError("Clip slot has no clip")
+            slot.clip.fire()
+        return {"fired": True, "is_playing": True, "track_index": t_idx, "slot_index": s_idx}
 
     def live12_clip_stop(self, track_index: int, slot_index: int) -> Dict[str, Any]:
         t_idx = int(track_index)
@@ -1123,9 +1331,10 @@ class BridgeHandlers:
             if s_idx < 0 or s_idx >= len(tr.clip_slots):
                 raise IndexError(f"Slot index {s_idx} out of range")
             slot = tr.clip_slots[s_idx]
-            if slot.clip:
-                slot.clip.stop()
-        return {"stopped": True, "track_index": t_idx, "slot_index": s_idx}
+            if not slot.clip:
+                raise IndexError("Clip slot has no clip")
+            slot.clip.stop()
+        return {"stopped": True, "is_playing": False, "track_index": t_idx, "slot_index": s_idx}
 
     def live12_clip_set_properties(
         self,
@@ -1150,15 +1359,20 @@ class BridgeHandlers:
             if not clip:
                 raise IndexError("Clip slot has no clip")
             if loop is not None:
-                clip.loop = bool(loop)
+                if hasattr(clip, "looping"):
+                    clip.looping = bool(loop)
+                else:
+                    clip.loop = bool(loop)
             if loop_start is not None:
                 clip.loop_start = float(loop_start)
             if loop_end is not None:
                 clip.loop_end = float(loop_end)
             if start_marker is not None:
                 clip.start_marker = float(start_marker)
+            loop_val = bool(clip.looping) if hasattr(clip, "looping") else bool(getattr(clip, "loop", False))
             res.update({
-                "loop": clip.loop,
+                "loop": loop_val,
+                "looping": loop_val,
                 "loop_start": clip.loop_start,
                 "loop_end": clip.loop_end,
                 "start_marker": clip.start_marker,
@@ -1166,6 +1380,7 @@ class BridgeHandlers:
         else:
             if loop is not None:
                 res["loop"] = bool(loop)
+                res["looping"] = bool(loop)
             if loop_start is not None:
                 res["loop_start"] = float(loop_start)
             if loop_end is not None:
@@ -1208,22 +1423,35 @@ class BridgeHandlers:
         if math.isnan(v_dev) or math.isinf(v_dev) or not (-127.0 <= v_dev <= 127.0):
             raise ValueError(f"Velocity deviation {v_dev} out of range [-127.0, 127.0]")
 
+    _WRITABLE_MIDI_NOTE_ATTRS = frozenset({
+        "pitch",
+        "start_time",
+        "duration",
+        "velocity",
+        "velocity_deviation",
+        "release_velocity",
+        "probability",
+        "mute",
+    })
+
     @staticmethod
     def _validate_note_modification(mod: Dict[str, Any]) -> None:
-        if "pitch" in mod:
-            pitch = int(mod["pitch"])
-            if not (0 <= pitch <= 127):
-                raise ValueError(f"Pitch {pitch} out of range [0, 127]")
+        for key in ("pitch", "new_pitch"):
+            if key in mod:
+                pitch = int(mod[key])
+                if not (0 <= pitch <= 127):
+                    raise ValueError(f"Pitch {pitch} out of range [0, 127]")
 
         if "duration" in mod:
             dur = float(mod["duration"])
             if math.isnan(dur) or math.isinf(dur) or dur <= 0.0:
                 raise ValueError(f"Note duration must be positive (> 0.0), got {dur}")
 
-        if "start_time" in mod:
-            st = float(mod["start_time"])
-            if math.isnan(st) or math.isinf(st) or st < 0.0:
-                raise ValueError(f"Note start_time must be non-negative (>= 0.0), got {st}")
+        for key in ("start_time", "new_start_time"):
+            if key in mod:
+                st = float(mod[key])
+                if math.isnan(st) or math.isinf(st) or st < 0.0:
+                    raise ValueError(f"Note {key} must be non-negative (>= 0.0), got {st}")
 
         if "velocity" in mod:
             vel = float(mod["velocity"])
@@ -1253,7 +1481,6 @@ class BridgeHandlers:
     ) -> Dict[str, Any]:
         t_idx = int(track_index)
         s_idx = int(slot_index)
-        # Validate note attributes strictly
         for n in notes:
             self._validate_note(n)
 
@@ -1269,21 +1496,36 @@ class BridgeHandlers:
             clip = tr.clip_slots[s_idx].clip
             if not clip:
                 raise IndexError("Clip slot has no clip")
-            specs = [dict_to_midi_note_spec(n) for n in notes]
-            clip.add_new_notes(tuple(specs))
-            # Retrieve note IDs from clip
-            try:
-                retrieved_notes = clip.get_notes_extended(0, 128, 0.0, 65536.0)
-                note_ids = [getattr(n, "note_id", i) for i, n in enumerate(retrieved_notes)]
-            except Exception:
-                note_ids = list(range(added_count))
+            if getattr(clip, "is_audio_clip", False):
+                raise ValueError("Cannot add MIDI notes to an audio clip")
+            if added_count > 0:
+                before_ids = None
+                if hasattr(clip, "get_all_notes_extended"):
+                    before_notes = list(clip.get_all_notes_extended())
+                    before_ids = {
+                        getattr(n, "note_id", None) for n in before_notes
+                    } - {None}
+                specs = [dict_to_midi_note_spec(n) for n in notes]
+                clip.add_new_notes(tuple(specs))
+                if before_ids is not None:
+                    after_notes = list(clip.get_all_notes_extended())
+                    note_ids = [
+                        getattr(n, "note_id", i)
+                        for i, n in enumerate(after_notes)
+                        if getattr(n, "note_id", None) not in before_ids
+                    ]
+                else:
+                    retrieved_notes = list(clip.get_notes_extended(0, 128, 0.0, 65536.0))
+                    note_ids = [
+                        getattr(n, "note_id", i) for i, n in enumerate(retrieved_notes)
+                    ][-added_count:]
         else:
             note_ids = list(range(added_count))
 
         return {
             "status": "success",
             "added_count": added_count,
-            "note_ids": note_ids[-added_count:] if note_ids else list(range(added_count)),
+            "note_ids": note_ids,
         }
 
     def live12_clip_get_notes(
@@ -1297,6 +1539,10 @@ class BridgeHandlers:
         s_idx = int(slot_index)
         st = float(start_time)
         ts = float(time_span)
+        if math.isnan(st) or math.isinf(st) or st < 0.0:
+            raise ValueError(f"start_time must be non-negative, got {st}")
+        if math.isnan(ts) or math.isinf(ts) or ts <= 0.0:
+            raise ValueError(f"time_span must be positive, got {ts}")
         s = self.song()
         retrieved: List[Dict[str, Any]] = []
         if s:
@@ -1308,7 +1554,9 @@ class BridgeHandlers:
             clip = tr.clip_slots[s_idx].clip
             if not clip:
                 raise IndexError("Clip slot has no clip")
-            notes_raw = clip.get_notes_extended(0, 128, float(st), float(ts))
+            if getattr(clip, "is_audio_clip", False):
+                raise ValueError("Clip is an audio clip and has no MIDI notes")
+            notes_raw = clip.get_notes_extended(0, 128, st, ts)
             for n in notes_raw:
                 retrieved.append(midi_note_to_dict(n))
 
@@ -1316,6 +1564,7 @@ class BridgeHandlers:
             "track_index": t_idx,
             "slot_index": s_idx,
             "notes": retrieved,
+            "notes_count": len(retrieved),
         }
 
     def live12_clip_modify_notes(
@@ -1330,6 +1579,7 @@ class BridgeHandlers:
             self._validate_note_modification(mod)
 
         s = self.song()
+        modified_count = len(note_modifications)
         if s:
             if t_idx < 0 or t_idx >= len(s.tracks):
                 raise IndexError(f"Track index {t_idx} out of range")
@@ -1339,25 +1589,59 @@ class BridgeHandlers:
             clip = tr.clip_slots[s_idx].clip
             if not clip:
                 raise IndexError("Clip slot has no clip")
-            # In Live 12, apply modifications via clip.apply_note_modifications
-            existing_notes = list(clip.get_notes_extended(0, 128, 0.0, 65536.0))
+            if getattr(clip, "is_audio_clip", False):
+                raise ValueError("Clip is an audio clip and has no MIDI notes")
+            if hasattr(clip, "get_all_notes_extended"):
+                existing_notes = list(clip.get_all_notes_extended())
+            else:
+                span = max(float(getattr(clip, "length", 4.0) or 4.0), 65536.0)
+                existing_notes = list(clip.get_notes_extended(0, 128, 0.0, span))
+
             modified_objs = []
             for mod in note_modifications:
                 mod_id = mod.get("note_id")
                 target_note = None
-                for n in existing_notes:
-                    if mod_id is not None and getattr(n, "note_id", None) == mod_id:
-                        target_note = n
-                        break
-                if target_note:
+                if mod_id is not None:
+                    for n in existing_notes:
+                        if getattr(n, "note_id", None) == mod_id:
+                            target_note = n
+                            break
+                elif "pitch" in mod:
+                    match_pitch = int(mod["pitch"])
+                    if "start_time" in mod:
+                        match_st = float(mod["start_time"])
+                        for n in existing_notes:
+                            if (
+                                getattr(n, "pitch", None) == match_pitch
+                                and abs(float(getattr(n, "start_time", -999.0)) - match_st) <= 1e-4
+                            ):
+                                target_note = n
+                                break
+                    else:
+                        for n in existing_notes:
+                            if getattr(n, "pitch", None) == match_pitch:
+                                target_note = n
+                                break
+
+                if target_note is not None:
+                    updates: Dict[str, Any] = {}
                     for k, v in mod.items():
+                        if k in self._WRITABLE_MIDI_NOTE_ATTRS:
+                            updates[k] = v
+                    if "new_pitch" in mod:
+                        updates["pitch"] = int(mod["new_pitch"])
+                    if "new_start_time" in mod:
+                        updates["start_time"] = float(mod["new_start_time"])
+                    for k, v in updates.items():
                         if hasattr(target_note, k):
                             setattr(target_note, k, v)
                     modified_objs.append(target_note)
+
             if modified_objs and hasattr(clip, "apply_note_modifications"):
                 clip.apply_note_modifications(tuple(modified_objs))
+            modified_count = len(modified_objs)
 
-        return {"status": "success", "modified_count": len(note_modifications)}
+        return {"status": "success", "modified_count": modified_count}
 
     def live12_clip_quantize(
         self,
@@ -1370,6 +1654,10 @@ class BridgeHandlers:
         s_idx = int(slot_index)
         g = float(grid)
         a = float(amount)
+        if math.isnan(g) or math.isinf(g) or g <= 0.0:
+            raise ValueError(f"Quantize grid must be positive, got {g}")
+        if math.isnan(a) or math.isinf(a) or not (0.0 <= a <= 1.0):
+            raise ValueError(f"Quantize amount must be in [0.0, 1.0], got {a}")
         s = self.song()
         if s:
             if t_idx < 0 or t_idx >= len(s.tracks):
@@ -1378,21 +1666,44 @@ class BridgeHandlers:
             if s_idx < 0 or s_idx >= len(tr.clip_slots):
                 raise IndexError(f"Slot index {s_idx} out of range")
             clip = tr.clip_slots[s_idx].clip
+            if not clip:
+                raise IndexError("Clip slot has no clip")
             if hasattr(clip, "quantize"):
-                grid_int = 5  # default 1/16 in Live
-                if g >= 1.0:
-                    grid_int = 1
-                elif g >= 0.5:
-                    grid_int = 3
-                elif g >= 0.25:
-                    grid_int = 5
-                elif g >= 0.125:
-                    grid_int = 7
-                try:
-                    clip.quantize(grid_int, a)
-                except Exception:
-                    pass
+                # Live RecordingQuantization values:
+                # 1=quarter (1.0), 2=1/8 (0.5), 3=1/8T (1/3),
+                # 5=1/16 (0.25), 6=1/16T (1/6), 8=1/32 (0.125)
+                grid_map = (
+                    (1.0, 1),
+                    (0.5, 2),
+                    (1.0 / 3.0, 3),
+                    (0.25, 5),
+                    (1.0 / 6.0, 6),
+                    (0.125, 8),
+                )
+                grid_int = min(grid_map, key=lambda pair: abs(g - pair[0]))[1]
+                clip.quantize(grid_int, a)
         return {"status": "quantized", "grid": g, "amount": a}
+
+    _WARP_MODE_NAME_TO_INT = {
+        "beats": 0,
+        "tones": 1,
+        "texture": 2,
+        "re-pitch": 3,
+        "repitch": 3,
+        "complex": 4,
+        "rex": 5,
+        "complex pro": 6,
+        "complex_pro": 6,
+    }
+    _WARP_MODE_INT_TO_NAME = {
+        0: "beats",
+        1: "tones",
+        2: "texture",
+        3: "re-pitch",
+        4: "complex",
+        5: "rex",
+        6: "complex pro",
+    }
 
     def live12_audio_clip_set_warp(
         self,
@@ -1416,29 +1727,50 @@ class BridgeHandlers:
             clip = tr.clip_slots[s_idx].clip
             if not clip:
                 raise IndexError("Clip slot has no clip")
-            is_audio = getattr(clip, "is_audio_clip", False)
-            if is_audio:
-                if warping is not None and hasattr(clip, "warping"):
-                    clip.warping = bool(warping)
-                if warp_mode is not None and hasattr(clip, "warp_mode"):
-                    clip.warp_mode = warp_mode
-                if pitch_shift is not None and hasattr(clip, "pitch_coarse"):
-                    clip.pitch_coarse = float(pitch_shift)
-                if gain is not None and hasattr(clip, "gain"):
-                    clip.gain = float(gain)
-                res.update({
-                    "warping": getattr(clip, "warping", True if warping is None else warping),
-                    "warp_mode": getattr(clip, "warp_mode", "beats" if warp_mode is None else warp_mode),
-                    "pitch_shift": getattr(clip, "pitch_coarse", 0.0 if pitch_shift is None else pitch_shift),
-                    "gain": getattr(clip, "gain", 1.0 if gain is None else gain),
-                })
-            else:
-                res.update({
-                    "warping": bool(warping) if warping is not None else False,
-                    "warp_mode": str(warp_mode) if warp_mode is not None else "beats",
-                    "pitch_shift": float(pitch_shift) if pitch_shift is not None else 0.0,
-                    "gain": float(gain) if gain is not None else 1.0,
-                })
+            if not getattr(clip, "is_audio_clip", False):
+                raise ValueError("Clip is not an audio clip")
+
+            if warping is not None and hasattr(clip, "warping"):
+                clip.warping = bool(warping)
+            if warp_mode is not None and hasattr(clip, "warp_mode"):
+                wm_key = str(warp_mode).strip().lower()
+                if wm_key in self._WARP_MODE_NAME_TO_INT:
+                    wm_int = self._WARP_MODE_NAME_TO_INT[wm_key]
+                elif wm_key.isdigit() and int(wm_key) in self._WARP_MODE_INT_TO_NAME:
+                    wm_int = int(wm_key)
+                else:
+                    raise ValueError(f"Invalid warp_mode {warp_mode!r}")
+                clip.warp_mode = wm_int
+            if pitch_shift is not None:
+                ps = float(pitch_shift)
+                if math.isnan(ps) or math.isinf(ps) or not (-48.0 <= ps <= 48.0):
+                    raise ValueError(f"pitch_shift out of range [-48, 48]: {ps}")
+                coarse = int(round(ps))
+                fine_cents = int(round((ps - coarse) * 100.0))
+                if hasattr(clip, "pitch_coarse"):
+                    clip.pitch_coarse = coarse
+                if hasattr(clip, "pitch_fine"):
+                    clip.pitch_fine = fine_cents
+            if gain is not None and hasattr(clip, "gain"):
+                g_val = float(gain)
+                if math.isnan(g_val) or math.isinf(g_val) or not (0.0 <= g_val <= 1.0):
+                    raise ValueError(f"gain out of range [0.0, 1.0]: {g_val}")
+                clip.gain = g_val
+
+            raw_wm = getattr(clip, "warp_mode", 0)
+            try:
+                wm_str = self._WARP_MODE_INT_TO_NAME.get(int(raw_wm), str(raw_wm))
+            except (TypeError, ValueError):
+                wm_str = str(raw_wm)
+            actual_pitch = float(getattr(clip, "pitch_coarse", 0) or 0) + (
+                float(getattr(clip, "pitch_fine", 0) or 0) / 100.0
+            )
+            res.update({
+                "warping": bool(getattr(clip, "warping", True if warping is None else warping)),
+                "warp_mode": wm_str,
+                "pitch_shift": actual_pitch,
+                "gain": float(getattr(clip, "gain", 1.0 if gain is None else gain)),
+            })
         else:
             if warping is not None:
                 res["warping"] = bool(warping)
@@ -1461,6 +1793,11 @@ class BridgeHandlers:
         s_idx = int(slot_index)
         bt = float(beat_time)
         st = float(sample_time)
+        if math.isnan(bt) or math.isinf(bt):
+            raise ValueError(f"Invalid beat_time: {bt}")
+        if math.isnan(st) or math.isinf(st):
+            raise ValueError(f"Invalid sample_time: {st}")
+        total_markers = 1
         s = self.song()
         if s:
             if t_idx < 0 or t_idx >= len(s.tracks):
@@ -1471,9 +1808,24 @@ class BridgeHandlers:
             clip = tr.clip_slots[s_idx].clip
             if not clip:
                 raise IndexError("Clip slot has no clip")
-            if getattr(clip, "is_audio_clip", False) and hasattr(clip, "add_warp_marker"):
-                clip.add_warp_marker(bt, st)
-        return {"status": "added", "beat_time": bt, "sample_time": st}
+            if not getattr(clip, "is_audio_clip", False):
+                raise ValueError("Clip is not an audio clip")
+            if not hasattr(clip, "add_warp_marker"):
+                raise RuntimeError("Clip object does not expose add_warp_marker")
+            try:
+                clip.add_warp_marker({"beat_time": bt, "sample_time": st})
+            except TypeError:
+                try:
+                    clip.add_warp_marker(bt, st)
+                except TypeError:
+                    clip.add_warp_marker(bt)
+            total_markers = len(getattr(clip, "warp_markers", ()) or ())
+        return {
+            "status": "added",
+            "beat_time": bt,
+            "sample_time": st,
+            "total_warp_markers": total_markers,
+        }
 
     def live12_clip_duplicate_to_arrangement(
         self,
@@ -1508,6 +1860,15 @@ class BridgeHandlers:
             "arrangement_time": arr_time,
         }
 
+    @staticmethod
+    def _count_clip_notes(clip: Any) -> int:
+        if hasattr(clip, "get_all_notes_extended"):
+            return len(clip.get_all_notes_extended())
+        if hasattr(clip, "get_notes_extended"):
+            span = max(float(getattr(clip, "length", 4.0)), 65536.0)
+            return len(clip.get_notes_extended(0, 128, 0.0, span))
+        return len(getattr(clip, "notes", []))
+
     def live12_clip_remove_notes(
         self,
         track_index: int,
@@ -1532,19 +1893,26 @@ class BridgeHandlers:
             if not clip:
                 raise IndexError("Clip slot has no clip")
 
+            before_count = self._count_clip_notes(clip)
             if note_ids is not None:
                 id_tuple = tuple(int(x) for x in note_ids)
                 if hasattr(clip, "remove_notes_by_id"):
                     clip.remove_notes_by_id(id_tuple)
-                removed_count = len(id_tuple)
             else:
                 st = float(start_time) if start_time is not None else 0.0
                 ts = float(time_span) if time_span is not None else 65536.0
                 fp = int(from_pitch) if from_pitch is not None else 0
                 ps = int(pitch_span) if pitch_span is not None else 128
+                if st < 0.0 or math.isnan(st) or math.isinf(st):
+                    raise ValueError(f"start_time must be non-negative, got {st}")
+                if ts <= 0.0 or math.isnan(ts) or math.isinf(ts):
+                    raise ValueError(f"time_span must be positive, got {ts}")
+                if not (0 <= fp <= 127) or ps < 1:
+                    raise ValueError(f"Invalid pitch range from_pitch={fp}, pitch_span={ps}")
                 if hasattr(clip, "remove_notes_extended"):
                     clip.remove_notes_extended(fp, ps, st, ts)
-                removed_count = 1
+            after_count = self._count_clip_notes(clip)
+            removed_count = max(0, before_count - after_count)
 
         return {
             "status": "success",
@@ -1579,12 +1947,18 @@ class BridgeHandlers:
             clip = tr.clip_slots[s_idx].clip
             if not clip:
                 raise IndexError("Clip slot has no clip")
+            if getattr(clip, "is_audio_clip", False):
+                raise ValueError("Cannot apply MIDI transformation to an audio clip")
 
-            # In live LOM or mock:
+            max_span = max(float(getattr(clip, "length", 4.0)), 65536.0)
+            if hasattr(clip, "get_notes_extended"):
+                existing = list(clip.get_notes_extended(0, 128, 0.0, max_span))
+            else:
+                existing = list(getattr(clip, "notes", []))
+
             if transformation == "humanize":
                 t_jitter = float(p.get("timing_jitter", 0.02))
                 v_jitter = float(p.get("velocity_jitter", 8.0))
-                existing = list(getattr(clip, "notes", [])) if hasattr(clip, "notes") else []
                 for i, n in enumerate(existing):
                     delta_t = ((i * 17 + 7) % 11 - 5) / 5.0 * t_jitter
                     delta_v = ((i * 23 + 3) % 13 - 6) / 6.0 * v_jitter
@@ -1592,28 +1966,34 @@ class BridgeHandlers:
                         n.start_time = max(0.0, float(n.start_time) + delta_t)
                     if hasattr(n, "velocity"):
                         n.velocity = max(1.0, min(127.0, float(n.velocity) + delta_v))
-                notes_affected = len(existing) if existing else 4
+                if existing and hasattr(clip, "apply_note_modifications"):
+                    clip.apply_note_modifications(tuple(existing))
+                notes_affected = len(existing)
 
             elif transformation == "velocity_ramp":
                 v_start = float(p.get("start_velocity", 30.0))
                 v_end = float(p.get("end_velocity", 110.0))
-                existing = list(getattr(clip, "notes", [])) if hasattr(clip, "notes") else []
                 if existing:
                     existing.sort(key=lambda n: getattr(n, "start_time", 0.0))
                     total = len(existing)
                     for i, n in enumerate(existing):
                         frac = i / float(max(1, total - 1))
-                        n.velocity = v_start + frac * (v_end - v_start)
+                        n.velocity = max(1.0, min(127.0, v_start + frac * (v_end - v_start)))
+                    if hasattr(clip, "apply_note_modifications"):
+                        clip.apply_note_modifications(tuple(existing))
                     notes_affected = total
-                else:
-                    notes_affected = 4
 
             elif transformation == "euclidean":
                 steps = int(p.get("steps", 16))
                 pulses = int(p.get("pulses", 4))
                 pitch = int(p.get("pitch", 60))
+                if steps < 1:
+                    raise ValueError(f"Euclidean steps must be >= 1, got {steps}")
+                if pulses < 0:
+                    raise ValueError(f"Euclidean pulses must be >= 0, got {pulses}")
+                if not (0 <= pitch <= 127):
+                    raise ValueError(f"Euclidean pitch {pitch} out of range [0, 127]")
                 step_dur = float(getattr(clip, "length", 4.0)) / max(1, steps)
-                # Bjorklund Euclidean distribution
                 pattern = [1 if (i * pulses) % steps < pulses else 0 for i in range(steps)]
                 new_notes = []
                 for i, hit in enumerate(pattern):
@@ -1624,41 +2004,54 @@ class BridgeHandlers:
                             "duration": step_dur * 0.8,
                             "velocity": 100.0,
                         })
+                if new_notes:
+                    self.live12_clip_add_notes(t_idx, s_idx, new_notes)
                 notes_affected = len(new_notes)
-                if hasattr(self, "live12_clip_add_notes"):
-                    try:
-                        self.live12_clip_add_notes(t_idx, s_idx, new_notes)
-                    except Exception:
-                        pass
 
             elif transformation in ("quantize_pitch", "fit_to_scale"):
                 scale_name = str(p.get("scale_name", "Minor"))
                 root_note = int(p.get("root_note", 0))
-                # Semitones for standard Minor scale: [0, 2, 3, 5, 7, 8, 10]
                 minor_intervals = {0, 2, 3, 5, 7, 8, 10}
                 major_intervals = {0, 2, 4, 5, 7, 9, 11}
                 target_scale = minor_intervals if "minor" in scale_name.lower() else major_intervals
-                existing = list(getattr(clip, "notes", [])) if hasattr(clip, "notes") else []
                 for n in existing:
                     pitch = int(getattr(n, "pitch", 60))
                     degree = (pitch - root_note) % 12
                     if degree not in target_scale:
-                        # Snap to nearest scale degree
-                        closest = min(target_scale, key=lambda d: abs(d - degree))
-                        n.pitch = pitch + (closest - degree)
-                notes_affected = len(existing) if existing else 4
+                        candidates = [
+                            pitch + d - degree + octave_shift
+                            for d in target_scale
+                            for octave_shift in (-12, 0, 12)
+                            if 0 <= pitch + d - degree + octave_shift <= 127
+                        ]
+                        if candidates:
+                            n.pitch = min(candidates, key=lambda c: abs(c - pitch))
+                if existing and hasattr(clip, "apply_note_modifications"):
+                    clip.apply_note_modifications(tuple(existing))
+                notes_affected = len(existing)
 
             elif transformation == "arpeggiate":
                 rate = float(p.get("rate", 0.25))
-                existing = list(getattr(clip, "notes", [])) if hasattr(clip, "notes") else []
+                if math.isnan(rate) or math.isinf(rate) or rate <= 0.0:
+                    raise ValueError(f"Arpeggiate rate must be positive, got {rate}")
                 if existing:
-                    existing.sort(key=lambda n: getattr(n, "pitch", 60))
-                    for i, n in enumerate(existing):
-                        n.start_time = i * rate
-                        n.duration = rate * 0.9
+                    existing.sort(key=lambda n: (getattr(n, "pitch", 60), getattr(n, "start_time", 0.0)))
+                    if hasattr(clip, "remove_notes_extended") and hasattr(clip, "add_new_notes"):
+                        arp_specs = []
+                        for i, n in enumerate(existing):
+                            d = midi_note_to_dict(n)
+                            d["start_time"] = i * rate
+                            d["duration"] = rate * 0.9
+                            arp_specs.append(dict_to_midi_note_spec(d))
+                        clip.remove_notes_extended(0, 128, 0.0, max_span)
+                        clip.add_new_notes(tuple(arp_specs))
+                    else:
+                        for i, n in enumerate(existing):
+                            n.start_time = i * rate
+                            n.duration = rate * 0.9
+                        if hasattr(clip, "apply_note_modifications"):
+                            clip.apply_note_modifications(tuple(existing))
                     notes_affected = len(existing)
-                else:
-                    notes_affected = 4
 
         return {
             "status": "success",
@@ -1666,6 +2059,105 @@ class BridgeHandlers:
             "transformation": transformation,
             "notes_affected": notes_affected,
         }
+
+    @staticmethod
+    def _collect_track_parameters(tr: Any) -> List[Any]:
+        """Collects mixer and device parameters on a track in deterministic order without duplicates."""
+        params: List[Any] = []
+        seen: set = set()
+        mixer = getattr(tr, "mixer_device", None)
+        if mixer is not None:
+            for attr in ("volume", "panning", "track_activator"):
+                p_obj = getattr(mixer, attr, None)
+                if p_obj is not None and id(p_obj) not in seen:
+                    seen.add(id(p_obj))
+                    params.append(p_obj)
+            for s_obj in getattr(mixer, "sends", []) or []:
+                if s_obj is not None and id(s_obj) not in seen:
+                    seen.add(id(s_obj))
+                    params.append(s_obj)
+        for dev in getattr(tr, "devices", []) or []:
+            for p_obj in getattr(dev, "parameters", []) or []:
+                if p_obj is not None and id(p_obj) not in seen:
+                    seen.add(id(p_obj))
+                    params.append(p_obj)
+        return params
+
+    @staticmethod
+    def _resolve_track_parameter(
+        tr: Any,
+        device_index: Optional[int],
+        parameter_identifier: Optional[Union[str, int]],
+    ) -> Any:
+        """Resolves a mixer or device parameter from a track for clip automation."""
+        if parameter_identifier is None:
+            return None
+
+        mixer = getattr(tr, "mixer_device", None)
+        if device_index is not None:
+            d_idx = int(device_index)
+            devices = getattr(tr, "devices", [])
+            if d_idx < 0 or d_idx >= len(devices):
+                raise IndexError(f"Device index {d_idx} out of range [0, {len(devices)})")
+            dev = devices[d_idx]
+            dev_params = getattr(dev, "parameters", [])
+            if isinstance(parameter_identifier, int) or (isinstance(parameter_identifier, str) and parameter_identifier.isdigit()):
+                p_idx = int(parameter_identifier)
+                if 0 <= p_idx < len(dev_params):
+                    return dev_params[p_idx]
+                return None
+            ident_l = str(parameter_identifier).strip().lower()
+            for p_obj in dev_params:
+                if getattr(p_obj, "name", "").lower() == ident_l:
+                    return p_obj
+            return None
+
+        # device_index is None: check mixer aliases/names first, then track devices
+        if isinstance(parameter_identifier, str) and not parameter_identifier.isdigit():
+            ident_l = parameter_identifier.strip().lower()
+            if mixer is not None:
+                if ident_l in ("volume", "track volume"):
+                    vol = getattr(mixer, "volume", None)
+                    if vol is not None:
+                        return vol
+                elif ident_l in ("pan", "panning", "track panning"):
+                    pan = getattr(mixer, "panning", None)
+                    if pan is not None:
+                        return pan
+                elif ident_l in ("track activator", "speaker on", "mute"):
+                    act = getattr(mixer, "track_activator", None)
+                    if act is not None:
+                        return act
+                elif ident_l.startswith("send_") or ident_l.startswith("send "):
+                    s_idx = BridgeHandlers._parse_send_index(ident_l.replace(" ", "_"))
+                    sends = getattr(mixer, "sends", [])
+                    if s_idx is not None and 0 <= s_idx < len(sends):
+                        return sends[s_idx]
+                for p_obj in BridgeHandlers._collect_track_parameters(tr):
+                    if getattr(p_obj, "name", "").lower() == ident_l:
+                        return p_obj
+
+        devices = getattr(tr, "devices", [])
+        if devices:
+            dev = devices[0]
+            dev_params = getattr(dev, "parameters", [])
+            if isinstance(parameter_identifier, int) or (isinstance(parameter_identifier, str) and parameter_identifier.isdigit()):
+                p_idx = int(parameter_identifier)
+                if 0 <= p_idx < len(dev_params):
+                    return dev_params[p_idx]
+            else:
+                ident_l = str(parameter_identifier).strip().lower()
+                for d_obj in devices:
+                    for p_obj in getattr(d_obj, "parameters", []):
+                        if getattr(p_obj, "name", "").lower() == ident_l:
+                            return p_obj
+        elif mixer is not None and (isinstance(parameter_identifier, int) or (isinstance(parameter_identifier, str) and parameter_identifier.isdigit())):
+            m_params = BridgeHandlers._collect_track_parameters(tr)
+            p_idx = int(parameter_identifier)
+            if 0 <= p_idx < len(m_params):
+                return m_params[p_idx]
+
+        return None
 
     def live12_clip_envelope_control(
         self,
@@ -1676,10 +2168,15 @@ class BridgeHandlers:
         parameter_identifier: Optional[Union[str, int]] = None,
         time: Optional[float] = None,
         value: Optional[float] = None,
+        parameter_index: Optional[Union[str, int]] = None,
+        length: Optional[float] = None,
+        normalized: bool = False,
     ) -> Dict[str, Any]:
+        if parameter_identifier is None and parameter_index is not None:
+            parameter_identifier = parameter_index
         t_idx = int(track_index)
         s_idx = int(slot_index)
-        valid_actions = ("inspect", "set_step", "clear", "clear_all", "re_enable")
+        valid_actions = ("inspect", "create", "set_step", "insert_step", "clear", "clear_all", "re_enable")
         if action not in valid_actions:
             raise ValueError(f"Invalid envelope action '{action}', must be one of {valid_actions}")
 
@@ -1696,58 +2193,112 @@ class BridgeHandlers:
                 raise IndexError("Clip slot has no clip")
 
             target_param = None
-            if device_index is not None and hasattr(tr, "devices") and 0 <= int(device_index) < len(tr.devices):
-                dev = tr.devices[int(device_index)]
-                if parameter_identifier is not None and hasattr(dev, "parameters"):
-                    if isinstance(parameter_identifier, int) or (isinstance(parameter_identifier, str) and parameter_identifier.isdigit()):
-                        p_idx = int(parameter_identifier)
-                        if 0 <= p_idx < len(dev.parameters):
-                            target_param = dev.parameters[p_idx]
-                    else:
-                        for p_obj in dev.parameters:
-                            if getattr(p_obj, "name", "").lower() == str(parameter_identifier).lower():
-                                target_param = p_obj
-                                break
+            if action in ("create", "set_step", "insert_step", "clear") or (
+                action == "re_enable" and parameter_identifier is not None
+            ):
+                target_param = self._resolve_track_parameter(tr, device_index, parameter_identifier)
+                if target_param is None:
+                    raise ValueError(
+                        f"Parameter '{parameter_identifier}' could not be resolved on track {t_idx}"
+                    )
+
+            def _resolve_or_create_env(c_obj: Any, p_obj: Any) -> Any:
+                if not p_obj:
+                    return None
+                env_obj = None
+                if hasattr(c_obj, "automation_envelope"):
+                    try:
+                        env_obj = c_obj.automation_envelope(p_obj)
+                    except (RuntimeError, ValueError):
+                        env_obj = None
+                if env_obj is None and hasattr(c_obj, "create_automation_envelope"):
+                    env_obj = c_obj.create_automation_envelope(p_obj)
+                if hasattr(c_obj, "view"):
+                    try:
+                        if hasattr(c_obj.view, "show_envelope"):
+                            c_obj.view.show_envelope()
+                        if hasattr(c_obj.view, "select_envelope_parameter"):
+                            c_obj.view.select_envelope_parameter(p_obj)
+                    except (RuntimeError, AttributeError):
+                        pass
+                return env_obj
 
             if action == "inspect":
-                res["has_envelopes"] = bool(getattr(clip, "has_envelopes", False))
-                res["envelopes_count"] = 1 if res["has_envelopes"] else 0
-            elif action == "set_step":
+                all_params = self._collect_track_parameters(tr)
+                env_count = 0
+                env_param_names: List[str] = []
+                clip_has_env = getattr(clip, "has_envelopes", None)
+                if hasattr(clip, "automation_envelope") and clip_has_env is not False:
+                    for p_obj in all_params:
+                        try:
+                            env_found = clip.automation_envelope(p_obj)
+                        except (RuntimeError, ValueError):
+                            env_found = None
+                        if env_found is not None:
+                            env_count += 1
+                            env_param_names.append(str(getattr(p_obj, "name", "")))
+                has_env = bool(clip_has_env) if clip_has_env is not None else (env_count > 0)
+                if clip_has_env is True and env_count == 0:
+                    env_count = 1
+                res["has_envelopes"] = has_env or (env_count > 0)
+                res["envelopes_count"] = env_count
+                if env_param_names:
+                    res["envelope_parameters"] = env_param_names
+            elif action == "create":
+                env = _resolve_or_create_env(clip, target_param)
+                res["envelope_created"] = env is not None
+                res["parameter_name"] = getattr(target_param, "name", str(parameter_identifier))
+            elif action in ("set_step", "insert_step"):
                 step_time = float(time if time is not None else 0.0)
+                step_len = float(length if length is not None else 0.25)
                 step_val = float(value if value is not None else 1.0)
+                if math.isnan(step_time) or math.isinf(step_time) or step_time < 0.0:
+                    raise ValueError(f"Envelope step time must be non-negative, got {step_time}")
+                if math.isnan(step_len) or math.isinf(step_len) or step_len <= 0.0:
+                    raise ValueError(f"Envelope step length must be positive, got {step_len}")
+                if math.isnan(step_val) or math.isinf(step_val):
+                    raise ValueError(f"Envelope step value must be finite, got {step_val}")
                 res["time"] = step_time
+                res["length"] = step_len
                 res["value"] = step_val
-                env = None
-                if target_param and hasattr(clip, "automation_envelope"):
+                env = _resolve_or_create_env(clip, target_param)
+                if env is None:
+                    raise RuntimeError(f"Failed to obtain automation envelope for '{getattr(target_param, 'name', parameter_identifier)}'")
+                actual_val = step_val
+                if hasattr(target_param, "min") and hasattr(target_param, "max"):
+                    p_min = float(target_param.min)
+                    p_max = float(target_param.max)
+                    if normalized:
+                        if step_val < 0.0 or step_val > 1.0:
+                            raise ValueError(f"Normalized envelope value {step_val} out of range [0.0, 1.0]")
+                        actual_val = p_min + step_val * (p_max - p_min)
+                    else:
+                        actual_val = max(p_min, min(p_max, step_val))
+                if hasattr(env, "insert_step"):
                     try:
-                        env = clip.automation_envelope(target_param)
+                        env.insert_step(step_time, step_len, actual_val)
                     except Exception:
-                        env = None
-                    if env is None and hasattr(clip, "create_automation_envelope"):
-                        try:
-                            env = clip.create_automation_envelope(target_param)
-                        except Exception:
-                            env = None
-                if env is not None:
-                    if hasattr(env, "insert_step"):
-                        try:
-                            env.insert_step(step_time, 0.25, step_val)
-                        except Exception:
-                            if hasattr(env, "create_event"):
-                                env.create_event(step_time, step_val)
-                    elif hasattr(env, "create_event"):
-                        env.create_event(step_time, step_val)
-                    res["envelope_updated"] = True
+                        if hasattr(env, "create_event"):
+                            env.create_event(step_time, actual_val)
+                        else:
+                            raise
+                elif hasattr(env, "create_event"):
+                    env.create_event(step_time, actual_val)
+                res["envelope_updated"] = True
+                res["actual_value"] = actual_val
             elif action == "clear":
-                if target_param and hasattr(clip, "clear_envelope"):
+                if hasattr(clip, "clear_envelope"):
                     clip.clear_envelope(target_param)
-                res["cleared_parameter"] = str(parameter_identifier) if parameter_identifier is not None else "all"
+                res["cleared_parameter"] = getattr(target_param, "name", str(parameter_identifier))
             elif action == "clear_all":
                 if hasattr(clip, "clear_all_envelopes"):
                     clip.clear_all_envelopes()
+                res["all_cleared"] = True
             elif action == "re_enable":
-                if target_param and hasattr(target_param, "re_enable_automation"):
+                if target_param is not None and hasattr(target_param, "re_enable_automation"):
                     target_param.re_enable_automation()
+                elif hasattr(s, "re_enable_automation"):
+                    s.re_enable_automation()
                 res["automation_re_enabled"] = True
 
         return res
@@ -1781,13 +2332,8 @@ class BridgeHandlers:
                         "quantization_amount": float(getattr(g, "quantization_amount", 1.0)),
                         "random_amount": float(getattr(g, "random_amount", 0.0)),
                     })
-            if not grooves_list:
-                grooves_list = [
-                    {"index": 0, "name": "MPC 16 Swing-55", "base": "1/16", "timing_amount": 0.55, "velocity_amount": 0.3},
-                    {"index": 1, "name": "SP1200 16 Swing-60", "base": "1/16", "timing_amount": 0.60, "velocity_amount": 0.4},
-                ]
             res["grooves"] = grooves_list
-            res["song_groove_amount"] = float(getattr(s, "groove_amount", 0.75)) if s else 0.75
+            res["song_groove_amount"] = float(getattr(s, "groove_amount", 0.0)) if s else 0.75
 
         elif action == "set_song_amount":
             amt = float(amount if amount is not None else 1.0)
@@ -1795,20 +2341,26 @@ class BridgeHandlers:
                 raise ValueError("amount must be between 0.0 and 1.0")
             if s and hasattr(s, "groove_amount"):
                 s.groove_amount = amt
-            res["groove_amount"] = amt
+            res["groove_amount"] = float(getattr(s, "groove_amount", amt)) if s else amt
 
         elif action == "assign_clip":
             t_idx = int(track_index if track_index is not None else 0)
             s_idx = int(slot_index if slot_index is not None else 0)
             g_idx = int(groove_index if groove_index is not None else 0)
-            if s and 0 <= t_idx < len(s.tracks):
+            if s:
+                if t_idx < 0 or t_idx >= len(s.tracks):
+                    raise IndexError(f"Track index {t_idx} out of range")
                 tr = s.tracks[t_idx]
-                if 0 <= s_idx < len(tr.clip_slots) and tr.clip_slots[s_idx].clip:
-                    clip = tr.clip_slots[s_idx].clip
-                    if gp and hasattr(gp, "grooves") and 0 <= g_idx < len(gp.grooves):
-                        clip.groove = gp.grooves[g_idx]
-                    elif hasattr(clip, "groove"):
-                        clip.groove = f"Groove_{g_idx}"
+                if s_idx < 0 or s_idx >= len(tr.clip_slots):
+                    raise IndexError(f"Slot index {s_idx} out of range")
+                clip = tr.clip_slots[s_idx].clip
+                if not clip:
+                    raise IndexError("Clip slot has no clip")
+                grooves = list(getattr(gp, "grooves", [])) if gp else []
+                if g_idx < 0 or g_idx >= len(grooves):
+                    raise IndexError(f"Groove index {g_idx} out of range [0, {len(grooves)})")
+                clip.groove = grooves[g_idx]
+                res["groove_name"] = str(getattr(grooves[g_idx], "name", f"Groove {g_idx}"))
             res["track_index"] = t_idx
             res["slot_index"] = s_idx
             res["assigned_groove_index"] = g_idx
@@ -1816,15 +2368,17 @@ class BridgeHandlers:
         elif action == "clear_clip":
             t_idx = int(track_index if track_index is not None else 0)
             s_idx = int(slot_index if slot_index is not None else 0)
-            if s and 0 <= t_idx < len(s.tracks):
+            if s:
+                if t_idx < 0 or t_idx >= len(s.tracks):
+                    raise IndexError(f"Track index {t_idx} out of range")
                 tr = s.tracks[t_idx]
-                if 0 <= s_idx < len(tr.clip_slots) and tr.clip_slots[s_idx].clip:
-                    clip = tr.clip_slots[s_idx].clip
-                    if hasattr(clip, "groove"):
-                        try:
-                            clip.groove = None
-                        except Exception:
-                            pass
+                if s_idx < 0 or s_idx >= len(tr.clip_slots):
+                    raise IndexError(f"Slot index {s_idx} out of range")
+                clip = tr.clip_slots[s_idx].clip
+                if not clip:
+                    raise IndexError("Clip slot has no clip")
+                if hasattr(clip, "groove"):
+                    clip.groove = None
             res["track_index"] = t_idx
             res["slot_index"] = s_idx
 
@@ -1833,13 +2387,18 @@ class BridgeHandlers:
             s_idx = int(slot_index if slot_index is not None else 0)
             has_gr = False
             gr_name = None
-            if s and 0 <= t_idx < len(s.tracks):
+            if s:
+                if t_idx < 0 or t_idx >= len(s.tracks):
+                    raise IndexError(f"Track index {t_idx} out of range")
                 tr = s.tracks[t_idx]
-                if 0 <= s_idx < len(tr.clip_slots) and tr.clip_slots[s_idx].clip:
-                    clip = tr.clip_slots[s_idx].clip
-                    gr = getattr(clip, "groove", None)
-                    has_gr = (gr is not None)
-                    gr_name = getattr(gr, "name", str(gr)) if gr else None
+                if s_idx < 0 or s_idx >= len(tr.clip_slots):
+                    raise IndexError(f"Slot index {s_idx} out of range")
+                clip = tr.clip_slots[s_idx].clip
+                if not clip:
+                    raise IndexError("Clip slot has no clip")
+                gr = getattr(clip, "groove", None)
+                has_gr = (gr is not None)
+                gr_name = getattr(gr, "name", str(gr)) if gr else None
             res["has_groove"] = has_gr
             res["groove_name"] = gr_name
 
@@ -1849,54 +2408,214 @@ class BridgeHandlers:
     # Domain 4: Browser, Devices, Specialized Instruments & Effects, Parameters
     # -------------------------------------------------------------------------
 
+    _DEVICE_NAME_ALIASES: Dict[str, str] = {
+        "auto pan": "auto pan-tremolo",
+        "chorus": "chorus-ensemble",
+        "redux legacy": "redux",
+    }
+
+    _BROWSER_ALL_CATEGORIES = (
+        "instruments",
+        "audio_effects",
+        "midi_effects",
+        "drums",
+        "sounds",
+        "max_for_live",
+        "plugins",
+        "user_library",
+        "packs",
+        "samples",
+        "clips",
+        "current_project",
+    )
+
+    _BROWSER_CATEGORY_MAP = {
+        "instruments": ("instruments",),
+        "audio_effects": ("audio_effects",),
+        "midi_effects": ("midi_effects",),
+        "drums": ("drums",),
+        "sounds": ("sounds",),
+        "samples": ("samples",),
+        "packs": ("packs",),
+        "user_library": ("user_library",),
+        "plugins": ("plugins",),
+        "max": ("max_for_live",),
+        "max_for_live": ("max_for_live",),
+        "clips": ("clips",),
+        "current_project": ("current_project",),
+    }
+
+    @staticmethod
+    def _is_browser_item_valid(item: Any) -> bool:
+        if item is None or not liveobj_valid(item):
+            return False
+        try:
+            _ = getattr(item, "name", "")
+            _ = getattr(item, "is_loadable", True)
+        except (AttributeError, RuntimeError, ReferenceError):
+            return False
+        return True
+
     def live12_browser_search(self, query: str, category: str = "all") -> Dict[str, Any]:
+        q_raw = str(query or "").strip()
+        if not q_raw:
+            raise ValueError("Browser search query must not be empty")
+        q_clean = q_raw.lower()
+        cat_clean = str(category or "all").strip().lower()
+        if cat_clean == "all":
+            target_cats = self._BROWSER_ALL_CATEGORIES
+        elif cat_clean in self._BROWSER_CATEGORY_MAP:
+            target_cats = self._BROWSER_CATEGORY_MAP[cat_clean]
+        else:
+            raise ValueError(f"Unknown browser category {category!r}")
+
         app = self.application()
-        items = [
-            {"name": "Wavetable", "uri": "live:device:wavetable"},
-            {"name": "Meld", "uri": "live:device:meld"},
-            {"name": "Roar", "uri": "live:device:roar"},
-            {"name": "Drift", "uri": "live:device:drift"},
-            {"name": "Simpler", "uri": "live:device:simpler"},
-            {"name": "Audio Effect Rack", "uri": "live:device:audio_effect_rack"},
-        ]
+        browser = getattr(app, "browser", None) if app else None
+        q_alias = self._DEVICE_NAME_ALIASES.get(q_clean, q_clean)
+        items: List[Dict[str, Any]] = []
+        seen_keys = set()
+        nodes_visited = 0
+
+        if browser:
+            queue = collections.deque()
+            for cat_name in target_cats:
+                root = getattr(browser, cat_name, None)
+                if root is not None:
+                    queue.append((root, 0))
+
+            while queue and len(items) < 50 and nodes_visited < MAX_BROWSER_SEARCH_NODES:
+                node, depth = queue.popleft()
+                nodes_visited += 1
+                if depth > 0:
+                    c_name = str(getattr(node, "name", "") or "")
+                    c_uri = str(getattr(node, "uri", "") or c_name)
+                    if (
+                        q_clean in c_name.lower()
+                        or q_alias in c_name.lower()
+                        or q_clean in c_uri.lower()
+                    ):
+                        dedup_key = (c_uri, c_name)
+                        if dedup_key not in seen_keys:
+                            seen_keys.add(dedup_key)
+                            items.append({
+                                "name": c_name,
+                                "uri": c_uri,
+                                "is_loadable": bool(getattr(node, "is_loadable", True)),
+                            })
+                            if len(items) >= 50:
+                                break
+                if depth < 5 and hasattr(node, "children") and (
+                    depth == 0 or getattr(node, "is_folder", False) or getattr(node, "children", None)
+                ):
+                    for child in getattr(node, "children", ()) or ():
+                        queue.append((child, depth + 1))
+
         return {
             "query": query,
             "category": category,
             "results_count": len(items),
+            "count": len(items),
             "items": items,
+            "results": items,
         }
 
     def _find_browser_item(self, browser: Any, target_uri: str, max_depth: int = 5) -> Any:
-        """Finds a loadable BrowserItem matching URI or name in the browser hierarchy."""
+        """Finds a loadable BrowserItem matching URI, LOM path, or name in the browser hierarchy."""
         if not browser:
             return None
-        roots = []
-        for cat in (
-            "instruments", "audio_effects", "midi_effects", "drums", "sounds",
-            "max_for_live", "plugins", "user_library", "packs", "samples", "clips", "current_project"
-        ):
-            if hasattr(browser, cat):
-                r = getattr(browser, cat)
-                if r:
-                    roots.append(r)
-
-        target_clean = str(target_uri).strip().lower()
+        target_str = str(target_uri).strip()
+        if not target_str:
+            return None
+        if target_str.startswith(("live_app.browser.", "app.browser.", "application.browser.")):
+            try:
+                resolved = resolve_path(self.root_getter, target_str)
+                if resolved is not None and self._is_browser_item_valid(resolved):
+                    return resolved
+            except (AttributeError, KeyError, IndexError, ValueError):
+                pass
+        target_clean = target_str.lower()
         short_target = target_clean.split(":")[-1].replace("_", " ")
+        short_target = self._DEVICE_NAME_ALIASES.get(short_target, short_target)
+        target_clean_alias = self._DEVICE_NAME_ALIASES.get(target_clean, target_clean)
 
-        queue = [(r, 0) for r in roots]
-        while queue:
-            item, depth = queue.pop(0)
-            item_uri = getattr(item, "uri", "") or ""
-            item_name = getattr(item, "name", "") or ""
-            if item_uri.lower() == target_clean or (short_target and item_name.lower() == short_target):
-                if getattr(item, "is_loadable", True):
-                    return item
-            if depth < max_depth and (getattr(item, "is_folder", False) or hasattr(item, "children")):
-                try:
+        if not hasattr(self, "_top_device_cache"):
+            self._top_device_cache: Dict[str, Any] = {}
+
+        for cache_key in (target_clean, target_clean_alias, short_target):
+            if cache_key and cache_key in self._top_device_cache:
+                cached = self._top_device_cache[cache_key]
+                if self._is_browser_item_valid(cached):
+                    return cached
+                self._top_device_cache.pop(cache_key, None)
+
+        core_device_cats = ("instruments", "audio_effects", "midi_effects")
+
+        # Pass 1: Direct children (depth=1) of core device categories
+        core_depth1_items = []
+        for cat in core_device_cats:
+            root = getattr(browser, cat, None)
+            if not root:
+                continue
+            for child in getattr(root, "children", ()) or ():
+                c_uri = (getattr(child, "uri", "") or "").lower()
+                c_name = (getattr(child, "name", "") or "").lower()
+                if getattr(child, "is_loadable", True):
+                    if c_name:
+                        self._top_device_cache[c_name] = child
+                    if c_uri:
+                        self._top_device_cache[c_uri] = child
+                if c_uri in (target_clean, target_clean_alias) or (short_target and c_name == short_target):
+                    if getattr(child, "is_loadable", True):
+                        return child
+                core_depth1_items.append(child)
+
+        # Pass 2: Presets inside core device categories (depth 2..max_depth), capped by node budget
+        nodes_visited = 0
+        queue = collections.deque((child, 1) for child in core_depth1_items)
+        while queue and nodes_visited < MAX_BROWSER_SEARCH_NODES:
+            item, depth = queue.popleft()
+            nodes_visited += 1
+            if depth >= max_depth:
+                continue
+            for child in getattr(item, "children", ()) or ():
+                c_uri = (getattr(child, "uri", "") or "").lower()
+                c_name = (getattr(child, "name", "") or "").lower()
+                if c_uri in (target_clean, target_clean_alias) or (short_target and c_name == short_target):
+                    if getattr(child, "is_loadable", True):
+                        return child
+                if depth + 1 < max_depth and (getattr(child, "is_folder", False) or hasattr(child, "children")):
+                    queue.append((child, depth + 1))
+
+        # Pass 3: Fallback categories within remaining node budget
+        slow_cats = (
+            "drums",
+            "sounds",
+            "max_for_live",
+            "plugins",
+            "user_library",
+            "packs",
+            "samples",
+            "clips",
+            "current_project",
+        )
+        for cat in slow_cats:
+            if nodes_visited >= MAX_BROWSER_SEARCH_NODES:
+                break
+            root = getattr(browser, cat, None)
+            if not root:
+                continue
+            q_slow = collections.deque([(root, 0)])
+            while q_slow and nodes_visited < MAX_BROWSER_SEARCH_NODES:
+                item, depth = q_slow.popleft()
+                nodes_visited += 1
+                item_uri = (getattr(item, "uri", "") or "").lower()
+                item_name = (getattr(item, "name", "") or "").lower()
+                if item_uri in (target_clean, target_clean_alias) or (short_target and item_name == short_target):
+                    if getattr(item, "is_loadable", True):
+                        return item
+                if depth < max_depth and (getattr(item, "is_folder", False) or hasattr(item, "children")):
                     for child in getattr(item, "children", ()) or ():
-                        queue.append((child, depth + 1))
-                except Exception:
-                    pass
+                        q_slow.append((child, depth + 1))
         return None
 
     def live12_browser_load_item(
@@ -1908,64 +2627,99 @@ class BridgeHandlers:
         drum_pad_index: int = -1,
     ) -> Dict[str, Any]:
         t_idx = int(track_index)
-        s = self.song()
-        target_track = None
-        if s:
-            if track_type == "master" or t_idx == -100:
-                target_track = s.master_track
-            elif track_type == "return":
-                if 0 <= t_idx < len(s.return_tracks):
-                    target_track = s.return_tracks[t_idx]
-                else:
-                    raise IndexError(f"Return track index {t_idx} out of range")
-            elif 0 <= t_idx < len(s.tracks):
-                target_track = s.tracks[t_idx]
-            else:
-                raise IndexError(f"Track index {t_idx} out of range")
+        c_idx = int(chain_index)
+        dp_idx = int(drum_pad_index)
+        if dp_idx != -1 and not (0 <= dp_idx <= 127):
+            raise IndexError(f"drum_pad_index {dp_idx} out of range [0, 127]")
+        if c_idx < -1:
+            raise IndexError(f"chain_index {c_idx} must be >= -1")
 
-            if target_track and hasattr(s, "view") and hasattr(s.view, "selected_track"):
-                try:
-                    s.view.selected_track = target_track
-                except Exception:
-                    pass
+        s = self.song()
+        if s:
+            if t_idx == -100 and track_type == "regular":
+                track_type = "master"
+            target_track = self._resolve_target_track(s, t_idx, track_type)
+            if hasattr(s, "view") and hasattr(s.view, "selected_track"):
+                s.view.selected_track = target_track
+
+            drum_rack = None
+            if dp_idx >= 0:
+                drum_rack = next(
+                    (
+                        d
+                        for d in getattr(target_track, "devices", ()) or ()
+                        if getattr(d, "can_have_drum_pads", False)
+                    ),
+                    None,
+                )
+                if drum_rack is None:
+                    raise ValueError("Target track does not contain a Drum Rack for drum_pad_index")
+                drum_pads = getattr(drum_rack, "drum_pads", ()) or ()
+                if dp_idx >= len(drum_pads):
+                    raise IndexError(f"drum_pad_index {dp_idx} out of range (0..{len(drum_pads) - 1})")
+                pad = drum_pads[dp_idx]
+                if hasattr(s, "view") and hasattr(s.view, "select_device"):
+                    s.view.select_device(drum_rack)
+                if hasattr(drum_rack, "view"):
+                    if hasattr(drum_rack.view, "selected_drum_pad"):
+                        drum_rack.view.selected_drum_pad = pad
+                    pad_chains = getattr(pad, "chains", ()) or ()
+                    if pad_chains and hasattr(drum_rack.view, "selected_chain"):
+                        drum_rack.view.selected_chain = pad_chains[0]
+            elif c_idx >= 0:
+                rack = next(
+                    (
+                        d
+                        for d in getattr(target_track, "devices", ()) or ()
+                        if getattr(d, "can_have_chains", False)
+                    ),
+                    None,
+                )
+                if rack is None:
+                    raise ValueError("Target track does not contain a Rack device for chain_index")
+                chains = getattr(rack, "chains", ()) or ()
+                if c_idx >= len(chains):
+                    raise IndexError(f"chain_index {c_idx} out of range (0..{len(chains) - 1})")
+                if hasattr(s, "view") and hasattr(s.view, "select_device"):
+                    s.view.select_device(rack)
+                if hasattr(rack, "view") and hasattr(rack.view, "selected_chain"):
+                    rack.view.selected_chain = chains[c_idx]
+
             app = self.application()
-            if app and hasattr(app, "browser") and hasattr(app.browser, "load_item"):
-                try:
-                    item = None
-                    if hasattr(browser_item_uri, "is_loadable"):
-                        item = browser_item_uri
-                    else:
-                        item = self._find_browser_item(app.browser, str(browser_item_uri))
-                    if item:
-                        app.browser.load_item(item)
-                    else:
-                        return {
-                            "status": "not_found",
-                            "track_index": t_idx,
-                            "browser_item_uri": browser_item_uri,
-                            "warning": f"Item '{browser_item_uri}' not found in browser",
-                        }
-                except Exception as e:
-                    return {
-                        "status": "error",
-                        "track_index": t_idx,
-                        "browser_item_uri": browser_item_uri,
-                        "error": str(e),
-                    }
-        return {
+            browser = getattr(app, "browser", None) if app else None
+            if browser and hasattr(browser, "load_item"):
+                if hasattr(browser_item_uri, "is_loadable"):
+                    item = browser_item_uri
+                else:
+                    item = self._find_browser_item(browser, str(browser_item_uri))
+                if item is None:
+                    raise ValueError(f"Browser item '{browser_item_uri}' not found in browser")
+                if not getattr(item, "is_loadable", True):
+                    raise ValueError(f"Browser item '{browser_item_uri}' is not loadable")
+                browser.load_item(item)
+                if drum_rack is not None and drum_rack not in (getattr(target_track, "devices", ()) or ()):
+                    raise RuntimeError(
+                        "Browser load_item replaced or removed the Drum Rack instead of loading into the selected pad"
+                    )
+
+        res: Dict[str, Any] = {
             "status": "loaded",
             "track_index": t_idx,
+            "track_type": track_type,
             "browser_item_uri": browser_item_uri,
         }
+        if dp_idx >= 0:
+            res["drum_pad_index"] = dp_idx
+        if c_idx >= 0:
+            res["chain_index"] = c_idx
+        return res
 
-    def live12_device_list(self, track_index: int) -> Dict[str, Any]:
+    def live12_device_list(self, track_index: int, track_type: str = "regular") -> Dict[str, Any]:
         t_idx = int(track_index)
         s = self.song()
         devs: List[Dict[str, Any]] = []
         if s:
-            if t_idx < 0 or t_idx >= len(s.tracks):
-                raise IndexError(f"Track index {t_idx} out of range")
-            tr = s.tracks[t_idx]
+            tr = self._resolve_target_track(s, t_idx, track_type)
             for i, d in enumerate(getattr(tr, "devices", [])):
                 devs.append({
                     "index": i,
@@ -1975,129 +2729,155 @@ class BridgeHandlers:
                     "can_have_chains": getattr(d, "can_have_chains", False),
                     "parameters_count": len(getattr(d, "parameters", [])),
                 })
-        return {"track_index": t_idx, "devices": devs}
+        res: Dict[str, Any] = {"track_index": t_idx, "devices": devs}
+        if track_type != "regular":
+            res["track_type"] = track_type
+        return res
 
-    def live12_device_get_parameters(self, track_index: int, device_index: int) -> Dict[str, Any]:
+    def live12_device_get_parameters(
+        self,
+        track_index: int,
+        device_index: int,
+        track_type: str = "regular",
+    ) -> Dict[str, Any]:
         t_idx = int(track_index)
         d_idx = int(device_index)
         s = self.song()
         params: List[Dict[str, Any]] = []
         if s:
-            if t_idx < 0 or t_idx >= len(s.tracks):
-                raise IndexError(f"Track index {t_idx} out of range")
-            tr = s.tracks[t_idx]
-            if d_idx < 0 or (len(tr.devices) > 0 and d_idx >= len(tr.devices)) or (len(tr.devices) == 0 and d_idx > 0):
-                raise IndexError(f"Device index {d_idx} out of range")
-            if len(tr.devices) > 0:
-                dev = tr.devices[d_idx]
-                for i, p in enumerate(getattr(dev, "parameters", [])):
-                    min_v = float(p.min)
-                    max_v = float(p.max)
-                    val = float(p.value)
-                    norm = (val - min_v) / (max_v - min_v) if max_v > min_v else 0.0
-                    params.append({
-                        "index": i,
-                        "name": p.name,
-                        "value": val,
-                        "min": min_v,
-                        "max": max_v,
-                        "is_quantized": getattr(p, "is_quantized", False),
-                        "normalized_value": norm,
-                    })
-            else:
+            tr = self._resolve_target_track(s, t_idx, track_type)
+            devices = getattr(tr, "devices", ()) or ()
+            if d_idx < 0 or d_idx >= len(devices):
+                raise IndexError(f"Device index {d_idx} out of range (0..{len(devices) - 1})")
+            dev = devices[d_idx]
+            for i, p in enumerate(getattr(dev, "parameters", [])):
+                min_v = float(p.min)
+                max_v = float(p.max)
+                val = float(p.value)
+                norm = (val - min_v) / (max_v - min_v) if max_v > min_v else 0.0
                 params.append({
-                    "index": 0,
-                    "name": "Device On",
-                    "value": 1.0,
-                    "min": 0.0,
-                    "max": 1.0,
-                    "is_quantized": True,
-                    "normalized_value": 1.0,
+                    "index": i,
+                    "name": p.name,
+                    "value": val,
+                    "min": min_v,
+                    "max": max_v,
+                    "is_quantized": getattr(p, "is_quantized", False),
+                    "normalized_value": norm,
                 })
-        return {
+        res: Dict[str, Any] = {
             "track_index": t_idx,
             "device_index": d_idx,
             "parameters": params,
         }
+        if track_type != "regular":
+            res["track_type"] = track_type
+        return res
 
     def live12_device_set_parameter(
         self,
         track_index: int,
         device_index: int,
-        parameter_identifier: Union[str, int],
-        value: float,
+        parameter_identifier: Optional[Union[str, int]] = None,
+        value: Union[float, str] = 0.0,
         normalized: bool = False,
+        parameter_index: Optional[Union[str, int]] = None,
+        track_type: str = "regular",
     ) -> Dict[str, Any]:
+        if parameter_identifier is None and parameter_index is not None:
+            parameter_identifier = parameter_index
         t_idx = int(track_index)
         d_idx = int(device_index)
-        val = float(value)
         s = self.song()
         if s:
-            if t_idx < 0 or t_idx >= len(s.tracks):
-                raise IndexError(f"Track index {t_idx} out of range")
-            tr = s.tracks[t_idx]
-            if d_idx < 0 or (len(tr.devices) > 0 and d_idx >= len(tr.devices)) or (len(tr.devices) == 0 and d_idx > 0):
-                raise IndexError(f"Device index {d_idx} out of range")
-            if len(tr.devices) > 0:
-                dev = tr.devices[d_idx]
+            tr = self._resolve_target_track(s, t_idx, track_type)
+            devices = getattr(tr, "devices", ()) or ()
+            if d_idx < 0 or d_idx >= len(devices):
+                raise IndexError(f"Device index {d_idx} out of range (0..{len(devices) - 1})")
+            dev = devices[d_idx]
 
-                param = None
-                if isinstance(parameter_identifier, int) or (
-                    isinstance(parameter_identifier, str) and parameter_identifier.isdigit()
-                ):
-                    p_idx = int(parameter_identifier)
-                    if 0 <= p_idx < len(dev.parameters):
-                        param = dev.parameters[p_idx]
+            param = None
+            if isinstance(parameter_identifier, int) or (
+                isinstance(parameter_identifier, str) and parameter_identifier.isdigit()
+            ):
+                p_idx = int(parameter_identifier)
+                if 0 <= p_idx < len(dev.parameters):
+                    param = dev.parameters[p_idx]
+            else:
+                for p in dev.parameters:
+                    if p.name == str(parameter_identifier) or p.name.lower() == str(parameter_identifier).lower():
+                        param = p
+                        break
+
+            if not param:
+                raise IndexError(f"Parameter '{parameter_identifier}' not found on device")
+
+            min_v = float(param.min)
+            max_v = float(param.max)
+            if isinstance(value, str) and not value.replace(".", "", 1).replace("-", "", 1).isdigit():
+                if hasattr(param, "value_for_string"):
+                    actual_val = float(param.value_for_string(value))
+                elif hasattr(param, "value_items"):
+                    items = [str(x).lower() for x in getattr(param, "value_items", [])]
+                    if value.lower() in items:
+                        actual_val = float(items.index(value.lower()))
+                    else:
+                        raise ValueError(f"Invalid enum value '{value}' for parameter '{param.name}'")
                 else:
-                    for p in dev.parameters:
-                        if p.name == str(parameter_identifier):
-                            param = p
-                            break
-
-                if not param:
-                    raise IndexError(f"Parameter '{parameter_identifier}' not found on device")
-
-                min_v = float(param.min)
-                max_v = float(param.max)
+                    actual_val = float(value)
+            else:
+                val_f = float(value)
                 if normalized:
-                    actual_val = min_v + val * (max_v - min_v)
+                    actual_val = min_v + val_f * (max_v - min_v)
                 else:
-                    actual_val = val
+                    actual_val = val_f
 
-                param.value = actual_val
-                norm = (param.value - min_v) / (max_v - min_v) if max_v > min_v else 0.0
-                return {
-                    "track_index": t_idx,
-                    "device_index": d_idx,
-                    "parameter_name": param.name,
-                    "value": param.value,
-                    "normalized_value": norm,
-                }
+            actual_val = max(min_v, min(max_v, actual_val))
+            param.value = actual_val
+            norm = (param.value - min_v) / (max_v - min_v) if max_v > min_v else 0.0
+            res_dict: Dict[str, Any] = {
+                "track_index": t_idx,
+                "device_index": d_idx,
+                "parameter_name": param.name,
+                "value": param.value,
+                "normalized_value": norm,
+            }
+            if track_type != "regular":
+                res_dict["track_type"] = track_type
+            return res_dict
 
+        val_out = float(value) if not isinstance(value, str) else 0.0
         return {
             "track_index": t_idx,
             "device_index": d_idx,
             "parameter_name": str(parameter_identifier),
-            "value": val,
+            "value": val_out,
             "normalized_value": 0.5,
         }
 
-    def live12_device_toggle(self, track_index: int, device_index: int, enabled: bool) -> Dict[str, Any]:
+    def live12_device_toggle(
+        self,
+        track_index: int,
+        device_index: int,
+        enabled: bool,
+        track_type: str = "regular",
+    ) -> Dict[str, Any]:
         t_idx = int(track_index)
         d_idx = int(device_index)
         en = bool(enabled)
         s = self.song()
         if s:
-            if t_idx < 0 or t_idx >= len(s.tracks):
-                raise IndexError(f"Track index {t_idx} out of range")
-            tr = s.tracks[t_idx]
-            if d_idx < 0 or (len(tr.devices) > 0 and d_idx >= len(tr.devices)) or (len(tr.devices) == 0 and d_idx > 0):
-                raise IndexError(f"Device index {d_idx} out of range")
-            if len(tr.devices) > 0:
-                dev = tr.devices[d_idx]
-                if dev.parameters:
-                    dev.parameters[0].value = 1.0 if en else 0.0
-        return {"track_index": t_idx, "device_index": d_idx, "is_active": en}
+            tr = self._resolve_target_track(s, t_idx, track_type)
+            devices = getattr(tr, "devices", ()) or ()
+            if d_idx < 0 or d_idx >= len(devices):
+                raise IndexError(f"Device index {d_idx} out of range (0..{len(devices) - 1})")
+            dev = devices[d_idx]
+            if not getattr(dev, "parameters", None):
+                raise RuntimeError(f"Device at index {d_idx} exposes no parameters")
+            dev.parameters[0].value = 1.0 if en else 0.0
+        res: Dict[str, Any] = {"track_index": t_idx, "device_index": d_idx, "is_active": en}
+        if track_type != "regular":
+            res["track_type"] = track_type
+        return res
 
     def live12_rack_macro_control(
         self,
@@ -2112,22 +2892,45 @@ class BridgeHandlers:
         val = float(value)
         if m_idx < 0 or m_idx > 15:
             raise IndexError(f"Macro index {m_idx} out of range [0, 15]")
+        if math.isnan(val) or math.isinf(val) or not (0.0 <= val <= 1.0):
+            raise ValueError(f"Macro normalized value must be in [0.0, 1.0], got {val}")
 
+        macro_name = f"Macro {m_idx + 1}"
+        raw_val = val
         s = self.song()
         if s:
             if t_idx < 0 or t_idx >= len(s.tracks):
                 raise IndexError(f"Track index {t_idx} out of range")
             tr = s.tracks[t_idx]
-            if d_idx < 0 or (len(tr.devices) > 0 and d_idx >= len(tr.devices)) or (len(tr.devices) == 0 and d_idx > 0):
-                raise IndexError(f"Device index {d_idx} out of range")
-            if len(tr.devices) > 0:
-                dev = tr.devices[d_idx]
-                for p in getattr(dev, "parameters", []):
-                    if p.name in (f"Macro {m_idx + 1}", f"Macro {m_idx}"):
-                        p.value = val * (p.max - p.min) + p.min
-                        break
+            devices = getattr(tr, "devices", ()) or ()
+            if d_idx < 0 or d_idx >= len(devices):
+                raise IndexError(f"Device index {d_idx} out of range (0..{len(devices) - 1})")
+            dev = devices[d_idx]
+            if hasattr(dev, "can_have_chains") and not getattr(dev, "can_have_chains", False):
+                raise ValueError(f"Device '{getattr(dev, 'name', d_idx)}' is not a Rack device")
+            params = list(getattr(dev, "parameters", ()) or ())
+            # Parameter 0 on RackDevice is "Device On"; Macros occupy indices 1..16
+            target_param_idx = m_idx + 1
+            if target_param_idx >= len(params):
+                raise IndexError(
+                    f"Macro index {m_idx} out of range for device with {len(params)} parameters"
+                )
+            p = params[target_param_idx]
+            p_min = float(getattr(p, "min", 0.0))
+            p_max = float(getattr(p, "max", 127.0))
+            target_raw = max(p_min, min(p_max, p_min + val * (p_max - p_min)))
+            p.value = target_raw
+            macro_name = str(getattr(p, "name", macro_name))
+            raw_val = float(p.value)
 
-        return {"track_index": t_idx, "device_index": d_idx, "macro_index": m_idx, "value": val}
+        return {
+            "track_index": t_idx,
+            "device_index": d_idx,
+            "macro_index": m_idx,
+            "macro_name": macro_name,
+            "value": val,
+            "raw_value": raw_val,
+        }
 
     def live12_rack_variation_control(
         self,
@@ -2138,24 +2941,73 @@ class BridgeHandlers:
     ) -> Dict[str, Any]:
         t_idx = int(track_index)
         d_idx = int(device_index)
-        act = str(action)
+        act = str(action).strip().lower()
+        if act not in ("store", "recall", "delete", "randomize"):
+            raise ValueError(f"Unsupported rack variation action {action!r}")
         v_idx = int(variation_index)
 
+        res: Dict[str, Any] = {"status": "ok", "action": act, "variation_index": v_idx}
         s = self.song()
         if s:
             if t_idx < 0 or t_idx >= len(s.tracks):
                 raise IndexError(f"Track index {t_idx} out of range")
             tr = s.tracks[t_idx]
-            if d_idx < 0 or (len(tr.devices) > 0 and d_idx >= len(tr.devices)) or (len(tr.devices) == 0 and d_idx > 0):
-                raise IndexError(f"Device index {d_idx} out of range")
-            if len(tr.devices) > 0:
-                dev = tr.devices[d_idx]
-                if act == "store" and hasattr(dev, "store_variation"):
-                    dev.store_variation()
-                elif act == "recall":
-                    if hasattr(dev, "recall_variation"):
-                        dev.recall_variation(v_idx)
-        return {"status": "ok", "action": act, "variation_index": v_idx}
+            devices = getattr(tr, "devices", ()) or ()
+            if d_idx < 0 or d_idx >= len(devices):
+                raise IndexError(f"Device index {d_idx} out of range (0..{len(devices) - 1})")
+            dev = devices[d_idx]
+            if hasattr(dev, "can_have_chains") and not getattr(dev, "can_have_chains", False):
+                raise ValueError(f"Device '{getattr(dev, 'name', d_idx)}' is not a Rack device")
+
+            if act == "store":
+                if not hasattr(dev, "store_variation"):
+                    raise RuntimeError("Device does not support store_variation")
+                dev.store_variation()
+                v_count = getattr(dev, "variation_count", None)
+                if v_count is not None:
+                    res["variation_count"] = int(v_count)
+                    res["variation_index"] = max(0, int(v_count) - 1)
+                elif hasattr(dev, "selected_variation_index"):
+                    res["variation_index"] = int(dev.selected_variation_index)
+            elif act == "recall":
+                v_count = getattr(dev, "variation_count", None)
+                if v_count is not None and not (0 <= v_idx < int(v_count)):
+                    raise IndexError(f"Variation index {v_idx} out of range (0..{int(v_count) - 1})")
+                if hasattr(dev, "recall_variation"):
+                    dev.recall_variation(v_idx)
+                elif hasattr(dev, "recall_selected_variation"):
+                    if hasattr(dev, "selected_variation_index"):
+                        dev.selected_variation_index = v_idx
+                    dev.recall_selected_variation()
+                else:
+                    raise RuntimeError("Device does not support recalling variations")
+                params = list(getattr(dev, "parameters", ()) or ())
+                macro_count = min(16, max(0, len(params) - 1))
+                res["macros"] = [
+                    {
+                        "index": i,
+                        "name": str(getattr(params[i + 1], "name", f"Macro {i + 1}")),
+                        "value": float(params[i + 1].value),
+                    }
+                    for i in range(macro_count)
+                ]
+            elif act == "delete":
+                v_count = getattr(dev, "variation_count", None)
+                if v_count is not None and not (0 <= v_idx < int(v_count)):
+                    raise IndexError(f"Variation index {v_idx} out of range (0..{int(v_count) - 1})")
+                if hasattr(dev, "delete_variation"):
+                    dev.delete_variation(v_idx)
+                elif hasattr(dev, "delete_selected_variation"):
+                    if hasattr(dev, "selected_variation_index"):
+                        dev.selected_variation_index = v_idx
+                    dev.delete_selected_variation()
+                else:
+                    raise RuntimeError("Device does not support deleting variations")
+            elif act == "randomize":
+                if not hasattr(dev, "randomize_macros"):
+                    raise RuntimeError("Device does not support randomize_macros")
+                dev.randomize_macros()
+        return res
 
     def _validate_device_indices(self, track_index: int, device_index: int) -> Tuple[int, int]:
         t_idx = int(track_index)
@@ -2169,11 +3021,13 @@ class BridgeHandlers:
             if t_idx >= len(s.tracks):
                 raise IndexError(f"Track index {t_idx} out of range [0, {len(s.tracks)})")
             tr = s.tracks[t_idx]
-            if len(tr.devices) > 0:
-                if d_idx >= len(tr.devices):
-                    raise IndexError(f"Device index {d_idx} out of range [0, {len(tr.devices)})")
-            elif d_idx > 0:
-                raise IndexError(f"Device index {d_idx} out of range: track has no devices")
+            devices = getattr(tr, "devices", ()) or ()
+            if d_idx >= len(devices):
+                raise IndexError(
+                    f"Device index {d_idx} out of range [0, {len(devices)})"
+                    if devices
+                    else f"Device index {d_idx} out of range: track has no devices"
+                )
         return t_idx, d_idx
 
     def _mutate_flagship_device_params(
@@ -2239,6 +3093,113 @@ class BridgeHandlers:
 
         return t_idx, d_idx, updated_details
 
+    _WAVETABLE_MOD_SOURCE_ALIASES = {
+        "amp": "amp_envelope",
+        "amp_env": "amp_envelope",
+        "amp_envelope": "amp_envelope",
+        "env1": "amp_envelope",
+        "env_1": "amp_envelope",
+        "envelope1": "amp_envelope",
+        "envelope_1": "amp_envelope",
+        "env2": "envelope_2",
+        "env_2": "envelope_2",
+        "envelope2": "envelope_2",
+        "envelope_2": "envelope_2",
+        "env3": "envelope_3",
+        "env_3": "envelope_3",
+        "envelope3": "envelope_3",
+        "envelope_3": "envelope_3",
+        "lfo1": "lfo_1",
+        "lfo_1": "lfo_1",
+        "lfo2": "lfo_2",
+        "lfo_2": "lfo_2",
+        "velocity": "midi_velocity",
+        "vel": "midi_velocity",
+        "midi_velocity": "midi_velocity",
+        "note": "midi_note",
+        "key": "midi_note",
+        "midi_note": "midi_note",
+        "pitch_bend": "midi_pitch_bend",
+        "pitchbend": "midi_pitch_bend",
+        "pb": "midi_pitch_bend",
+        "midi_pitch_bend": "midi_pitch_bend",
+        "aftertouch": "midi_channel_pressure",
+        "pressure": "midi_channel_pressure",
+        "channel_pressure": "midi_channel_pressure",
+        "midi_channel_pressure": "midi_channel_pressure",
+        "mod_wheel": "midi_mod_wheel",
+        "modwheel": "midi_mod_wheel",
+        "mw": "midi_mod_wheel",
+        "midi_mod_wheel": "midi_mod_wheel",
+        "random": "midi_random",
+        "rand": "midi_random",
+        "midi_random": "midi_random",
+    }
+
+    def _resolve_wavetable_mod_source(self, dev: Any, source: str) -> Any:
+        src_key = str(source or "").strip().lower().replace(" ", "_")
+        canonical = self._WAVETABLE_MOD_SOURCE_ALIASES.get(src_key, src_key)
+        enum_cls = None
+        if Live is not None and hasattr(Live, "WavetableDevice"):
+            enum_cls = getattr(Live.WavetableDevice, "ModulationSource", None)
+        if enum_cls is None:
+            enum_cls = getattr(dev, "ModulationSource", None)
+        if enum_cls is not None:
+            val = getattr(enum_cls, canonical, None)
+            if val is None:
+                raise ValueError(f"Unknown Wavetable modulation source {source!r}")
+            return val
+        if canonical not in self._WAVETABLE_MOD_SOURCE_ALIASES.values():
+            raise ValueError(f"Unknown Wavetable modulation source {source!r}")
+        return canonical
+
+    def _resolve_wavetable_target_index(self, dev: Any, target: str) -> Tuple[int, str]:
+        t_clean = str(target or "").strip().lower()
+        if not t_clean:
+            raise ValueError("Wavetable modulation target must not be empty")
+
+        def _match_visible(names: List[str]) -> Optional[int]:
+            for idx, name in enumerate(names):
+                if str(name).lower() == t_clean:
+                    return idx
+            for idx, name in enumerate(names):
+                if t_clean in str(name).lower():
+                    return idx
+            return None
+
+        target_names = [str(n) for n in (getattr(dev, "visible_modulation_target_names", ()) or ())]
+        found_idx = _match_visible(target_names)
+        if found_idx is not None:
+            return found_idx, target_names[found_idx]
+
+        # Attempt to add a matching DeviceParameter to the modulation matrix
+        candidates = list(getattr(dev, "parameters", ()) or ())
+        matched_param = None
+        for p in candidates:
+            if str(getattr(p, "name", "")).lower() == t_clean:
+                matched_param = p
+                break
+        if matched_param is None:
+            for p in candidates:
+                if t_clean in str(getattr(p, "name", "")).lower():
+                    matched_param = p
+                    break
+
+        if matched_param is not None and hasattr(dev, "add_parameter_to_modulation_matrix"):
+            if hasattr(dev, "is_parameter_modulatable") and not dev.is_parameter_modulatable(matched_param):
+                raise ValueError(f"Parameter '{matched_param.name}' is not modulatable in Wavetable")
+            dev.add_parameter_to_modulation_matrix(matched_param)
+            target_names = [str(n) for n in (getattr(dev, "visible_modulation_target_names", ()) or ())]
+            p_name_l = str(getattr(matched_param, "name", "")).lower()
+            for idx, name in enumerate(target_names):
+                if str(name).lower() == p_name_l or t_clean in str(name).lower():
+                    return idx, str(name)
+            found_idx = _match_visible(target_names)
+            if found_idx is not None:
+                return found_idx, target_names[found_idx]
+
+        raise ValueError(f"Wavetable modulation target {target!r} not found or not modulatable")
+
     def live12_wavetable_modulation_matrix(
         self,
         track_index: int,
@@ -2253,75 +3214,123 @@ class BridgeHandlers:
         if math.isnan(amt) or math.isinf(amt) or amt < -1.0 or amt > 1.0:
             raise ValueError(f"Modulation amount {amt} out of range [-1.0, 1.0]")
 
+        act = str(action).strip().lower()
+        if act not in ("set", "get", "clear"):
+            raise ValueError(f"Unknown matrix action: {action}")
+
         s = self.song()
         dev = None
-        if s and t_idx < len(s.tracks):
-            tr = s.tracks[t_idx]
-            if d_idx < len(tr.devices):
-                dev = tr.devices[d_idx]
+        if s:
+            dev = s.tracks[t_idx].devices[d_idx]
 
         if not hasattr(self, "_wavetable_matrices"):
             self._wavetable_matrices: Dict[Tuple[int, int], Dict[str, float]] = {}
         matrix_key = (t_idx, d_idx)
         current_matrix = self._wavetable_matrices.setdefault(matrix_key, {})
 
+        if dev is not None:
+            if not hasattr(dev, "set_modulation_value") or not hasattr(dev, "get_modulation_value"):
+                raise RuntimeError(
+                    f"Device '{getattr(dev, 'name', d_idx)}' does not expose Wavetable modulation matrix API"
+                )
+            if act == "set":
+                mod_src = self._resolve_wavetable_mod_source(dev, source)
+                target_idx, target_name = self._resolve_wavetable_target_index(dev, target)
+                try:
+                    dev.set_modulation_value(target_idx, mod_src, amt)
+                except TypeError:
+                    dev.set_modulation_value(mod_src, target_idx, amt)
+                actual_amt = amt
+                try:
+                    actual_amt = float(dev.get_modulation_value(target_idx, mod_src))
+                except TypeError:
+                    actual_amt = float(dev.get_modulation_value(mod_src, target_idx))
+                return {
+                    "status": "set",
+                    "source": source,
+                    "target": target_name,
+                    "target_index": target_idx,
+                    "amount": actual_amt,
+                }
+            elif act == "get":
+                mod_src = self._resolve_wavetable_mod_source(dev, source)
+                target_idx, target_name = self._resolve_wavetable_target_index(dev, target)
+                try:
+                    stored_amt = float(dev.get_modulation_value(target_idx, mod_src))
+                except TypeError:
+                    stored_amt = float(dev.get_modulation_value(mod_src, target_idx))
+                return {
+                    "status": "get",
+                    "source": source,
+                    "target": target_name,
+                    "target_index": target_idx,
+                    "amount": stored_amt,
+                }
+            else:  # clear
+                target_names = list(getattr(dev, "visible_modulation_target_names", ()) or ())
+                enum_cls = None
+                if Live is not None and hasattr(Live, "WavetableDevice"):
+                    enum_cls = getattr(Live.WavetableDevice, "ModulationSource", None)
+                if enum_cls is None:
+                    enum_cls = getattr(dev, "ModulationSource", None)
+                sources: List[Any] = []
+                if enum_cls is not None:
+                    for src_name in dict.fromkeys(self._WAVETABLE_MOD_SOURCE_ALIASES.values()):
+                        val = getattr(enum_cls, src_name, None)
+                        if val is not None:
+                            sources.append(val)
+                cleared_count = 0
+                for target_idx in range(len(target_names)):
+                    for mod_src in sources:
+                        try:
+                            cur = float(dev.get_modulation_value(target_idx, mod_src))
+                        except TypeError:
+                            cur = float(dev.get_modulation_value(mod_src, target_idx))
+                        if cur != 0.0:
+                            try:
+                                dev.set_modulation_value(target_idx, mod_src, 0.0)
+                            except TypeError:
+                                dev.set_modulation_value(mod_src, target_idx, 0.0)
+                            cleared_count += 1
+                current_matrix.clear()
+                return {
+                    "status": "cleared",
+                    "track_index": t_idx,
+                    "device_index": d_idx,
+                    "cleared_count": cleared_count,
+                }
+
+        # Offline mock path (s is None)
         key = f"{source}->{target}" if source and target else ""
-
-        matched_param = None
-        if dev and hasattr(dev, "parameters"):
-            for p in dev.parameters:
-                p_name_l = p.name.lower()
-                if (target and target.lower() in p_name_l) or (source and source.lower() in p_name_l):
-                    matched_param = p
-                    break
-
-        if action == "set":
+        if act == "set":
             if key:
                 current_matrix[key] = amt
-            if matched_param and hasattr(matched_param, "value"):
-                try:
-                    p_min = float(matched_param.min)
-                    p_max = float(matched_param.max)
-                    norm_val = p_min + ((amt + 1.0) / 2.0) * (p_max - p_min)
-                    matched_param.value = max(p_min, min(p_max, norm_val))
-                except Exception:
-                    pass
-            return {
-                "status": "set",
-                "source": source,
-                "target": target,
-                "amount": amt,
-                "matched_parameter": matched_param.name if matched_param else None,
-            }
-        elif action == "get":
-            stored_amt = current_matrix.get(key, 0.0) if key else 0.0
-            if matched_param and hasattr(matched_param, "value"):
-                try:
-                    p_min = float(matched_param.min)
-                    p_max = float(matched_param.max)
-                    if p_max > p_min:
-                        stored_amt = round(((matched_param.value - p_min) / (p_max - p_min)) * 2.0 - 1.0, 4)
-                except Exception:
-                    pass
+            return {"status": "set", "source": source, "target": target, "amount": amt}
+        elif act == "get":
             return {
                 "status": "get",
                 "source": source,
                 "target": target,
-                "amount": stored_amt,
-                "matched_parameter": matched_param.name if matched_param else None,
+                "amount": current_matrix.get(key, 0.0) if key else 0.0,
             }
-        elif action == "clear":
+        else:
             current_matrix.clear()
-            if dev and hasattr(dev, "parameters"):
-                for p in dev.parameters:
-                    if "mod" in p.name.lower() or "matrix" in p.name.lower():
-                        try:
-                            p.value = float(getattr(p, "default_value", p.min))
-                        except Exception:
-                            pass
-            return {"status": "cleared", "track_index": t_idx, "device_index": d_idx}
+            return {"status": "cleared", "track_index": t_idx, "device_index": d_idx, "cleared_count": 0}
 
-        raise ValueError(f"Unknown matrix action: {action}")
+    _SIMPLER_PLAYBACK_MAP = {
+        "classic": 0,
+        "1-shot": 1,
+        "1_shot": 1,
+        "oneshot": 1,
+        "one_shot": 1,
+        "slicing": 2,
+        "slice": 2,
+    }
+    _SIMPLER_PLAYBACK_NAMES = {
+        0: "Classic",
+        1: "1-Shot",
+        2: "Slicing",
+    }
 
     def live12_simpler_control(
         self,
@@ -2329,14 +3338,20 @@ class BridgeHandlers:
         device_index: int,
         action: str,
         params: Optional[dict] = None,
+        playback_mode: Optional[str] = None,
+        sensitivity: Optional[float] = None,
     ) -> Dict[str, Any]:
+        valid_actions = ("get_state", "set_playback_mode", "slice", "slice_to_drum_rack", "replace_sample")
+        act = str(action).strip().lower()
+        if act not in valid_actions:
+            raise ValueError(f"Unsupported Simpler action {action!r}; must be one of {valid_actions}")
+
         t_idx, d_idx = self._validate_device_indices(track_index, device_index)
         s = self.song()
-        dev = None
-        if s and t_idx < len(s.tracks):
-            tr = s.tracks[t_idx]
-            if d_idx < len(tr.devices):
-                dev = tr.devices[d_idx]
+        dev = s.tracks[t_idx].devices[d_idx] if s else None
+
+        eff_mode = playback_mode if playback_mode is not None else (params.get("playback_mode") if params else None)
+        eff_sens = sensitivity if sensitivity is not None else (params.get("sensitivity") if params else None)
 
         if not hasattr(self, "_simpler_state"):
             self._simpler_state: Dict[Tuple[int, int], Dict[str, Any]] = {}
@@ -2346,61 +3361,156 @@ class BridgeHandlers:
             "sample_path": "",
         })
 
-        if action == "get_state":
-            pb_mode = st["playback_mode"]
-            if dev and hasattr(dev, "parameters"):
-                for p in dev.parameters:
-                    if "mode" in p.name.lower() or "playback" in p.name.lower():
-                        pb_mode = str(getattr(p, "str_for_value", lambda v: p.value)(p.value))
-                        break
+        if dev is not None:
+            sample_obj = getattr(dev, "sample", None)
+            if act == "get_state":
+                raw_pm = getattr(dev, "playback_mode", None)
+                if raw_pm is not None:
+                    try:
+                        pb_mode = self._SIMPLER_PLAYBACK_NAMES.get(int(raw_pm), str(raw_pm))
+                    except (TypeError, ValueError):
+                        pb_mode = str(raw_pm)
+                else:
+                    pb_mode = st["playback_mode"]
+                    for p in getattr(dev, "parameters", ()) or ():
+                        if "mode" in p.name.lower() or "playback" in p.name.lower():
+                            pb_mode = str(p.str_for_value(p.value) if hasattr(p, "str_for_value") else p.value)
+                            break
+                slices = getattr(sample_obj, "slices", ()) or ()
+                s_path = str(getattr(sample_obj, "file_path", "") or "")
+                res: Dict[str, Any] = {
+                    "status": "success",
+                    "track_index": t_idx,
+                    "device_index": d_idx,
+                    "playback_mode": pb_mode,
+                    "slices_count": len(slices),
+                    "sample_path": s_path,
+                }
+                if sample_obj is not None and hasattr(sample_obj, "slicing_sensitivity"):
+                    res["slicing_sensitivity"] = float(sample_obj.slicing_sensitivity)
+                return res
+
+            elif act == "set_playback_mode":
+                mode_raw = eff_mode if eff_mode is not None else "Classic"
+                mode_key = str(mode_raw).strip().lower()
+                if mode_key not in self._SIMPLER_PLAYBACK_MAP:
+                    raise ValueError(f"Invalid Simpler playback_mode {mode_raw!r}; expected Classic, 1-Shot, or Slicing")
+                pm_int = self._SIMPLER_PLAYBACK_MAP[mode_key]
+                canonical_mode = self._SIMPLER_PLAYBACK_NAMES[pm_int]
+                if hasattr(dev, "playback_mode"):
+                    dev.playback_mode = pm_int
+                else:
+                    matched_p = None
+                    for p in getattr(dev, "parameters", ()) or ():
+                        if "mode" in p.name.lower() or "playback" in p.name.lower():
+                            matched_p = p
+                            break
+                    if matched_p is None:
+                        raise RuntimeError("Device does not expose Simpler playback_mode")
+                    if hasattr(matched_p, "value_for_string"):
+                        matched_p.value = matched_p.value_for_string(canonical_mode)
+                    else:
+                        matched_p.value = float(pm_int)
+                st["playback_mode"] = canonical_mode
+                return {
+                    "status": "success",
+                    "track_index": t_idx,
+                    "device_index": d_idx,
+                    "playback_mode": canonical_mode,
+                }
+
+            elif act == "slice":
+                if hasattr(dev, "playback_mode"):
+                    dev.playback_mode = 2
+                if eff_sens is not None:
+                    sens_f = float(eff_sens)
+                    if math.isnan(sens_f) or math.isinf(sens_f) or not (0.0 <= sens_f <= 1.0):
+                        raise ValueError(f"Simpler slicing sensitivity must be in [0.0, 1.0], got {sens_f}")
+                    if sample_obj is None or not hasattr(sample_obj, "slicing_sensitivity"):
+                        raise RuntimeError("Simpler sample does not expose slicing_sensitivity")
+                    sample_obj.slicing_sensitivity = sens_f
+                if params and "slicing_style" in params and sample_obj is not None and hasattr(sample_obj, "slicing_style"):
+                    sample_obj.slicing_style = int(params["slicing_style"])
+                if params and "beat_division" in params and sample_obj is not None and hasattr(sample_obj, "slicing_beat_division"):
+                    sample_obj.slicing_beat_division = int(params["beat_division"])
+                slices = getattr(sample_obj, "slices", None) if sample_obj else None
+                slices_count = len(slices) if slices is not None else 0
+                st["playback_mode"] = "Slicing"
+                return {
+                    "status": "sliced",
+                    "track_index": t_idx,
+                    "device_index": d_idx,
+                    "playback_mode": "Slicing",
+                    "slices_count": slices_count,
+                }
+
+            elif act == "slice_to_drum_rack":
+                if hasattr(dev, "slice_to_drum_rack"):
+                    dev.slice_to_drum_rack()
+                    return {
+                        "status": "success",
+                        "action": "slice_to_drum_rack",
+                        "track_index": t_idx,
+                        "device_index": d_idx,
+                    }
+                raise NotImplementedError(
+                    "slice_to_drum_rack is not exposed by the Ableton Live 12 Python LOM; use Simpler Slicing mode via action='slice' instead"
+                )
+
+            elif act == "replace_sample":
+                sample_path = str(params.get("sample_path", "")) if params else ""
+                if not sample_path:
+                    raise ValueError("params['sample_path'] is required for replace_sample")
+                if not hasattr(dev, "replace_sample"):
+                    raise RuntimeError("SimplerDevice does not expose replace_sample in this environment")
+                dev.replace_sample(sample_path)
+                st["sample_path"] = sample_path
+                actual_path = str(getattr(getattr(dev, "sample", None), "file_path", sample_path) or sample_path)
+                return {
+                    "status": "sample_replaced",
+                    "track_index": t_idx,
+                    "device_index": d_idx,
+                    "path": actual_path,
+                    "sample_path": actual_path,
+                }
+
+        # Offline mock path (s is None)
+        if act == "get_state":
             return {
                 "status": "success",
                 "track_index": t_idx,
                 "device_index": d_idx,
-                "playback_mode": pb_mode,
+                "playback_mode": st["playback_mode"],
                 "slices_count": len(st["slices"]),
                 "sample_path": st["sample_path"],
             }
-        elif action == "set_playback_mode":
-            mode = str(params.get("playback_mode", "Classic")) if params else "Classic"
-            st["playback_mode"] = mode
-            if dev and hasattr(dev, "parameters"):
-                for p in dev.parameters:
-                    if "mode" in p.name.lower() or "playback" in p.name.lower():
-                        try:
-                            if hasattr(p, "value_for_string"):
-                                p.value = p.value_for_string(mode)
-                            elif hasattr(p, "max") and p.max > 0:
-                                mode_map = {"classic": 0.0, "1-shot": 1.0, "oneshot": 1.0, "slicing": 2.0}
-                                if mode.lower() in mode_map and mode_map[mode.lower()] <= p.max:
-                                    p.value = mode_map[mode.lower()]
-                        except Exception:
-                            pass
-                        break
-            return {"status": "success", "playback_mode": mode}
-        elif action == "slice":
-            sample_obj = getattr(dev, "sample", None) if dev else None
-            slices = getattr(sample_obj, "slices", None) if sample_obj else None
-            slices_count = len(slices) if slices is not None else len(st["slices"])
-            return {"status": "sliced", "slices_count": slices_count}
-        elif action == "slice_to_drum_rack":
+        elif act == "set_playback_mode":
+            mode_raw = eff_mode if eff_mode is not None else "Classic"
+            mode_key = str(mode_raw).strip().lower()
+            if mode_key not in self._SIMPLER_PLAYBACK_MAP:
+                raise ValueError(f"Invalid Simpler playback_mode {mode_raw!r}")
+            canonical_mode = self._SIMPLER_PLAYBACK_NAMES[self._SIMPLER_PLAYBACK_MAP[mode_key]]
+            st["playback_mode"] = canonical_mode
+            return {"status": "success", "playback_mode": canonical_mode}
+        elif act == "slice":
+            if eff_sens is not None:
+                sens_f = float(eff_sens)
+                if math.isnan(sens_f) or math.isinf(sens_f) or not (0.0 <= sens_f <= 1.0):
+                    raise ValueError(f"Simpler slicing sensitivity must be in [0.0, 1.0], got {sens_f}")
+            st["playback_mode"] = "Slicing"
+            return {"status": "sliced", "playback_mode": "Slicing", "slices_count": len(st["slices"])}
+        elif act == "slice_to_drum_rack":
             return {
                 "status": "success",
                 "action": "slice_to_drum_rack",
                 "slices_count": len(st["slices"]),
             }
-        elif action == "replace_sample":
-            p = str(params.get("sample_path", "")) if params else ""
-            st["sample_path"] = p
-            sample_obj = getattr(dev, "sample", None) if dev else None
-            if sample_obj and hasattr(sample_obj, "file_path"):
-                try:
-                    sample_obj.file_path = p
-                except Exception:
-                    pass
-            return {"status": "sample_replaced", "path": p}
-
-        return {"status": "ok", "action": action}
+        else:
+            sample_path = str(params.get("sample_path", "")) if params else ""
+            if not sample_path:
+                raise ValueError("params['sample_path'] is required for replace_sample")
+            st["sample_path"] = sample_path
+            return {"status": "sample_replaced", "path": sample_path}
 
     def live12_meld_control(
         self,
@@ -2461,20 +3571,23 @@ class BridgeHandlers:
         res: Dict[str, Any] = {"status": "success", "action": action}
 
         if action == "preview":
+            if not browser_item_uri:
+                raise ValueError("browser_item_uri is required for action='preview'")
             res["preview_active"] = True
-            res["browser_item_uri"] = browser_item_uri or ""
-            if browser and hasattr(browser, "preview_item") and browser_item_uri:
-                try:
-                    browser.preview_item(browser_item_uri)
-                except Exception:
-                    pass
+            res["browser_item_uri"] = browser_item_uri
+            if browser and hasattr(browser, "preview_item"):
+                item = (
+                    browser_item_uri
+                    if hasattr(browser_item_uri, "is_loadable")
+                    else self._find_browser_item(browser, str(browser_item_uri))
+                )
+                if item is None:
+                    raise ValueError(f"Browser item '{browser_item_uri}' not found for preview")
+                browser.preview_item(item)
         elif action == "stop":
             res["preview_active"] = False
             if browser and hasattr(browser, "stop_preview"):
-                try:
-                    browser.stop_preview()
-                except Exception:
-                    pass
+                browser.stop_preview()
         elif action == "hotswap_status":
             target = getattr(browser, "hotswap_target", None) if browser else None
             res["hotswap_active"] = (target is not None)
@@ -2495,9 +3608,9 @@ class BridgeHandlers:
 
         t_idx, d_idx = self._validate_device_indices(track_index, device_index)
         s = self.song()
-        dev = None
-        if s and 0 <= t_idx < len(s.tracks) and 0 <= d_idx < len(s.tracks[t_idx].devices):
-            dev = s.tracks[t_idx].devices[d_idx]
+        dev = s.tracks[t_idx].devices[d_idx] if s else None
+        if dev is not None and hasattr(dev, "can_have_chains") and not getattr(dev, "can_have_chains", False):
+            raise ValueError(f"Device '{getattr(dev, 'name', d_idx)}' is not a Rack device")
 
         res: Dict[str, Any] = {
             "status": "success",
@@ -2517,23 +3630,52 @@ class BridgeHandlers:
             cnt = int(count if count is not None else 8)
             if cnt < 1 or cnt > 16:
                 raise ValueError("Macro count must be between 1 and 16")
-            if dev and hasattr(dev, "visible_macro_count"):
-                dev.visible_macro_count = cnt
-            res["visible_macro_count"] = cnt
+            if dev is not None:
+                if hasattr(dev, "add_macro") and hasattr(dev, "remove_macro") and hasattr(dev, "visible_macro_count"):
+                    try:
+                        dev.visible_macro_count = cnt
+                    except (AttributeError, RuntimeError):
+                        for _ in range(16):
+                            curr = int(dev.visible_macro_count)
+                            if curr < cnt:
+                                dev.add_macro()
+                            elif curr > cnt:
+                                dev.remove_macro()
+                            else:
+                                break
+                elif hasattr(dev, "visible_macro_count"):
+                    dev.visible_macro_count = cnt
+                else:
+                    raise RuntimeError("Rack device does not expose visible_macro_count")
+                res["visible_macro_count"] = int(getattr(dev, "visible_macro_count", cnt))
+            else:
+                res["visible_macro_count"] = cnt
         elif action == "add_macro":
-            if dev and hasattr(dev, "add_macro"):
-                dev.add_macro()
-            elif dev and hasattr(dev, "visible_macro_count"):
-                dev.visible_macro_count = min(16, dev.visible_macro_count + 1)
-            res["visible_macro_count"] = getattr(dev, "visible_macro_count", 9) if dev else 9
+            if dev is not None:
+                if hasattr(dev, "add_macro"):
+                    dev.add_macro()
+                elif hasattr(dev, "visible_macro_count"):
+                    dev.visible_macro_count = min(16, int(dev.visible_macro_count) + 1)
+                else:
+                    raise RuntimeError("Rack device does not support adding macros")
+                res["visible_macro_count"] = int(getattr(dev, "visible_macro_count", 9))
+            else:
+                res["visible_macro_count"] = 9
         elif action == "remove_macro":
-            if dev and hasattr(dev, "remove_macro"):
-                dev.remove_macro()
-            elif dev and hasattr(dev, "visible_macro_count"):
-                dev.visible_macro_count = max(1, dev.visible_macro_count - 1)
-            res["visible_macro_count"] = getattr(dev, "visible_macro_count", 7) if dev else 7
+            if dev is not None:
+                if hasattr(dev, "remove_macro"):
+                    dev.remove_macro()
+                elif hasattr(dev, "visible_macro_count"):
+                    dev.visible_macro_count = max(1, int(dev.visible_macro_count) - 1)
+                else:
+                    raise RuntimeError("Rack device does not support removing macros")
+                res["visible_macro_count"] = int(getattr(dev, "visible_macro_count", 7))
+            else:
+                res["visible_macro_count"] = 7
         elif action == "randomize":
-            if dev and hasattr(dev, "randomize_macros"):
+            if dev is not None:
+                if not hasattr(dev, "randomize_macros"):
+                    raise RuntimeError("Rack device does not expose randomize_macros")
                 dev.randomize_macros()
             res["randomized"] = True
 
@@ -2554,9 +3696,7 @@ class BridgeHandlers:
 
         t_idx, d_idx = self._validate_device_indices(track_index, device_index)
         s = self.song()
-        dev = None
-        if s and 0 <= t_idx < len(s.tracks) and 0 <= d_idx < len(s.tracks[t_idx].devices):
-            dev = s.tracks[t_idx].devices[d_idx]
+        dev = s.tracks[t_idx].devices[d_idx] if s else None
 
         res: Dict[str, Any] = {
             "status": "success",
@@ -2565,7 +3705,20 @@ class BridgeHandlers:
             "device_index": d_idx,
         }
 
-        drum_pads = list(getattr(dev, "drum_pads", [])) if dev and hasattr(dev, "drum_pads") else []
+        if dev is not None and not hasattr(dev, "drum_pads"):
+            raise ValueError(f"Device '{getattr(dev, 'name', d_idx)}' is not a Drum Rack")
+        drum_pads = list(getattr(dev, "drum_pads", []) or []) if dev is not None else []
+
+        def _require_pad(note_val: Optional[int], label: str = "pad_note") -> int:
+            if note_val is None:
+                raise ValueError(f"{label} is required for {action}")
+            pn = int(note_val)
+            if not (0 <= pn <= 127):
+                raise IndexError(f"{label} {pn} out of MIDI range [0, 127]")
+            if dev is not None:
+                if not drum_pads or pn >= len(drum_pads):
+                    raise IndexError(f"{label} {pn} out of Drum Rack range (0..{len(drum_pads) - 1})")
+            return pn
 
         if action == "inspect_pads":
             active_pads = []
@@ -2580,46 +3733,41 @@ class BridgeHandlers:
                         "chains_count": len(chains),
                     })
             res["pads"] = active_pads
-            res["total_pads_count"] = len(drum_pads) if drum_pads else 128
+            res["total_pads_count"] = len(drum_pads) if dev is not None else 128
 
         elif action == "mute_pad":
-            if pad_note is None:
-                raise ValueError("pad_note is required for mute_pad")
-            pn = int(pad_note)
+            pn = _require_pad(pad_note)
             st = bool(state if state is not None else True)
-            if 0 <= pn < len(drum_pads):
+            if dev is not None:
                 drum_pads[pn].mute = st
             res["pad_note"] = pn
             res["mute"] = st
 
         elif action == "solo_pad":
-            if pad_note is None:
-                raise ValueError("pad_note is required for solo_pad")
-            pn = int(pad_note)
+            pn = _require_pad(pad_note)
             st = bool(state if state is not None else True)
-            if 0 <= pn < len(drum_pads):
+            if dev is not None:
                 drum_pads[pn].solo = st
             res["pad_note"] = pn
             res["solo"] = st
 
         elif action == "copy_pad":
-            if pad_note is None or target_note is None:
-                raise ValueError("pad_note and target_note are required for copy_pad")
-            src = int(pad_note)
-            dst = int(target_note)
-            if dev and hasattr(dev, "copy_pad"):
+            src = _require_pad(pad_note, "pad_note")
+            dst = _require_pad(target_note, "target_note")
+            if dev is not None:
+                if not hasattr(dev, "copy_pad"):
+                    raise RuntimeError("Drum Rack device does not expose copy_pad")
                 dev.copy_pad(src, dst)
             res["source_note"] = src
             res["target_note"] = dst
 
         elif action == "delete_chains":
-            if pad_note is None:
-                raise ValueError("pad_note is required for delete_chains")
-            pn = int(pad_note)
-            if 0 <= pn < len(drum_pads):
+            pn = _require_pad(pad_note)
+            if dev is not None:
                 p = drum_pads[pn]
-                if hasattr(p, "delete_all_chains"):
-                    p.delete_all_chains()
+                if not hasattr(p, "delete_all_chains"):
+                    raise RuntimeError("DrumPad object does not expose delete_all_chains")
+                p.delete_all_chains()
             res["pad_note"] = pn
             res["chains_deleted"] = True
 
@@ -2640,9 +3788,7 @@ class BridgeHandlers:
 
         t_idx, d_idx = self._validate_device_indices(track_index, device_index)
         s = self.song()
-        dev = None
-        if s and 0 <= t_idx < len(s.tracks) and 0 <= d_idx < len(s.tracks[t_idx].devices):
-            dev = s.tracks[t_idx].devices[d_idx]
+        dev = s.tracks[t_idx].devices[d_idx] if s else None
 
         res: Dict[str, Any] = {
             "status": "success",
@@ -2666,23 +3812,54 @@ class BridgeHandlers:
             res["cc_number"] = cc
             res["value"] = val
             res["channel"] = ch
-            if dev and hasattr(dev, "parameters"):
-                for p in dev.parameters:
-                    if f"cc {cc}" in getattr(p, "name", "").lower():
-                        p.value = val / 127.0
+            if dev is not None:
+                params = list(getattr(dev, "parameters", ()) or ())
+                # Optional channel parameter update if present on CC Control device
+                for p in params:
+                    if "channel" in str(getattr(p, "name", "")).lower():
+                        p_min = float(getattr(p, "min", 1.0))
+                        p_max = float(getattr(p, "max", 16.0))
+                        p.value = max(p_min, min(p_max, float(ch)))
                         break
+
+                cc_pattern = re.compile(rf"\bcc\s*0*{cc}\b", re.IGNORECASE)
+                matched_p = None
+                for p in params:
+                    p_name = str(getattr(p, "name", ""))
+                    if cc_pattern.search(p_name):
+                        matched_p = p
+                        break
+                if matched_p is None and cc == 1:
+                    for p in params:
+                        p_name_l = str(getattr(p, "name", "")).lower()
+                        if "mod wheel" in p_name_l or "modulation" in p_name_l:
+                            matched_p = p
+                            break
+                if matched_p is None:
+                    raise ValueError(
+                        f"No parameter matching CC {cc} found on device '{getattr(dev, 'name', d_idx)}'"
+                    )
+                p_min = float(getattr(matched_p, "min", 0.0))
+                p_max = float(getattr(matched_p, "max", 1.0))
+                matched_p.value = p_min + (val / 127.0) * (p_max - p_min)
+                res["parameter_name"] = str(getattr(matched_p, "name", ""))
+                res["parameter_value"] = float(matched_p.value)
+
         elif action == "get_mappings":
             mappings = []
-            if dev and hasattr(dev, "parameters"):
+            if dev is not None and hasattr(dev, "parameters"):
                 for i, p in enumerate(dev.parameters):
-                    mappings.append({"index": i, "name": getattr(p, "name", f"Param {i}"), "value": getattr(p, "value", 0.0)})
-            else:
-                mappings = [
-                    {"cc": 1, "name": "Modulation", "value": 0},
-                    {"cc": 7, "name": "Volume", "value": 100},
-                    {"cc": 10, "name": "Pan", "value": 64},
-                    {"cc": 74, "name": "Filter Cutoff", "value": 64},
-                ]
+                    p_min = float(getattr(p, "min", 0.0))
+                    p_max = float(getattr(p, "max", 1.0))
+                    p_val = float(getattr(p, "value", 0.0))
+                    mappings.append({
+                        "index": i,
+                        "name": str(getattr(p, "name", f"Param {i}")),
+                        "value": p_val,
+                        "min": p_min,
+                        "max": p_max,
+                        "normalized_value": (p_val - p_min) / (p_max - p_min) if p_max > p_min else 0.0,
+                    })
             res["mappings"] = mappings
 
         return res
@@ -2700,7 +3877,7 @@ class BridgeHandlers:
                 app.view.show_view(view_name)
             else:
                 app.view.focus_view(view_name)
-        return {"current_view": view_name}
+        return {"current_view": view_name, "active_view": view_name}
 
     def live12_view_select(
         self,
@@ -2711,16 +3888,49 @@ class BridgeHandlers:
     ) -> Dict[str, Any]:
         s = self.song()
         if s and hasattr(s, "view"):
-            if track_index is not None and 0 <= int(track_index) < len(s.tracks):
-                s.view.selected_track = s.tracks[int(track_index)]
-            if scene_index is not None and 0 <= int(scene_index) < len(s.scenes):
-                s.view.selected_scene = s.scenes[int(scene_index)]
-            if device_index is not None and track_index is not None:
+            if track_index is not None:
                 t_idx = int(track_index)
+                if not (0 <= t_idx < len(s.tracks)):
+                    raise IndexError(f"Track index {t_idx} out of range")
+                s.view.selected_track = s.tracks[t_idx]
+            if scene_index is not None:
+                s_idx = int(scene_index)
+                if not (0 <= s_idx < len(s.scenes)):
+                    raise IndexError(f"Scene index {s_idx} out of range")
+                s.view.selected_scene = s.scenes[s_idx]
+            if clip_slot is not None:
+                if not isinstance(clip_slot, (list, tuple)) or len(clip_slot) != 2:
+                    raise ValueError("clip_slot must be a [track_index, scene_index] pair")
+                cs_t = int(clip_slot[0])
+                cs_s = int(clip_slot[1])
+                if not (0 <= cs_t < len(s.tracks)):
+                    raise IndexError(f"clip_slot track index {cs_t} out of range")
+                tr = s.tracks[cs_t]
+                if not (0 <= cs_s < len(tr.clip_slots)):
+                    raise IndexError(f"clip_slot scene index {cs_s} out of range")
+                if hasattr(s.view, "highlighted_clip_slot"):
+                    s.view.highlighted_clip_slot = tr.clip_slots[cs_s]
+            if device_index is not None:
                 d_idx = int(device_index)
-                if 0 <= t_idx < len(s.tracks) and 0 <= d_idx < len(s.tracks[t_idx].devices):
-                    s.view.select_device(s.tracks[t_idx].devices[d_idx])
-        return {"selected": True, "track_index": track_index, "scene_index": scene_index}
+                if track_index is not None:
+                    tr = s.tracks[int(track_index)]
+                else:
+                    tr = getattr(s.view, "selected_track", None)
+                    if tr is None and s.tracks:
+                        tr = s.tracks[0]
+                if tr is None or not (0 <= d_idx < len(tr.devices)):
+                    raise IndexError(f"Device index {d_idx} out of range")
+                if hasattr(s.view, "select_device"):
+                    s.view.select_device(tr.devices[d_idx])
+        return {
+            "selected": True,
+            "track_index": track_index,
+            "scene_index": scene_index,
+            "selected_track": track_index,
+            "selected_scene": scene_index,
+            "selected_clip_slot": clip_slot,
+            "selected_device": device_index,
+        }
 
     def live12_dialog_inspect(self) -> Dict[str, Any]:
         app = self.application()
@@ -2789,37 +3999,72 @@ class BridgeHandlers:
             os.makedirs(parent, exist_ok=True)
         return {"exported": True, "destination": destination_wav_path}
 
+    def close_open_undo_steps(self) -> int:
+        """Closes any unbalanced open Live undo steps on disconnect or teardown."""
+        closed = 0
+        s = self.song()
+        while getattr(self, "_undo_depth", 0) > 0:
+            self._undo_depth -= 1
+            if s and hasattr(s, "end_undo_step"):
+                try:
+                    s.end_undo_step()
+                except RuntimeError:
+                    break
+            closed += 1
+        return closed
+
     def live12_undo_redo(self, action: str) -> Dict[str, Any]:
         valid_actions = ("undo", "redo", "status", "begin_step", "end_step")
         if action not in valid_actions:
             raise ValueError(f"Invalid undo action '{action}', must be one of {valid_actions}")
 
+        if not hasattr(self, "_undo_depth"):
+            self._undo_depth = 0
+
         s = self.song()
-        res: Dict[str, Any] = {"status": "success", "action": action}
+        res: Dict[str, Any] = {"status": "success", "action": action, "undo_depth": self._undo_depth}
 
         if action == "undo":
-            res["undone"] = True
+            if s:
+                if getattr(s, "can_undo", False) and hasattr(s, "undo"):
+                    s.undo()
+                    res["undone"] = True
+                else:
+                    res["undone"] = False
+                    res["status"] = "nothing_to_undo"
+            else:
+                res["undone"] = True
         elif action == "redo":
-            res["redone"] = True
+            if s:
+                if getattr(s, "can_redo", False) and hasattr(s, "redo"):
+                    s.redo()
+                    res["redone"] = True
+                else:
+                    res["redone"] = False
+                    res["status"] = "nothing_to_redo"
+            else:
+                res["redone"] = True
         elif action == "status":
             can_undo = bool(getattr(s, "can_undo", True)) if s else True
             can_redo = bool(getattr(s, "can_redo", False)) if s else False
             res["can_undo"] = can_undo
             res["can_redo"] = can_redo
         elif action == "begin_step":
+            if self._undo_depth >= MAX_UNDO_DEPTH:
+                raise RuntimeError(f"Maximum undo step depth ({MAX_UNDO_DEPTH}) reached")
             if s and hasattr(s, "begin_undo_step"):
-                try:
-                    s.begin_undo_step()
-                except Exception:
-                    pass
+                s.begin_undo_step()
+            self._undo_depth += 1
             res["step_active"] = True
+            res["undo_depth"] = self._undo_depth
         elif action == "end_step":
+            if self._undo_depth <= 0:
+                raise RuntimeError("No open undo step to end")
             if s and hasattr(s, "end_undo_step"):
-                try:
-                    s.end_undo_step()
-                except Exception:
-                    pass
-            res["step_active"] = False
+                s.end_undo_step()
+            self._undo_depth -= 1
+            res["step_active"] = self._undo_depth > 0
+            res["undo_depth"] = self._undo_depth
 
         return res
 
@@ -2845,7 +4090,7 @@ class BridgeHandlers:
     ) -> Dict[str, Any]:
         return lom_call(self.root_getter, target_path, method_name, args, kwargs)
 
-    def live12_bridge_reload(self) -> Dict[str, Any]:
+    def live12_bridge_reload(self, reset_state: bool = False) -> Dict[str, Any]:
         """
         Hot-reloads the Live12Bridge modules (reflection, handlers) in-memory
         and updates the active handlers instance on the ControlSurface.
@@ -2856,11 +4101,22 @@ class BridgeHandlers:
         importlib.reload(reflection_mod)
         importlib.reload(handlers_mod)
         new_handlers = handlers_mod.BridgeHandlers(self.cs)
+        if not reset_state:
+            for attr in (
+                "_undo_depth",
+                "_current_tuning_system",
+                "_top_device_cache",
+                "_wavetable_matrices",
+                "_simpler_state",
+            ):
+                if hasattr(self, attr):
+                    setattr(new_handlers, attr, getattr(self, attr))
         if hasattr(self.cs, "_handlers"):
             self.cs._handlers = new_handlers
         return {
             "status": "reloaded",
             "message": "Live12Bridge modules reloaded successfully",
+            "reset_state": bool(reset_state),
             "handlers_count": len([m for m in dir(new_handlers) if m.startswith("live12_")]),
         }
 

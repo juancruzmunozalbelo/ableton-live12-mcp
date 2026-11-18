@@ -168,7 +168,7 @@ class TestMcpProtocolHandshake:
         assert result.get("protocolVersion") == "2024-11-05"
         assert "tools" in result.get("capabilities", {})
         assert result.get("serverInfo", {}).get("name") == "ableton-live12-mcp"
-        assert result.get("serverInfo", {}).get("version") == "1.0.0"
+        assert result.get("serverInfo", {}).get("version") == "1.1.0"
 
     def test_initialized_notification_handled_silently(self, mcp_client: McpProcessClient):
         # 1. Initialize
@@ -196,7 +196,7 @@ class TestMcpToolsList:
         resp = mcp_client.send_request("tools/list", {})
         assert "result" in resp
         tools = resp["result"].get("tools", [])
-        assert len(tools) == 76, f"Expected 76 tools, found {len(tools)}"
+        assert len(tools) == 77, f"Expected 77 tools, found {len(tools)}"
 
     def test_all_tools_pass_draft7_metaschema_validation(self, mcp_client: McpProcessClient):
         resp = mcp_client.send_request("tools/list", {})
@@ -219,7 +219,7 @@ class TestMcpToolsList:
         resp = mcp_client.send_request("tools/list", {})
         tools = resp["result"]["tools"]
         names = {t["name"] for t in tools}
-        assert len(names) == 76, "Found duplicate tool names"
+        assert len(names) == 77, "Found duplicate tool names"
 
         domain_tools = {
             "Domain 1: Song & Transport (15 tools)": [
@@ -231,10 +231,11 @@ class TestMcpToolsList:
                 "live12_song_set_scale", "live12_song_set_tuning_system",
                 "live12_cue_point_control", "live12_tempo_sync_control",
             ],
-            "Domain 2: Tracks, TakeLanes, Scenes, Routing (15 tools)": [
+            "Domain 2: Tracks, TakeLanes, Scenes, Routing (16 tools)": [
                 "live12_track_create", "live12_track_delete", "live12_track_duplicate",
                 "live12_track_set_properties", "live12_track_group", "live12_track_ungroup",
                 "live12_take_lane_create", "live12_take_lane_list", "live12_take_lane_comp_region",
+                "live12_take_lane_create_audio_clip",
                 "live12_scene_create", "live12_scene_fire", "live12_scene_set_properties",
                 "live12_routing_set", "live12_routing_get", "live12_mixer_set",
             ],
@@ -576,9 +577,9 @@ class TestMcpProcessLifecycle:
     def test_unmocked_production_startup(self):
         """Verifies server starts in default unmocked auto-mode without crashing with TypeError.
 
-        Subprocess runs WITHOUT ABLETON_TEST_MODE='mock', probes bridge (falling back
-        cleanly to offline mock when bridge is unreachable), responds cleanly to initialize
-        and ping, and terminates cleanly with exit code 0 on EOF.
+        Subprocess runs WITHOUT ABLETON_TEST_MODE='mock', routes live calls to Live12Client
+        without silent mock fallback, responds cleanly to initialize and ping, and terminates
+        cleanly with exit code 0 on EOF.
         """
         client = McpProcessClient(mock_mode=False)
         try:

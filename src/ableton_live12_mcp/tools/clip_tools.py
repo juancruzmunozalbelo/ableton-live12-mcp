@@ -544,8 +544,8 @@ CLIP_TOOLS: List[Dict[str, Any]] = [
                 },
                 "action": {
                     "type": "string",
-                    "enum": ["inspect", "set_step", "clear", "clear_all", "re_enable"],
-                    "description": "Automation action: 'inspect' envelope existence/parameters, 'set_step' insert breakpoint value, 'clear' parameter envelope, 'clear_all' remove all envelopes, 're_enable' re-enable automation."
+                    "enum": ["inspect", "create", "set_step", "insert_step", "clear", "clear_all", "re_enable"],
+                    "description": "Automation action: 'inspect' envelope existence/parameters, 'create' automation envelope, 'set_step'/'insert_step' insert breakpoint value, 'clear' parameter envelope, 'clear_all' remove all envelopes, 're_enable' re-enable automation."
                 },
                 "device_index": {
                     "type": "integer",
@@ -559,14 +559,32 @@ CLIP_TOOLS: List[Dict[str, Any]] = [
                     ],
                     "description": "Device parameter name or zero-based parameter index."
                 },
+                "parameter_index": {
+                    "anyOf": [
+                        {"type": "string"},
+                        {"type": "integer", "minimum": 0}
+                    ],
+                    "description": "Alias for parameter_identifier (zero-based parameter index or name)."
+                },
                 "time": {
                     "type": "number",
                     "minimum": 0.0,
-                    "description": "Beat position within clip for set_step."
+                    "description": "Beat position within clip for set_step / insert_step."
+                },
+                "length": {
+                    "type": "number",
+                    "exclusiveMinimum": 0.0,
+                    "default": 0.25,
+                    "description": "Step duration in beats for set_step / insert_step (default 0.25)."
                 },
                 "value": {
                     "type": "number",
-                    "description": "Target parameter value for set_step."
+                    "description": "Target parameter value for set_step / insert_step."
+                },
+                "normalized": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": "If true, 'value' is interpreted as a normalized float between 0.0 (min) and 1.0 (max)."
                 }
             },
             "required": ["track_index", "slot_index", "action"]

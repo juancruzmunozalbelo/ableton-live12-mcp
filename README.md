@@ -93,6 +93,7 @@ Operational notes (live-set safety, bridge CPU, audio device issues, GUI automat
 - `live12_take_lane_create`: Creates a new take lane on an arrangement track.
 - `live12_take_lane_list`: Queries all take lanes, clip presence, and custom metadata.
 - `live12_take_lane_comp_region`: Comps a beat time window from a take lane into the track's main lane.
+- `live12_take_lane_create_audio_clip`: Inserts an audio clip onto a specific take lane at a target beat position.
 
 ### 6. Audio Clips, Warping & Sample Properties (Domain 6)
 - `live12_audio_clip_set_warp`: Enables warping, sets warp mode (Beats, Tones, Complex Pro), and sets pitch/gain.
@@ -228,7 +229,7 @@ ln -sfn "$(pwd)/src/live12_bridge" "$HOME/Music/Ableton/User Library/Remote Scri
 4. The bridge starts immediately, binding to `127.0.0.1:11246` and publishing discovery metadata to `/tmp/ableton_live12_bridge.json`.
 
 ### 4. Configure Antigravity (`agy`)
-Register `ableton-live12` in your Antigravity MCP configuration (`~/.gemini/antigravity-cli/mcp/ableton-live12/config.json`):
+Register `ableton-live12` in your Antigravity MCP configuration (`scripts/register_mcp.py` writes to `~/.gemini/config/mcp_config.json`; CLI per-server configs live under `~/.gemini/antigravity-cli/mcp/ableton-live12/config.json`):
 
 ```json
 {

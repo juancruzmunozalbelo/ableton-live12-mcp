@@ -110,7 +110,7 @@ class TestEmpiricalAll61ToolsCall:
 
     def test_all_61_tools_execute_in_mock_mode(self, mcp_session: McpProcessClient, tmp_path: Path):
         catalog = get_tool_catalog()
-        assert len(catalog) == 76, f"Expected 76 tools in catalog, found {len(catalog)}"
+        assert len(catalog) == 77, f"Expected 77 tools in catalog, found {len(catalog)}"
 
         save_als_path = str(tmp_path / "empirical_test.als")
         export_wav_path = str(tmp_path / "empirical_test.wav")
@@ -143,6 +143,12 @@ class TestEmpiricalAll61ToolsCall:
             "live12_take_lane_create": {"track_index": 0},
             "live12_take_lane_list": {"track_index": 0},
             "live12_take_lane_comp_region": {"track_index": 0, "lane_index": 0, "start": 0.0, "length": 4.0},
+            "live12_take_lane_create_audio_clip": {
+                "track_index": 0,
+                "take_lane_index": 0,
+                "file_path": "/tmp/mock.wav",
+                "time": 0.0,
+            },
             "live12_scene_create": {"index": 0},
             "live12_scene_fire": {"index": 0},
             "live12_scene_set_properties": {"scene_index": 0, "name": "Chorus", "tempo": 128.0, "tempo_enabled": True},
@@ -212,7 +218,7 @@ class TestEmpiricalAll61ToolsCall:
         }
 
         # Verify specification covers 100% of tools
-        assert len(valid_call_specs) == 76
+        assert len(valid_call_specs) == 77
         for tool in catalog:
             assert tool["name"] in valid_call_specs, f"Missing test spec for tool {tool['name']}"
 
@@ -229,7 +235,7 @@ class TestEmpiricalAll61ToolsCall:
             assert not is_error, f"Tool {name} failed with error: {data}"
             executed_count += 1
 
-        assert executed_count == 76, f"Expected 76 tools executed, ran {executed_count}"
+        assert executed_count == 77, f"Expected 77 tools executed, ran {executed_count}"
 
 
 # ==============================================================================

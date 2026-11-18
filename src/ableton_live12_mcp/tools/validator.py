@@ -27,7 +27,7 @@ def validate_argument_dict(schema: Dict[str, Any], data: Dict[str, Any], path: s
 
 def validate_value(schema: Dict[str, Any], val: Any, path: str) -> None:
     """Validates an individual value against its schema specification."""
-    # anyOf
+    # anyOf (evaluated alongside sibling keywords per Draft-07)
     if "anyOf" in schema:
         matched = False
         errors: List[str] = []
@@ -39,10 +39,9 @@ def validate_value(schema: Dict[str, Any], val: Any, path: str) -> None:
             except ValidationError as err:
                 errors.append(str(err))
         if not matched:
-            raise ValidationError(f"{path}: value {val!r} did not match any allowed type in anyOf: {errors}")
-        return
+            raise ValidationError(f"{path}: value {val!r} did not match any allowed schema in anyOf: {errors}")
 
-    # oneOf
+    # oneOf (evaluated alongside sibling keywords per Draft-07)
     if "oneOf" in schema:
         matches = 0
         errors: List[str] = []
@@ -54,7 +53,6 @@ def validate_value(schema: Dict[str, Any], val: Any, path: str) -> None:
                 errors.append(str(err))
         if matches != 1:
             raise ValidationError(f"{path}: value {val!r} matched {matches} schemas in oneOf (expected 1): {errors}")
-        return
 
     expected_type = schema.get("type")
     is_object_schema = expected_type == "object" or (
@@ -67,8 +65,9 @@ def validate_value(schema: Dict[str, Any], val: Any, path: str) -> None:
     elif expected_type == "number":
         if not isinstance(val, (int, float)) or isinstance(val, bool):
             raise ValidationError(f"{path}: expected number, got {type(val).__name__}")
-        if isinstance(val, float) and math.isnan(val):
-            raise ValidationError(f"{path}: NaN is not a valid number")
+        if isinstance(val, float) and (math.isnan(val) or math.isinf(val)):
+            label = "NaN" if math.isnan(val) else "Inf"
+            raise ValidationError(f"{path}: {label} is not a valid number")
     elif expected_type == "string":
         if not isinstance(val, str):
             raise ValidationError(f"{path}: expected string, got {type(val).__name__}")
@@ -120,9 +119,10 @@ def validate_value(schema: Dict[str, Any], val: Any, path: str) -> None:
             # If additional_props is True or omitted, extra properties are allowed per Draft-07
 
     # Numeric Bounds
-    if isinstance(val, float) and math.isnan(val):
+    if isinstance(val, float) and (math.isnan(val) or math.isinf(val)):
         if any(k in schema for k in ("minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum")):
-            raise ValidationError(f"{path}: NaN is not a valid number")
+            label = "NaN" if math.isnan(val) else "Inf"
+            raise ValidationError(f"{path}: {label} is not a valid number")
     if "minimum" in schema:
         if isinstance(val, (int, float)) and not isinstance(val, bool):
             if val < schema["minimum"]:

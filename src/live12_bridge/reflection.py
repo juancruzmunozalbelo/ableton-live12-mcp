@@ -9,6 +9,7 @@ and full Live 12 extended MIDI note conversions.
 from __future__ import annotations
 
 import inspect
+import itertools
 import math
 import re
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
@@ -17,6 +18,25 @@ try:
     import Live
 except ImportError:
     Live = None
+
+
+MAX_LOM_LIST_ITEMS = 256
+
+DEPRECATED_LOM_ATTRS = frozenset({
+    "legacy_libraries",
+    "current_input_routing",
+    "current_input_sub_routing",
+    "current_output_routing",
+    "current_output_sub_routing",
+    "input_routings",
+    "input_sub_routings",
+    "output_routings",
+    "output_sub_routings",
+    "get_notes",
+    "set_notes",
+    "remove_notes",
+    "replace_selected_notes",
+})
 
 
 # Standard Live 12 MIDI note attributes
@@ -101,11 +121,11 @@ def serialize_lom_value(val: Any, depth: int = 0) -> Any:
         return val
 
     if isinstance(val, (list, tuple, set)) or "Vector" in type(val).__name__:
-        # For long lists of complex objects, summarize or serialize items
-        return [serialize_lom_value(item, depth + 1) for item in val]
+        # Cap serialized collections so huge LOM vectors (e.g. browser items) cannot stall the main thread
+        return [serialize_lom_value(item, depth + 1) for item in itertools.islice(val, MAX_LOM_LIST_ITEMS)]
 
     if isinstance(val, dict):
-        return {str(k): serialize_lom_value(v, depth + 1) for k, v in val.items()}
+        return {str(k): serialize_lom_value(v, depth + 1) for k, v in itertools.islice(val.items(), MAX_LOM_LIST_ITEMS)}
 
     # Check if it has a to_dict method
     if hasattr(val, "to_dict") and callable(val.to_dict):
@@ -119,10 +139,13 @@ def serialize_lom_value(val: Any, depth: int = 0) -> Any:
         info: Dict[str, Any] = {
             "type": type(val).__name__,
         }
-        if hasattr(val, "name") and not callable(getattr(val, "name")):
-            info["name"] = str(getattr(val, "name"))
-        if hasattr(val, "_live_ptr"):
-            info["live_ptr"] = getattr(val, "_live_ptr")
+        try:
+            if hasattr(val, "name") and not callable(getattr(val, "name")):
+                info["name"] = str(getattr(val, "name"))
+            if hasattr(val, "_live_ptr"):
+                info["live_ptr"] = getattr(val, "_live_ptr")
+        except (RuntimeError, ReferenceError, AttributeError):
+            pass
         return info
 
     return str(val)
@@ -298,18 +321,29 @@ def lom_inspect(root_getter: Callable[[str], Any], target_path: str) -> Dict[str
     methods = []
 
     for attr in dir(obj):
-        if attr.startswith("_"):
+        if attr.startswith("_") or attr in DEPRECATED_LOM_ATTRS:
             continue
         try:
-            val = getattr(obj, attr)
-            if callable(val):
+            static_val = inspect.getattr_static(obj, attr)
+            if isinstance(static_val, (classmethod, staticmethod)) or inspect.isroutine(static_val):
+                methods.append(attr)
+            elif isinstance(static_val, property) or inspect.isdatadescriptor(static_val):
+                props.append(attr)
+            elif callable(static_val):
                 methods.append(attr)
             else:
                 props.append(attr)
-        except Exception:
-            props.append(attr)
+        except AttributeError:
+            try:
+                val = getattr(obj, attr)
+                if callable(val):
+                    methods.append(attr)
+                else:
+                    props.append(attr)
+            except (RuntimeError, ReferenceError, AttributeError):
+                props.append(attr)
 
-    doc = inspect.getdoc(obj) or getattr(obj, "__doc__", None)
+    doc = inspect.getdoc(obj) or getattr(type_obj, "__doc__", None)
 
     return {
         "path": target_path,

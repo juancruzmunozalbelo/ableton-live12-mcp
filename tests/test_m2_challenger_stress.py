@@ -591,7 +591,7 @@ def test_browser_load_item_nested_hierarchy_search():
 
 
 def test_browser_load_item_nonexistent_does_not_crash():
-    """Validates that requesting a nonexistent browser item handles gracefully without crash."""
+    """Validates that requesting a nonexistent browser item raises a clear ValueError without modifying state."""
     browser = MockDeepBrowser()
     app = MockCS(app=type("App", (), {"browser": browser})()).application()
 
@@ -607,12 +607,12 @@ def test_browser_load_item_nonexistent_does_not_crash():
     song = MockSong()
     handlers = BridgeHandlers(cs=MockCS(song=song, app=app))
 
-    res = handlers.live12_browser_load_item(
-        track_index=0,
-        browser_item_uri="nonexistent:item:id",
-    )
+    with pytest.raises(ValueError, match="not found"):
+        handlers.live12_browser_load_item(
+            track_index=0,
+            browser_item_uri="nonexistent:item:id",
+        )
 
-    assert res["status"] == "not_found"
     assert len(browser.loaded_items) == 0
 
 
