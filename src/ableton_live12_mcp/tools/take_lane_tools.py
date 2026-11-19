@@ -35,7 +35,8 @@ TAKE_LANE_TOOLS: List[Dict[str, Any]] = [
                     "description": "Beat position in arrangement timeline where the clip will be placed."
                 }
             },
-            "required": ["track_index", "take_lane_index", "file_path", "time"]
+            "required": ["track_index", "take_lane_index", "file_path", "time"],
+            "additionalProperties": False
         }
     }
 ]

@@ -2,24 +2,24 @@
 
 **Ableton Live 12 MCP (`ableton-live12-mcp`)** implements end-to-end programmatic coverage for **all 20 functional domains** of the *Ableton Live 12 Suite Manual*.
 
-This document details the architectural alignment between the 20 manual chapters, the 75 dedicated Model Context Protocol (MCP) tools, the underlying Live Object Model (LOM) C++ Boost.Python classes and methods, and the automated verification suites.
+This document details the architectural alignment between the 20 manual chapters, the 77 dedicated Model Context Protocol (MCP) tools, the underlying Live Object Model (LOM) C++ Boost.Python classes and methods, and the automated verification suites.
 
 ---
 
 ## Executive Summary & Tool Distribution
 
 - **Total Manual Chapters Covered**: 20 / 20 (100%)
-- **Total Dedicated MCP Tools**: 75
+- **Total Dedicated MCP Tools**: 77
 - **Underlying Reverse-Engineered LOM Classes**: 49
 - **Core Test Suite**: `tests/test_ableton12_manual_20_chapters.py` (20 chapter test classes)
 
 | # | Manual Chapter Title | Dedicated MCP Tools | LOM Classes & Surface | Test Coverage |
 |:---:|:---|:---:|:---|:---|
 | **1** | Arrangement View, Time Signatures & Locator Cue Points | 10 | `Song`, `CuePoint`, `Track` | `TestChapter01ArrangementAndCuePoints` |
-| **2** | Session View, Scenes & Clip Slots | 8 | `Scene`, `ClipSlot`, `Song` | `TestChapter02SessionViewAndScenes` |
+| **2** | Session View, Scenes & Clip Slots | 9 | `Scene`, `ClipSlot`, `Song` | `TestChapter02SessionViewAndScenes` |
 | **3** | Track Hierarchy, Grouping & Performance Impact | 6 | `Song`, `Track` | `TestChapter03TrackHierarchyAndGrouping` |
 | **4** | Audio Routing, Sidechain & I/O Channels | 2 | `Track` (I/O routings) | `TestChapter04AudioRoutingAndSidechain` |
-| **5** | Take Lanes & Arrangement Comping | 3 | `Track`, `TakeLane` | `TestChapter05TakeLanesAndComping` |
+| **5** | Take Lanes & Arrangement Comping | 4 | `Track`, `TakeLane` | `TestChapter05TakeLanesAndComping` |
 | **6** | Audio Clips, Warping & Sample Properties | 3 | `Clip`, `Sample` | `TestChapter06AudioClipsAndWarping` |
 | **7** | Live 12 MIDI Note Editing & Extended Spec | 4 | `Clip`, `MidiNoteSpecification` | `TestChapter07MidiNoteEditingExtended` |
 | **8** | Live 12 MIDI Transformations & Algorithmic Tools | 2 | `Clip`, `Song` | `TestChapter08MidiTransformationsAndQuantization` |
@@ -65,12 +65,13 @@ This document details the architectural alignment between the 20 manual chapters
 ### Chapter 2: Session View, Scenes & Clip Slots
 
 - **Manual Scope**: Non-linear clip triggering, scene launching, tempo-assigned scenes, time-signature-assigned scenes, and clip slot states.
-- **Dedicated MCP Tools (8)**:
+- **Dedicated MCP Tools (9)**:
   - `live12_scene_create`: Inserts a new scene at index.
   - `live12_scene_fire`: Fires all clip slots in a scene.
   - `live12_scene_set_properties`: Configures scene name, color, scene-triggered tempo, and scene-triggered time signature.
   - `live12_clip_create`: Creates a blank MIDI clip on a designated slot.
   - `live12_clip_delete`: Deletes a clip from a slot.
+  - `live12_clip_delete_arrangement`: Deletes an arrangement clip on a track by timeline position.
   - `live12_clip_fire`: Triggers playback of a specific session clip.
   - `live12_clip_stop`: Stops clip playback on a designated track.
   - `live12_clip_duplicate_to_arrangement`: Bridges session clips to the arrangement timeline.
@@ -114,9 +115,10 @@ This document details the architectural alignment between the 20 manual chapters
 ### Chapter 5: Take Lanes & Arrangement Comping
 
 - **Manual Scope**: Audio and MIDI take lanes, recording multiple passes, comping best regions into the master lane, and auditioning take lanes.
-- **Dedicated MCP Tools (3)**:
+- **Dedicated MCP Tools (4)**:
   - `live12_take_lane_create`: Creates a new take lane on an arrangement track.
   - `live12_take_lane_list`: Queries all take lanes, clip presence, and custom metadata.
+  - `live12_take_lane_create_audio_clip`: Inserts an audio clip directly onto a take lane at a specified beat time (`TakeLane.create_audio_clip`).
   - `live12_take_lane_comp_region`: Comps a beat time window from a take lane into the track's main arrangement clip.
 - **LOM Classes & Methods**:
   - `Live.Track.Track`: `take_lanes`, `create_take_lane()`.
@@ -322,7 +324,7 @@ This document details the architectural alignment between the 20 manual chapters
   - `live12_undo_redo`: Executes undo/redo operations and demarcates transactional undo steps.
   - `live12_os_save_set`: Saves the current Live set (`.als`) to disk.
   - `live12_os_open_set`: Loads an `.als` project file via AppleScript System Events.
-  - `live12_os_export_audio`: Triggers audio bounce export dialog and executes render.
+  - `live12_os_export_audio`: Triggers audio bounce export dialog, validates `render_settings`, and executes render (explicitly reporting UI-inaccessible keys via `unapplied_render_settings`).
   - `live12_lom_inspect`: Introspects properties, methods, and child objects of any Live Object Model path.
   - `live12_lom_get`: Dynamically retrieves property values from any LOM object.
   - `live12_lom_set`: Dynamically sets property values on any LOM object.

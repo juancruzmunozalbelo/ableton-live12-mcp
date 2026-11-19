@@ -39,8 +39,10 @@ jobs:
           PYTHONPATH=src python -c "
           from ableton_live12_mcp.tools import get_tool_catalog
           cat = get_tool_catalog()
-          print(f'Validated MCP Tool Catalog: {len(cat)} tools registered')
-          assert len(cat) >= 61, 'Tool catalog incomplete'
+          core = get_tool_catalog(include_extensions=False)
+          print(f'Validated MCP Tool Catalog: {len(cat)} tools registered ({len(core)} core)')
+          assert len(cat) == 77, f'Expected 77 tools, found {len(cat)}'
+          assert len(core) == 76, f'Expected 76 core tools, found {len(core)}'
           "
 
       - name: Run automated test suite

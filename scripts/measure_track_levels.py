@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import sys
 import time
@@ -18,12 +19,19 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 from ableton_live12_mcp.client import Live12Client  # noqa: E402
 
 
+def _linear_to_dbfs(linear_val: float) -> float:
+    """Converts Live linear [0.0..1.0+] meter amplitude to dBFS (floored at -120.0)."""
+    if linear_val <= 1e-6:
+        return -120.0
+    return round(max(-120.0, 20.0 * math.log10(linear_val)), 2)
+
+
 def _levels(value):
     """Live reports meter levels as {'left': x, 'right': y}; the bridge may flatten them."""
     if isinstance(value, dict):
-        return [float(v) for v in value.values() if isinstance(v, (int, float))]
-    if isinstance(value, (int, float)):
-        return [float(value)]
+        return [_linear_to_dbfs(float(v)) for v in value.values() if isinstance(v, (int, float)) and not isinstance(v, bool)]
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return [_linear_to_dbfs(float(value))]
     return []
 
 
@@ -57,27 +65,31 @@ def main() -> int:
     # Live 12 ignores a playhead move while the transport is stopped: the position
     # must be set WHILE playing (hot seek). Start, seek, then measure.
     c.call("live12_transport_play", {"restart": True})
-    time.sleep(0.4)
-    c.call("live12_lom_set", {"target_path": "song", "property_name": "current_song_time",
-                              "value": float(args.start_beat)})
-    # Live's meter reading is a PEAK-HOLD: let the peaks of the previous position
-    # decay before sampling the new section.
-    time.sleep(float(args.settle))
+    try:
+        time.sleep(0.4)
+        c.call("live12_lom_set", {"target_path": "song", "property_name": "current_song_time",
+                                  "value": float(args.start_beat)})
+        # Live's meter reading is a PEAK-HOLD: let the peaks of the previous position
+        # decay before sampling the new section.
+        time.sleep(float(args.settle))
 
-    deadline = time.time() + args.seconds
-    while time.time() < deadline:
-        for i in range(n_tracks):
-            lvl = g(f"song.tracks.{i}", "output_meter_level")
-            for v in _levels(lvl):
-                if v > peaks[i]:
-                    peaks[i] = v
-        m = g("song.master_track", "output_meter_level")
-        for v in _levels(m):
-            if v > master_peak:
-                master_peak = v
-        time.sleep(args.interval)
-
-    c.call("live12_transport_stop")
+        deadline = time.time() + args.seconds
+        while time.time() < deadline:
+            for i in range(n_tracks):
+                lvl = g(f"song.tracks.{i}", "output_meter_level")
+                for v in _levels(lvl):
+                    if v > peaks[i]:
+                        peaks[i] = v
+            m = g("song.master_track", "output_meter_level")
+            for v in _levels(m):
+                if v > master_peak:
+                    master_peak = v
+            time.sleep(args.interval)
+    finally:
+        try:
+            c.call("live12_transport_stop")
+        except Exception as stop_err:
+            sys.stderr.write(f"Warning: failed stopping transport: {stop_err}\n")
 
     print(f"Measured {args.seconds:.0f}s from beat {args.start_beat} | master peak {master_peak:.1f} dB")
     print("-" * 78)

@@ -33,6 +33,7 @@ DEPRECATED_LOM_ATTRS = frozenset({
     "output_routings",
     "output_sub_routings",
     "get_notes",
+    "get_selected_notes",
     "set_notes",
     "remove_notes",
     "replace_selected_notes",
@@ -99,6 +100,8 @@ def liveobj_valid(obj: Any) -> bool:
     if obj is None:
         return False
     try:
+        if getattr(obj, "_live_ptr", None) == 0:
+            return False
         # Boost.Python objects raise RuntimeError or return False if C++ pointer is deleted
         return bool(obj != None)
     except (RuntimeError, ReferenceError, AttributeError):
@@ -136,12 +139,77 @@ def serialize_lom_value(val: Any, depth: int = 0) -> Any:
 
     # Live object or generic Python object
     if liveobj_valid(val):
+        type_name = type(val).__name__
+        try:
+            # Live 12 MidiNote struct
+            if (
+                hasattr(val, "note_id")
+                and hasattr(val, "pitch")
+                and hasattr(val, "start_time")
+                and hasattr(val, "duration")
+            ):
+                return midi_note_to_dict(val)
+
+            # Live 12 WarpMarker struct
+            if hasattr(val, "beat_time") and hasattr(val, "sample_time"):
+                return {
+                    "type": type_name,
+                    "beat_time": serialize_lom_value(getattr(val, "beat_time"), depth + 1),
+                    "sample_time": serialize_lom_value(getattr(val, "sample_time"), depth + 1),
+                }
+
+            # Live 12 BeatTime struct
+            if (
+                hasattr(val, "bars")
+                and hasattr(val, "beats")
+                and hasattr(val, "sub_division")
+                and hasattr(val, "ticks")
+            ):
+                return {
+                    "type": type_name,
+                    "bars": int(getattr(val, "bars")),
+                    "beats": int(getattr(val, "beats")),
+                    "sub_division": int(getattr(val, "sub_division")),
+                    "ticks": int(getattr(val, "ticks")),
+                }
+
+            # Live 12 RoutingChannel struct
+            if hasattr(val, "display_name") and hasattr(val, "layout"):
+                return {
+                    "type": type_name,
+                    "display_name": str(getattr(val, "display_name")),
+                    "layout": serialize_lom_value(getattr(val, "layout"), depth + 1),
+                }
+
+            # Live 12 RoutingType struct (and generic routing objects with display_name)
+            if hasattr(val, "display_name") and (
+                type_name == "RoutingType"
+                or hasattr(val, "category")
+                or hasattr(val, "attached_object")
+            ):
+                routing_info: Dict[str, Any] = {
+                    "type": type_name,
+                    "display_name": str(getattr(val, "display_name")),
+                }
+                if hasattr(val, "category"):
+                    routing_info["category"] = serialize_lom_value(getattr(val, "category"), depth + 1)
+                if hasattr(val, "attached_object"):
+                    ao = getattr(val, "attached_object")
+                    routing_info["attached_object"] = (
+                        serialize_lom_value(ao, depth + 1) if liveobj_valid(ao) else None
+                    )
+                return routing_info
+        except (RuntimeError, ReferenceError, AttributeError):
+            pass
+
         info: Dict[str, Any] = {
-            "type": type(val).__name__,
+            "type": type_name,
         }
         try:
             if hasattr(val, "name") and not callable(getattr(val, "name")):
                 info["name"] = str(getattr(val, "name"))
+            if hasattr(val, "display_name") and not callable(getattr(val, "display_name")):
+                info["display_name"] = str(getattr(val, "display_name"))
             if hasattr(val, "_live_ptr"):
                 info["live_ptr"] = getattr(val, "_live_ptr")
         except (RuntimeError, ReferenceError, AttributeError):
@@ -265,17 +333,26 @@ def resolve_path(root_getter: Callable[[str], Any], path: str) -> Any:
         if not liveobj_valid(obj):
             raise RuntimeError(f"Live object at '{'.'.join(current_path)}' is invalid or has been deleted")
 
-        # Check integer indexing
+        # Check integer indexing (preserve string keys on dicts without forced int coercion)
         try:
             idx = int(token)
             is_int = True
         except ValueError:
             is_int = False
 
-        if is_int:
-            if isinstance(obj, dict):
+        if isinstance(obj, dict):
+            if token in obj:
+                obj = obj[token]
+            elif is_int and idx in obj:
                 obj = obj[idx]
-            elif isinstance(obj, (list, tuple)) or hasattr(obj, "__getitem__"):
+            elif not is_int and hasattr(obj, token):
+                obj = getattr(obj, token)
+            elif is_int:
+                raise KeyError(token)
+            else:
+                raise AttributeError(f"'{type(obj).__name__}' object has no attribute '{token}'")
+        elif is_int:
+            if isinstance(obj, (list, tuple)) or hasattr(obj, "__getitem__"):
                 try:
                     c_len = len(obj)
                     if 0 <= idx < c_len:
@@ -287,9 +364,7 @@ def resolve_path(root_getter: Callable[[str], Any], path: str) -> Any:
             else:
                 raise TypeError(f"Cannot index into object of type '{type(obj).__name__}'")
         else:
-            if isinstance(obj, dict) and token in obj:
-                obj = obj[token]
-            elif hasattr(obj, token):
+            if hasattr(obj, token):
                 obj = getattr(obj, token)
             else:
                 raise AttributeError(f"'{type(obj).__name__}' object has no attribute '{token}'")
@@ -305,6 +380,8 @@ def lom_inspect(root_getter: Callable[[str], Any], target_path: str) -> Dict[str
     returning its type, available properties, methods, and docstring.
     """
     obj = resolve_path(root_getter, target_path)
+    if not liveobj_valid(obj):
+        raise RuntimeError(f"Target object at '{target_path}' is invalid or deleted")
 
     # Determine type name
     type_obj = type(obj)
@@ -399,18 +476,36 @@ def lom_set(
     # Type coercion when appropriate
     curr_val = getattr(obj, property_name, None)
     assigned_val = value
-    if isinstance(curr_val, float) and not isinstance(value, float):
-        try:
-            assigned_val = float(value)
-        except (ValueError, TypeError):
-            pass
-    elif isinstance(curr_val, int) and not isinstance(curr_val, bool) and not isinstance(value, int):
-        try:
-            assigned_val = int(value)
-        except (ValueError, TypeError):
-            pass
-    elif isinstance(curr_val, bool) and not isinstance(value, bool):
-        assigned_val = bool(value)
+    if isinstance(curr_val, bool):
+        if not isinstance(value, bool):
+            if isinstance(value, str):
+                s_val = value.strip().lower()
+                if s_val in ("true", "1", "yes", "on"):
+                    assigned_val = True
+                elif s_val in ("false", "0", "no", "off"):
+                    assigned_val = False
+                else:
+                    raise ValueError(
+                        f"Cannot parse boolean string {value!r} for property '{property_name}'"
+                    )
+            else:
+                assigned_val = bool(value)
+    elif isinstance(curr_val, float):
+        if isinstance(value, bool):
+            raise TypeError(f"Cannot assign bool {value!r} to float property '{property_name}'")
+        if not isinstance(value, float):
+            try:
+                assigned_val = float(value)
+            except (ValueError, TypeError):
+                pass
+    elif isinstance(curr_val, int):
+        if isinstance(value, bool):
+            raise TypeError(f"Cannot assign bool {value!r} to integer property '{property_name}'")
+        if not isinstance(value, int):
+            try:
+                assigned_val = int(value)
+            except (ValueError, TypeError):
+                pass
 
     setattr(obj, property_name, assigned_val)
     new_val = getattr(obj, property_name)
@@ -446,21 +541,20 @@ def lom_call(
     call_kwargs = dict(kwargs or {})
 
     # Specialized conversion for note operations in Live 12
-    if method_name == "add_new_notes" and call_args:
-        notes_arg = call_args[0]
-        if isinstance(notes_arg, (list, tuple)):
-            converted_notes = []
-            for n in notes_arg:
-                if isinstance(n, dict):
-                    converted_notes.append(dict_to_midi_note_spec(n))
-                else:
-                    converted_notes.append(n)
-            call_args[0] = tuple(converted_notes)
+    if method_name == "add_new_notes":
+        if call_args and isinstance(call_args[0], (list, tuple)):
+            call_args[0] = tuple(
+                dict_to_midi_note_spec(n) if isinstance(n, dict) else n
+                for n in call_args[0]
+            )
+        elif "notes" in call_kwargs and isinstance(call_kwargs["notes"], (list, tuple)):
+            call_kwargs["notes"] = tuple(
+                dict_to_midi_note_spec(n) if isinstance(n, dict) else n
+                for n in call_kwargs["notes"]
+            )
 
     result = method(*call_args, **call_kwargs)
     serialized = serialize_lom_value(result)
-    if serialized is None:
-        serialized = True
     return {
         "path": target_path,
         "method": method_name,

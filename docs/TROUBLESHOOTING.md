@@ -5,14 +5,12 @@ through this MCP server. Every recipe below was verified against the running app
 
 ---
 
-## 1. The test suite mutates the live set unless you force mock mode
+## 1. Preventing accidental live-set mutations during test runs
 
-`tests/harness.py` auto-detects a reachable bridge (`127.0.0.1:11246`). If Live is open,
-`pytest` runs **against the live instance**: it creates `__agy_test_*` tracks, rewrites the
-song tempo/scale, and can leave stray arrangement clips behind.
+`tests/harness.py` defaults to offline **mock mode** for safety, and only attaches to a live instance on `127.0.0.1:11246` when explicitly requested via `mode="live"`, `ABLETON_TEST_MODE=live`, or `--live` (e.g. `./scripts/run_live_tests.sh --live`). In live mode, tests create `__agy_test_*` tracks/scenes/cues and restore snapshotted song settings on teardown, while leaving existing user locators and tracks intact.
 
 ```bash
-# ALWAYS run the suite in mock mode when Live is open
+# Explicitly force mock mode when Live is open
 ABLETON_TEST_MODE=mock python3 -m pytest tests/ -q
 ```
 

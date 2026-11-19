@@ -52,19 +52,28 @@ def snapshot(client: Live12Client | None = None) -> dict:
         except Exception:
             return None
 
+    loop_start = g("song", "loop_start")
+    loop_length = g("song", "loop_length")
+    loop_end = (
+        (loop_start + loop_length)
+        if isinstance(loop_start, (int, float)) and isinstance(loop_length, (int, float))
+        else None
+    )
+
     song = {
         "name": g("song", "name"),
         "tempo": g("song", "tempo"),
         "current_song_time": g("song", "current_song_time"),
-        "loop_start": g("song", "loop_start"),
-        "loop_end": g("song", "loop_end"),
+        "loop_start": loop_start,
+        "loop_length": loop_length,
+        "loop_end": loop_end,
         "scale_name": g("song", "scale_name"),
-        "scale_root": g("song", "scale_root"),
+        "scale_root": g("song", "root_note"),
     }
 
     tracks = []
     try:
-        n_tracks = len(c.call("live12_lom_get", {"target_path": "song.tracks", "property_name": "tracks"}).get("value") or [])
+        n_tracks = len(c.call("live12_lom_get", {"target_path": "song", "property_name": "tracks"}).get("value") or [])
     except Exception:
         n_tracks = 0
     if n_tracks == 0:
@@ -127,8 +136,11 @@ def main() -> int:
     print("-" * 100)
     for t in snap["tracks"]:
         devs = ", ".join(str(d["name"]) for d in t["devices"]) or "-"
-        print(f"[{t['index']:2d}] {str(t['name'])[:40]:40s} color={t['color_index']:>3} "
-              f"vol={t['volume_db']:>7} dB pan={t['panning']:+.2f} "
+        col_str = f"{t['color_index']:>3}" if t["color_index"] is not None else "  -"
+        vol_str = f"{t['volume_db']:>7}" if t["volume_db"] is not None else "      -"
+        pan_str = f"{t['panning']:+.2f}" if t["panning"] is not None else "  -  "
+        print(f"[{t['index']:2d}] {str(t['name'])[:40]:40s} color={col_str} "
+              f"vol={vol_str} dB pan={pan_str} "
               f"clips={len(t['clips']):2d} | {devs[:44]}")
         for cl in t["clips"]:
             sb, eb = cl["start_beat"], cl["end_beat"]

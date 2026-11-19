@@ -9,6 +9,7 @@ Supports auto-discovery, connection retry, timeouts, and ToolResult formatting.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import socket
 import sys
@@ -17,9 +18,12 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
+logger = logging.getLogger("ableton_live12_mcp.client")
+
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 11246
 DEFAULT_DISCOVERY_PATH = "/tmp/ableton_live12_bridge.json"
+MAX_RESPONSE_BYTES = 10 * 1024 * 1024
 
 
 class Live12ClientError(Exception):
@@ -86,6 +90,36 @@ class Live12Client:
     Reads active discovery metadata from /tmp/ableton_live12_bridge.json when available.
     """
 
+    @staticmethod
+    def _parse_port(raw_port: Any, source: str, strict: bool = False) -> Optional[int]:
+        if raw_port is None:
+            return None
+        if isinstance(raw_port, bool):
+            msg = f"Invalid {source} port: {raw_port!r} (bool is not a valid port)"
+            if strict:
+                raise ValueError(msg)
+            logger.warning(msg)
+            return None
+        if isinstance(raw_port, str):
+            raw_port = raw_port.strip()
+            if not raw_port:
+                return None
+        try:
+            parsed = int(raw_port)
+        except (TypeError, ValueError) as e:
+            msg = f"Invalid {source} port {raw_port!r}: {e}"
+            if strict:
+                raise ValueError(msg) from e
+            logger.warning(msg)
+            return None
+        if not (0 <= parsed <= 65535):
+            msg = f"Out-of-range {source} port {parsed} (must be 0..65535)"
+            if strict:
+                raise ValueError(msg)
+            logger.warning(msg)
+            return None
+        return parsed
+
     def __init__(
         self,
         host: Optional[str] = None,
@@ -96,13 +130,16 @@ class Live12Client:
         self.timeout = timeout
         self.discovery_path = discovery_path or DEFAULT_DISCOVERY_PATH
         self._req_id = 0
-        self._req_lock = threading.Lock()
+        self._req_lock = threading.RLock()
 
         # Preserve pinned overrides (explicit arg or environment variable).
         env_host = os.environ.get("ABLETON_BRIDGE_HOST")
         env_port = os.environ.get("ABLETON_BRIDGE_PORT")
         self._pinned_host: Optional[str] = host if host is not None else (env_host or None)
-        self._pinned_port: Optional[int] = int(port) if port is not None else (int(env_port) if env_port else None)
+        if port is not None:
+            self._pinned_port: Optional[int] = self._parse_port(port, "port", strict=True)
+        else:
+            self._pinned_port = self._parse_port(env_port, "ABLETON_BRIDGE_PORT", strict=False)
 
         self.host = DEFAULT_HOST
         self.port = DEFAULT_PORT
@@ -141,15 +178,18 @@ class Live12Client:
                     pid_valid = True if pid is None else self._is_pid_alive(pid)
                     if pid_valid:
                         if resolved_port is None and meta.get("port") is not None:
-                            resolved_port = int(meta["port"])
+                            resolved_port = self._parse_port(meta["port"], "discovery", strict=False)
                         if resolved_host is None and meta.get("host"):
                             resolved_host = str(meta["host"])
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Failed reading bridge discovery file {self.discovery_path!r}: {e}")
 
-        self.host = resolved_host or DEFAULT_HOST
-        self.port = resolved_port or DEFAULT_PORT
-        return self.host, self.port
+        final_host = resolved_host if resolved_host is not None else DEFAULT_HOST
+        final_port = resolved_port if resolved_port is not None else DEFAULT_PORT
+        with self._req_lock:
+            self.host = final_host
+            self.port = final_port
+        return final_host, final_port
 
     def is_reachable(self, probe_timeout: float = 0.3) -> bool:
         """Checks whether the Live 12 TCP bridge is reachable."""
@@ -183,23 +223,41 @@ class Live12Client:
         }
         data = (json.dumps(req_payload) + "\n").encode("utf-8")
         req_timeout = self.timeout if timeout is None else timeout
+        deadline = time.monotonic() + max(0.0, float(req_timeout))
         host, port = self._refresh_endpoint()
 
         def _exchange(target_host: str, target_port: int) -> bytes:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                s.settimeout(req_timeout)
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise socket.timeout("Request timed out before connect")
+                s.settimeout(remaining)
                 s.connect((target_host, target_port))
+
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise socket.timeout("Request timed out before send")
+                s.settimeout(remaining)
                 s.sendall(data)
 
-                chunks = []
+                buf = bytearray()
                 while True:
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        raise socket.timeout("Request timed out waiting for bridge response")
+                    s.settimeout(remaining)
                     chunk = s.recv(8192)
                     if not chunk:
                         break
-                    chunks.append(chunk)
-                    if b"\n" in chunk:
-                        break
-                return b"".join(chunks)
+                    buf.extend(chunk)
+                    if len(buf) > MAX_RESPONSE_BYTES:
+                        raise Live12ClientError(
+                            f"Bridge response exceeded maximum allowed size ({MAX_RESPONSE_BYTES} bytes)"
+                        )
+                    non_empty = bytes(buf).lstrip(b"\r\n \t")
+                    if b"\n" in non_empty:
+                        return non_empty.split(b"\n", 1)[0]
+                return bytes(buf).lstrip(b"\r\n \t")
 
         try:
             try:
@@ -207,13 +265,39 @@ class Live12Client:
             except ConnectionRefusedError as e:
                 if self._pinned_host is None or self._pinned_port is None:
                     new_host, new_port = self._refresh_endpoint()
-                    if (new_host, new_port) != (host, port):
+                    attempted = {(host, port)}
+                    if (new_host, new_port) not in attempted:
+                        attempted.add((new_host, new_port))
                         host, port = new_host, new_port
-                        raw_bytes = _exchange(host, port)
+                        try:
+                            raw_bytes = _exchange(host, port)
+                        except ConnectionRefusedError:
+                            if self._pinned_port is None:
+                                fallback_host = self._pinned_host if self._pinned_host is not None else DEFAULT_HOST
+                                fallback_port = DEFAULT_PORT
+                                if (fallback_host, fallback_port) not in attempted:
+                                    host, port = fallback_host, fallback_port
+                                    raw_bytes = _exchange(host, port)
+                                else:
+                                    raise
+                            else:
+                                raise
+                    elif self._pinned_port is None:
+                        fallback_host = self._pinned_host if self._pinned_host is not None else DEFAULT_HOST
+                        fallback_port = DEFAULT_PORT
+                        if (fallback_host, fallback_port) not in attempted:
+                            host, port = fallback_host, fallback_port
+                            raw_bytes = _exchange(host, port)
+                        else:
+                            raise e
                     else:
                         raise e
                 else:
                     raise e
+
+            with self._req_lock:
+                self.host = host
+                self.port = port
 
             first_frame = raw_bytes.split(b"\n", 1)[0].strip()
             if not first_frame:
@@ -225,16 +309,38 @@ class Live12Client:
                     f"Invalid JSON-RPC response type from bridge: {type(resp).__name__}"
                 )
 
-            if "id" in resp and not ("error" in resp and resp["id"] is None) and resp["id"] != req_id:
-                raise Live12ClientError(
-                    f"Mismatched JSON-RPC response id: expected {req_id}, got {resp['id']!r}"
-                )
+            raw_err = resp.get("error") if "error" in resp else None
+            has_err = raw_err is not None
 
-            if "error" in resp:
-                err = resp["error"]
-                code = err.get("code", -32000)
-                msg = err.get("message", "Unknown RPC error")
-                err_data = err.get("data")
+            if "id" not in resp:
+                raise Live12ClientError("Malformed JSON-RPC response from bridge: missing 'id'")
+
+            resp_id = resp["id"]
+            is_null_protocol_error = (
+                resp_id is None
+                and isinstance(raw_err, dict)
+                and raw_err.get("code") in (-32700, -32600)
+            )
+            if not is_null_protocol_error:
+                if (
+                    isinstance(resp_id, bool)
+                    or type(resp_id) is not type(req_id)
+                    or resp_id != req_id
+                ):
+                    raise Live12ClientError(
+                        f"Mismatched JSON-RPC response id: expected {req_id!r}, got {resp_id!r}"
+                    )
+
+            if has_err:
+                if isinstance(raw_err, dict):
+                    raw_code = raw_err.get("code", -32000)
+                    code = raw_code if (isinstance(raw_code, int) and not isinstance(raw_code, bool)) else -32000
+                    msg = str(raw_err.get("message", "Unknown RPC error"))
+                    err_data = raw_err.get("data")
+                else:
+                    code = -32000
+                    msg = str(raw_err)
+                    err_data = None
                 raise Live12RpcError(code, msg, err_data)
 
             return resp.get("result")

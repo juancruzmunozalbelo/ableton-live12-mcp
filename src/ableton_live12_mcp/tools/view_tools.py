@@ -22,7 +22,8 @@ VIEW_TOOLS: List[Dict[str, Any]] = [
                     "description": "Canonical name of the Ableton Live 12 GUI view to show or focus."
                 }
             },
-            "required": ["view_name"]
+            "required": ["view_name"],
+            "additionalProperties": False
         }
     },
     {
@@ -54,7 +55,8 @@ VIEW_TOOLS: List[Dict[str, Any]] = [
                     "description": "Optional zero-based device index on selected track to focus."
                 }
             },
-            "required": []
+            "required": [],
+            "additionalProperties": False
         }
     },
     {
@@ -63,7 +65,8 @@ VIEW_TOOLS: List[Dict[str, Any]] = [
         "inputSchema": {
             "type": "object",
             "properties": {},
-            "required": []
+            "required": [],
+            "additionalProperties": False
         }
     },
     {
@@ -78,7 +81,8 @@ VIEW_TOOLS: List[Dict[str, Any]] = [
                     "description": "Zero-based button index to press (0=default/OK, 1=cancel)."
                 }
             },
-            "required": ["button_index"]
+            "required": ["button_index"],
+            "additionalProperties": False
         }
     },
     {
@@ -96,9 +100,16 @@ VIEW_TOOLS: List[Dict[str, Any]] = [
                     "type": "boolean",
                     "default": True,
                     "description": "If false, raise an error instead of overwriting an existing .als target."
+                },
+                "timeout_sec": {
+                    "type": "number",
+                    "exclusiveMinimum": 0.0,
+                    "default": 10.0,
+                    "description": "Overall wall-clock timeout in seconds for saving and verifying the .als file."
                 }
             },
-            "required": ["destination_path"]
+            "required": ["destination_path"],
+            "additionalProperties": False
         }
     },
     {
@@ -116,9 +127,16 @@ VIEW_TOOLS: List[Dict[str, Any]] = [
                     "type": "boolean",
                     "default": True,
                     "description": "If true, dismisses 'Save changes' prompts by choosing Don't Save; if false, fails when unsaved changes block opening."
+                },
+                "timeout_sec": {
+                    "type": "number",
+                    "exclusiveMinimum": 0.0,
+                    "default": 10.0,
+                    "description": "Overall wall-clock timeout in seconds for opening the .als file."
                 }
             },
-            "required": ["als_path"]
+            "required": ["als_path"],
+            "additionalProperties": False
         }
     },
     {
@@ -134,10 +152,54 @@ VIEW_TOOLS: List[Dict[str, Any]] = [
                 },
                 "render_settings": {
                     "type": "object",
-                    "description": "Optional export settings dictionary (sample_rate, bit_depth, dither_type, render_start, render_length)."
+                    "properties": {
+                        "sample_rate": {
+                            "type": "integer",
+                            "enum": [22050, 44100, 48000, 88200, 96000],
+                            "description": "Validated render sample rate in Hz (Live UI limitation: cannot be scripted via AppleScript)."
+                        },
+                        "bit_depth": {
+                            "type": "integer",
+                            "enum": [16, 24, 32],
+                            "description": "Validated render bit depth in bits (Live UI limitation: cannot be scripted via AppleScript)."
+                        },
+                        "dither_type": {
+                            "type": "string",
+                            "minLength": 1,
+                            "description": "Dither option label (Live UI limitation: cannot be scripted via AppleScript)."
+                        },
+                        "render_start": {
+                            "type": "number",
+                            "minimum": 0.0,
+                            "description": "Optional loop/render start position in beats."
+                        },
+                        "render_length": {
+                            "type": "number",
+                            "exclusiveMinimum": 0.0,
+                            "description": "Optional loop/render length in beats."
+                        },
+                        "normalize": {
+                            "type": "boolean",
+                            "description": "Whether normalization is desired (Live UI limitation: cannot be scripted via AppleScript)."
+                        },
+                        "rendered_track": {
+                            "type": "string",
+                            "minLength": 1,
+                            "description": "Rendered track selector label (Live UI limitation: cannot be scripted via AppleScript)."
+                        }
+                    },
+                    "additionalProperties": False,
+                    "description": "Optional export settings dictionary validated against supported render_settings keys."
+                },
+                "timeout_sec": {
+                    "type": "number",
+                    "exclusiveMinimum": 0.0,
+                    "default": 30.0,
+                    "description": "Overall wall-clock timeout in seconds for audio export and verification."
                 }
             },
-            "required": ["destination_wav_path"]
+            "required": ["destination_wav_path"],
+            "additionalProperties": False
         }
     },
     {
@@ -152,7 +214,8 @@ VIEW_TOOLS: List[Dict[str, Any]] = [
                     "description": "Undo action: 'undo' reverts last action, 'redo' reapplies undone action, 'status' queries can_undo/can_redo, 'begin_step' starts transaction, 'end_step' closes transaction."
                 }
             },
-            "required": ["action"]
+            "required": ["action"],
+            "additionalProperties": False
         }
     }
 ]

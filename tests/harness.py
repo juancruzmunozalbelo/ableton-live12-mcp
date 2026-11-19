@@ -19,40 +19,13 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
+_SRC_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
+if _SRC_DIR not in sys.path:
+    sys.path.insert(0, _SRC_DIR)
+
+from ableton_live12_mcp.client import Live12Client, ToolResult  # noqa: E402
+
 LIVE_COLOR_INDEX_MAX = 69  # Live 12 palette slots 0..69
-
-
-@dataclass
-class ToolResult:
-    """Standardized result envelope for MCP tool calls."""
-    is_error: bool
-    content: List[Dict[str, Any]]
-    raw: Dict[str, Any] = field(default_factory=dict)
-
-    @property
-    def data(self) -> Any:
-        """Parses json payload from the first text content item if available."""
-        if not self.content:
-            return None
-        text = self.content[0].get("text", "")
-        if not text:
-            return None
-        try:
-            return json.loads(text)
-        except Exception:
-            return text
-
-    def get(self, key: str, default: Any = None) -> Any:
-        d = self.data
-        if isinstance(d, dict):
-            return d.get(key, default)
-        return default
-
-    def __getitem__(self, key: str) -> Any:
-        d = self.data
-        if isinstance(d, dict):
-            return d[key]
-        raise KeyError(f"Data is not a dict: {type(d)}")
 
 
 # ==============================================================================
@@ -692,6 +665,7 @@ class MockAbletonBridge:
         self,
         action: str,
         enabled: Optional[bool] = None,
+        active: Optional[bool] = None,
     ) -> dict:
         valid_actions = ("get_status", "set_link", "set_follower", "tap_tempo", "nudge_up", "nudge_down")
         if action not in valid_actions:
@@ -715,9 +689,9 @@ class MockAbletonBridge:
         elif action == "tap_tempo":
             return {"action": "tap_tempo", "success": True, "tempo": self.tempo}
         elif action == "nudge_up":
-            return {"action": "nudge_up", "success": True}
+            return {"action": "nudge_up", "success": True, "active": bool(active) if active is not None else False}
         elif action == "nudge_down":
-            return {"action": "nudge_down", "success": True}
+            return {"action": "nudge_down", "success": True, "active": bool(active) if active is not None else False}
         return {"action": action, "success": True}
 
     # -------------------------------------------------------------------------
@@ -1345,18 +1319,20 @@ class MockAbletonBridge:
         t_idx = int(track_index)
         s_idx = int(slot_index)
         for mod in note_modifications:
-            if "pitch" in mod:
-                pitch = int(mod["pitch"])
-                if not (0 <= pitch <= 127):
-                    raise ValueError(f"Pitch {pitch} out of range [0, 127]")
+            for pitch_key in ("pitch", "new_pitch"):
+                if pitch_key in mod:
+                    pitch = int(mod[pitch_key])
+                    if not (0 <= pitch <= 127):
+                        raise ValueError(f"Pitch {pitch} out of range [0, 127]")
             if "duration" in mod:
                 dur = float(mod["duration"])
                 if math.isnan(dur) or math.isinf(dur) or dur <= 0.0:
                     raise ValueError(f"Note duration must be positive (> 0.0), got {dur}")
-            if "start_time" in mod:
-                st = float(mod["start_time"])
-                if math.isnan(st) or math.isinf(st) or st < 0.0:
-                    raise ValueError(f"Note start_time must be non-negative (>= 0.0), got {st}")
+            for start_key in ("start_time", "new_start_time"):
+                if start_key in mod:
+                    st = float(mod[start_key])
+                    if math.isnan(st) or math.isinf(st) or st < 0.0:
+                        raise ValueError(f"Note {start_key} must be non-negative (>= 0.0), got {st}")
             if "velocity" in mod:
                 vel = float(mod["velocity"])
                 if math.isnan(vel) or math.isinf(vel) or not (0.0 <= vel <= 127.0):
@@ -1383,12 +1359,17 @@ class MockAbletonBridge:
         for mod in note_modifications:
             target_id = mod.get("note_id")
             for n in clip.notes:
-                if (target_id and n.note_id == target_id) or (n.pitch == mod.get("pitch")):
-                    if "pitch" in mod:
+                matched = (n.note_id == target_id) if (target_id is not None) else ("pitch" in mod and n.pitch == mod["pitch"])
+                if matched:
+                    if "new_pitch" in mod:
+                        n.pitch = int(mod["new_pitch"])
+                    elif "pitch" in mod:
                         n.pitch = int(mod["pitch"])
                     if "duration" in mod:
                         n.duration = float(mod["duration"])
-                    if "start_time" in mod:
+                    if "new_start_time" in mod:
+                        n.start_time = float(mod["new_start_time"])
+                    elif "start_time" in mod:
                         n.start_time = float(mod["start_time"])
                     if "velocity" in mod:
                         n.velocity = float(mod["velocity"])
@@ -1474,23 +1455,42 @@ class MockAbletonBridge:
             clip.warping = bool(warping)
         if warp_mode is not None:
             warp_aliases = {
+                "0": "Beats",
+                "1": "Tones",
+                "2": "Texture",
+                "3": "Re-Pitch",
+                "4": "Complex",
+                "5": "REX",
+                "6": "Complex Pro",
                 "beats": "Beats",
                 "tones": "Tones",
                 "texture": "Texture",
                 "repitch": "Re-Pitch",
                 "re-pitch": "Re-Pitch",
                 "complex": "Complex",
+                "rex": "REX",
                 "complex_pro": "Complex Pro",
                 "complex pro": "Complex Pro",
             }
-            canonical = warp_aliases.get(str(warp_mode).lower())
+            canonical = warp_aliases.get(str(warp_mode).strip().lower())
             if not canonical:
                 raise ValueError(f"Invalid warp mode: {warp_mode}")
             clip.warp_mode = canonical
         if pitch_shift is not None:
-            clip.pitch_shift = float(pitch_shift)
+            ps = float(pitch_shift)
+            if math.isnan(ps) or math.isinf(ps) or not (-48.0 <= ps <= 48.0):
+                raise ValueError(f"pitch_shift out of range [-48, 48]: {ps}")
+            clip.pitch_shift = ps
         if gain is not None:
-            clip.gain = float(gain)
+            g_val = float(gain)
+            if math.isnan(g_val) or math.isinf(g_val) or g_val < -70.0 or g_val > 24.0:
+                raise ValueError(f"gain {g_val} out of valid range [0.0, 1.0] or [-70.0, 24.0] dB")
+            if 0.0 <= g_val <= 1.0:
+                clip.gain = g_val
+            elif g_val < 0.0:
+                clip.gain = max(0.0, min(1.0, 0.4 * (10.0 ** (g_val / 20.0))))
+            else:
+                clip.gain = max(0.0, min(1.0, 0.4 + (g_val / 24.0) * 0.6))
         return {
             "status": "success",
             "warping": clip.warping,
@@ -2068,6 +2068,10 @@ class MockAbletonBridge:
                 raise IndexError("Variation index out of range")
             dev.variations.pop(variation_index)
             return {"status": "deleted", "remaining_variations": len(dev.variations)}
+        elif action == "randomize":
+            import random
+            dev.macros = [round(random.uniform(0.0, 127.0), 2) for _ in dev.macros]
+            return {"status": "randomized", "macros": list(dev.macros)}
         else:
             raise ValueError(f"Unknown variation action: {action}")
 
@@ -2477,25 +2481,27 @@ class MockAbletonBridge:
             "open_dialog_count": len(self.open_dialogs),
         }
 
-    def _tool_live12_os_open_set(self, als_path: str, discard_unsaved: bool = True) -> dict:
-        try:
-            from ableton_live12_mcp import dialogs
-        except ImportError:
-            src_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
-            if src_dir not in sys.path:
-                sys.path.insert(0, src_dir)
-            from ableton_live12_mcp import dialogs
+    def _tool_live12_os_open_set(
+        self,
+        als_path: str,
+        discard_unsaved: bool = True,
+        timeout_sec: float = 10.0,
+    ) -> dict:
+        from ableton_live12_mcp import dialogs
+        if timeout_sec <= 0:
+            raise dialogs.ValidationError("timeout_sec must be positive")
         validated_path = dialogs.validate_als_open_path(als_path)
         return {"status": "success", "opened_set": validated_path, "opened": True, "path": validated_path}
 
-    def _tool_live12_os_save_set(self, destination_path: str, overwrite: bool = True) -> dict:
-        try:
-            from ableton_live12_mcp import dialogs
-        except ImportError:
-            src_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
-            if src_dir not in sys.path:
-                sys.path.insert(0, src_dir)
-            from ableton_live12_mcp import dialogs
+    def _tool_live12_os_save_set(
+        self,
+        destination_path: str,
+        overwrite: bool = True,
+        timeout_sec: float = 10.0,
+    ) -> dict:
+        from ableton_live12_mcp import dialogs
+        if timeout_sec <= 0:
+            raise dialogs.ValidationError("timeout_sec must be positive")
         validated_path = dialogs.validate_als_save_path(destination_path)
         if not overwrite and os.path.exists(validated_path):
             raise dialogs.ValidationError(f"Target Live Set already exists and overwrite=False: '{validated_path}'")
@@ -2504,28 +2510,41 @@ class MockAbletonBridge:
             f.write(b"MOCK_LIVE_SET_DATA")
         return {"status": "success", "saved_path": validated_path, "exists": True, "saved": True, "path": validated_path}
 
-    def _tool_live12_os_export_audio(self, destination_wav_path: str, render_settings: Optional[dict] = None) -> dict:
-        try:
-            from ableton_live12_mcp import dialogs
-        except ImportError:
-            src_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
-            if src_dir not in sys.path:
-                sys.path.insert(0, src_dir)
-            from ableton_live12_mcp import dialogs
+    def _tool_live12_os_export_audio(
+        self,
+        destination_wav_path: str,
+        render_settings: Optional[dict] = None,
+        timeout_sec: float = 30.0,
+    ) -> dict:
+        from ableton_live12_mcp import dialogs
+        if timeout_sec <= 0:
+            raise dialogs.ValidationError("timeout_sec must be positive")
         validated_path = dialogs.validate_wav_export_path(destination_wav_path)
+        validated_settings = dialogs._validate_render_settings(render_settings)
         os.makedirs(os.path.dirname(validated_path), exist_ok=True)
         # Write minimal valid 44-byte WAV header
         header = bytearray(b"RIFF\x24\x00\x00\x00WAVEfmt \x10\x00\x00\x00\x01\x00\x02\x00\x44\xac\x00\x00\x10\xb1\x02\x00\x04\x00\x10\x00data\x00\x00\x00\x00")
         with open(validated_path, "wb") as f:
             f.write(header)
-        return {
+        unapplied_keys = ("sample_rate", "bit_depth", "dither_type", "normalize", "rendered_track")
+        unapplied = {k: validated_settings[k] for k in unapplied_keys if k in validated_settings}
+        res = {
             "status": "success",
             "destination_wav_path": validated_path,
             "destination": validated_path,
             "file_size_bytes": len(header),
             "valid_riff": True,
             "exported": True,
+            "validated_render_settings": validated_settings,
+            "applied_render_settings": {},
+            "unapplied_render_settings": unapplied,
         }
+        if unapplied:
+            res["warning"] = (
+                "Ableton Live's Export Audio/Video dialog uses custom non-AXUI controls; "
+                f"validated settings {sorted(unapplied.keys())} cannot be toggled via AppleScript UI scripting."
+            )
+        return res
 
     def _tool_live12_undo_redo(self, action: str) -> dict:
         valid_actions = ("undo", "redo", "status", "begin_step", "end_step")
@@ -2663,68 +2682,27 @@ class MockAbletonBridge:
 # Live TCP Socket Client
 # ==============================================================================
 
-class LiveTcpClient:
-    """Connects to the Ableton Live 12 Remote Script TCP Bridge."""
+class LiveTcpClient(Live12Client):
+    """Connects to the Ableton Live 12 Remote Script TCP Bridge via Live12Client."""
 
-    def __init__(self, host: str = "127.0.0.1", port: int = 11246, timeout: float = 25.0):
-        self.host = host
-        self.port = port
-        self.timeout = timeout
-        self.req_id = 0
+    def __init__(
+        self,
+        host: Optional[str] = None,
+        port: Optional[int] = None,
+        timeout: float = 25.0,
+        discovery_path: Optional[str] = None,
+    ):
+        super().__init__(host=host, port=port, timeout=timeout, discovery_path=discovery_path)
 
-    def is_reachable(self) -> bool:
-        try:
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                s.settimeout(0.2)
-                s.connect((self.host, self.port))
-            return True
-        except Exception:
-            return False
+    @property
+    def req_id(self) -> int:
+        return self._req_id
 
-    def call_rpc(self, method: str, params: Dict[str, Any]) -> ToolResult:
-        self.req_id += 1
-        req_id = self.req_id
-        payload = {
-            "jsonrpc": "2.0",
-            "id": req_id,
-            "method": method,
-            "params": params
-        }
-        data = (json.dumps(payload) + "\n").encode("utf-8")
-        try:
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                s.settimeout(self.timeout)
-                s.connect((self.host, self.port))
-                s.sendall(data)
-                chunks = []
-                while True:
-                    chunk = s.recv(4096)
-                    if not chunk:
-                        break
-                    chunks.append(chunk)
-                    if b"\n" in chunk:
-                        break
-            first_frame = b"".join(chunks).split(b"\n", 1)[0].strip()
-            resp = json.loads(first_frame.decode("utf-8"))
-            if "error" in resp:
-                err = resp["error"]
-                return ToolResult(
-                    is_error=True,
-                    content=[{"type": "text", "text": json.dumps(err)}],
-                    raw=err
-                )
-            result = resp.get("result", {})
-            return ToolResult(
-                is_error=False,
-                content=[{"type": "text", "text": json.dumps(result)}],
-                raw=result
-            )
-        except Exception as e:
-            return ToolResult(
-                is_error=True,
-                content=[{"type": "text", "text": json.dumps({"error": str(e)})}],
-                raw={"code": -32000, "message": str(e)}
-            )
+    def is_reachable(self, probe_timeout: float = 0.2) -> bool:
+        return super().is_reachable(probe_timeout=probe_timeout)
+
+    def call_rpc(self, method: str, params: Optional[Dict[str, Any]] = None) -> ToolResult:
+        return self.call_tool(method, params)
 
 
 # ==============================================================================
@@ -2740,7 +2718,13 @@ class Live12TestClient:
     def __init__(self, mode: Optional[str] = None):
         self.run_id = f"{int(time.time())}_{uuid.uuid4().hex[:6]}"
         self.session_tracks: List[int] = []
+        self.session_track_names: List[str] = []
         self.session_scenes: List[int] = []
+        self.session_scene_names: List[str] = []
+        self.session_cue_names: List[str] = []
+        self.session_cue_times: List[float] = []
+        self._preexisting_cue_times: set = set()
+        self._initial_song_snapshot: Optional[Dict[str, Any]] = None
 
         # Safety default: NEVER silently attach to a running Ableton session unless
         # explicitly requested via mode="live", ABLETON_TEST_MODE="live", or "--live".
@@ -2753,13 +2737,34 @@ class Live12TestClient:
             self.mode = "mock"
 
         if self.mode == "live":
-            port = int(os.environ.get("ABLETON_BRIDGE_PORT", 11246))
-            host = os.environ.get("ABLETON_BRIDGE_HOST", "127.0.0.1")
-            self._live_client = LiveTcpClient(host=host, port=port)
+            self._live_client = LiveTcpClient()
             self._mock_bridge = None
+            self._capture_live_baseline()
         else:
             self._live_client = None
             self._mock_bridge = MockAbletonBridge()
+
+    def _capture_live_baseline(self) -> None:
+        """Captures initial song state and pre-existing cue points so teardown is non-destructive."""
+        if not self._live_client:
+            return
+        try:
+            st = self._live_client.call_rpc("live12_song_get_state", {})
+            if not st.is_error and isinstance(st.data, dict):
+                self._initial_song_snapshot = {
+                    "tempo": st.data.get("tempo"),
+                    "numerator": st.data.get("signature_numerator"),
+                    "denominator": st.data.get("signature_denominator"),
+                    "root_note": st.data.get("root_note"),
+                    "scale_name": st.data.get("scale_name"),
+                }
+            cues = self._live_client.call_rpc("live12_cue_point_control", {"action": "list"})
+            if not cues.is_error and isinstance(cues.data, dict):
+                for cp in cues.data.get("cue_points", []):
+                    if isinstance(cp, dict) and isinstance(cp.get("time"), (int, float)):
+                        self._preexisting_cue_times.add(float(cp["time"]))
+        except Exception as e:
+            sys.stderr.write(f"Warning capturing live baseline: {e}\n")
 
     def call_tool(
         self,
@@ -2769,13 +2774,7 @@ class Live12TestClient:
     ) -> ToolResult:
         args = arguments or {}
         if validate:
-            try:
-                from ableton_live12_mcp.tools import ValidationError, validate_tool_call
-            except ImportError:
-                src_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
-                if src_dir not in sys.path:
-                    sys.path.insert(0, src_dir)
-                from ableton_live12_mcp.tools import ValidationError, validate_tool_call
+            from ableton_live12_mcp.tools import ValidationError, validate_tool_call
             try:
                 validate_tool_call(tool_name, args)
             except ValidationError as e:
@@ -2786,8 +2785,53 @@ class Live12TestClient:
                     raw=err_dict,
                 )
 
-        if self.mode == "live" and self._live_client:
-            return self._live_client.call_rpc(tool_name, args)
+        if self.mode == "live":
+            if tool_name in {"live12_os_save_set", "live12_os_open_set", "live12_os_export_audio"}:
+                from ableton_live12_mcp import dialogs
+                try:
+                    if tool_name == "live12_os_save_set":
+                        res = dialogs.save_set(
+                            destination_path=args["destination_path"],
+                            timeout_sec=args.get("timeout_sec", 10.0),
+                            overwrite=args.get("overwrite", True),
+                        )
+                    elif tool_name == "live12_os_open_set":
+                        res = dialogs.open_set(
+                            als_path=args["als_path"],
+                            timeout_sec=args.get("timeout_sec", 10.0),
+                            discard_unsaved=args.get("discard_unsaved", True),
+                        )
+                    else:
+                        res = dialogs.export_audio(
+                            destination_wav_path=args["destination_wav_path"],
+                            render_settings=args.get("render_settings"),
+                            timeout_sec=args.get("timeout_sec", 30.0),
+                        )
+                    return ToolResult(
+                        is_error=False,
+                        content=[{"type": "text", "text": json.dumps(res)}],
+                        raw=res,
+                    )
+                except Exception as e:
+                    err_payload = {"error": str(e), "type": type(e).__name__}
+                    if hasattr(e, "code"):
+                        err_payload["code"] = getattr(e, "code")
+                    return ToolResult(
+                        is_error=True,
+                        content=[{"type": "text", "text": json.dumps(err_payload)}],
+                        raw=err_payload,
+                    )
+
+            assert self._live_client is not None
+            res = self._live_client.call_rpc(tool_name, args)
+            if not res.is_error and isinstance(res.data, dict):
+                if tool_name == "live12_cue_point_control" and args.get("action") in ("create", "set"):
+                    if args.get("name"):
+                        self.session_cue_names.append(str(args["name"]))
+                    cue_time = res.data.get("time", args.get("time"))
+                    if isinstance(cue_time, (int, float)):
+                        self.session_cue_times.append(float(cue_time))
+            return res
         else:
             assert self._mock_bridge is not None
             return self._mock_bridge.execute_tool(tool_name, args)
@@ -2804,6 +2848,7 @@ class Live12TestClient:
         assert t_idx is not None
         self.call_tool("live12_track_set_properties", {"track_index": t_idx, "name": name})
         self.session_tracks.append(t_idx)
+        self.session_track_names.append(name)
         return t_idx, name
 
     def create_sandboxed_scene(self, descriptor: str = "scene") -> Tuple[int, str]:
@@ -2814,6 +2859,7 @@ class Live12TestClient:
         assert s_idx is not None
         self.call_tool("live12_scene_set_properties", {"scene_index": s_idx, "name": name})
         self.session_scenes.append(s_idx)
+        self.session_scene_names.append(name)
         return s_idx, name
 
     # -------------------------------------------------------------------------
@@ -2838,15 +2884,14 @@ class Live12TestClient:
     # -------------------------------------------------------------------------
 
     def teardown(self):
-        """Cleans up all temporary test objects, resets tempo, and stops playback."""
+        """Cleans up only test-created objects and restores baseline song settings."""
         try:
             self.call_tool("live12_transport_stop", {})
-            self.call_tool("live12_transport_set_tempo", {"tempo": 120.0})
-            self.call_tool("live12_transport_set_time_signature", {"numerator": 4, "denominator": 4})
-            self.call_tool("live12_song_set_scale", {"root_note": 0, "scale_name": "Major"})
 
-            # Delete test tracks in reverse order
             if self._mock_bridge:
+                self.call_tool("live12_transport_set_tempo", {"tempo": 120.0})
+                self.call_tool("live12_transport_set_time_signature", {"numerator": 4, "denominator": 4})
+                self.call_tool("live12_song_set_scale", {"root_note": 0, "scale_name": "Major"})
                 self._mock_bridge.tracks = [
                     t for t in self._mock_bridge.tracks
                     if not t.name.startswith("__agy_test_")
@@ -2857,8 +2902,21 @@ class Live12TestClient:
                 ]
                 self._mock_bridge.cue_points.clear()
             else:
-                # Live mode cleanup: dynamically query tracks and scenes to prevent index drift
-                # 1. Clean up tracks dynamically
+                snap = self._initial_song_snapshot or {}
+                if isinstance(snap.get("tempo"), (int, float)):
+                    self.call_tool("live12_transport_set_tempo", {"tempo": float(snap["tempo"])})
+                if isinstance(snap.get("numerator"), int) and isinstance(snap.get("denominator"), int):
+                    self.call_tool(
+                        "live12_transport_set_time_signature",
+                        {"numerator": snap["numerator"], "denominator": snap["denominator"]},
+                    )
+                if isinstance(snap.get("root_note"), int) and isinstance(snap.get("scale_name"), str):
+                    self.call_tool(
+                        "live12_song_set_scale",
+                        {"root_note": snap["root_note"], "scale_name": snap["scale_name"]},
+                    )
+
+                # 1. Clean up only sandboxed test tracks in reverse order
                 try:
                     lom_tracks = self.call_tool("live12_lom_get", {
                         "target_path": "song",
@@ -2867,25 +2925,17 @@ class Live12TestClient:
                     if not lom_tracks.is_error and isinstance(lom_tracks.data, dict):
                         tr_list = lom_tracks.data.get("value", [])
                         indices_to_delete = []
+                        known_test_tracks = set(self.session_track_names)
                         for idx, tr in enumerate(tr_list):
                             name = tr.get("name", "") if isinstance(tr, dict) else ""
-                            if name.startswith("__agy_test_"):
+                            if name.startswith("__agy_test_") or name in known_test_tracks:
                                 indices_to_delete.append(idx)
-                        for s_idx in self.session_tracks:
-                            if 0 <= s_idx < len(tr_list) and s_idx not in indices_to_delete:
-                                indices_to_delete.append(s_idx)
                         for idx in sorted(set(indices_to_delete), reverse=True):
                             self.call_tool("live12_track_delete", {"track_index": idx})
-                    else:
-                        for t_idx in sorted(set(self.session_tracks), reverse=True):
-                            try:
-                                self.call_tool("live12_track_delete", {"track_index": t_idx})
-                            except Exception:
-                                pass
                 except Exception as e:
                     sys.stderr.write(f"Track cleanup error: {e}\n")
 
-                # 2. Clean up scenes dynamically
+                # 2. Clean up only sandboxed test scenes in reverse order
                 try:
                     lom_scenes = self.call_tool("live12_lom_get", {
                         "target_path": "song",
@@ -2894,40 +2944,43 @@ class Live12TestClient:
                     if not lom_scenes.is_error and isinstance(lom_scenes.data, dict):
                         sc_list = lom_scenes.data.get("value", [])
                         scenes_to_delete = []
+                        known_test_scenes = set(self.session_scene_names)
                         for idx, sc in enumerate(sc_list):
                             sc_name = sc.get("name", "") if isinstance(sc, dict) else ""
-                            if sc_name.startswith("__agy_test_") or sc_name == "Drop 1":
+                            if sc_name.startswith("__agy_test_") or sc_name in known_test_scenes:
                                 scenes_to_delete.append(idx)
-                        for s_idx in self.session_scenes:
-                            if 0 <= s_idx < len(sc_list) and s_idx not in scenes_to_delete:
-                                scenes_to_delete.append(s_idx)
                         for idx in sorted(set(scenes_to_delete), reverse=True):
                             self.call_tool("live12_lom_call", {
                                 "target_path": "song",
                                 "method_name": "delete_scene",
                                 "args": [idx],
                             })
-                    elif self.session_scenes:
-                        for s_idx in sorted(set(self.session_scenes), reverse=True):
-                            self.call_tool("live12_lom_call", {
-                                "target_path": "song",
-                                "method_name": "delete_scene",
-                                "args": [s_idx],
-                            })
                 except Exception as e:
                     sys.stderr.write(f"Scene cleanup error: {e}\n")
 
-                # 3. Clean up cue points
+                # 3. Clean up only test-created cue points (preserve user locators)
                 try:
                     cues_res = self.call_tool("live12_cue_point_control", {"action": "list"})
                     if not cues_res.is_error and isinstance(cues_res.data, dict):
                         cps = cues_res.data.get("cue_points", [])
+                        known_cue_names = set(self.session_cue_names)
+                        known_cue_times = set(self.session_cue_times) - self._preexisting_cue_times
                         for cp in reversed(cps):
-                            t = cp.get("time", 0.0) if isinstance(cp, dict) else 0.0
+                            if not isinstance(cp, dict):
+                                continue
+                            cp_name = str(cp.get("name", ""))
+                            cp_time = cp.get("time")
+                            is_test_cue = (
+                                cp_name.startswith("__agy_test_")
+                                or cp_name in known_cue_names
+                                or (isinstance(cp_time, (int, float)) and float(cp_time) in known_cue_times)
+                            )
+                            if not is_test_cue:
+                                continue
                             self.call_tool("live12_lom_set", {
                                 "target_path": "song",
                                 "property_name": "current_song_time",
-                                "value": t,
+                                "value": float(cp_time or 0.0),
                             })
                             self.call_tool("live12_lom_call", {
                                 "target_path": "song",
@@ -2940,12 +2993,6 @@ class Live12TestClient:
                         })
                 except Exception as e:
                     sys.stderr.write(f"Cue cleanup error: {e}\n")
-
-                # 4. Always reset scale to Major
-                try:
-                    self.call_tool("live12_song_set_scale", {"root_note": 0, "scale_name": "Major"})
-                except Exception:
-                    pass
 
             # Cleanup temp export files
             for tmp_f in glob.glob(f"/tmp/__agy_test_{self.run_id}*"):

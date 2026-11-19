@@ -32,14 +32,14 @@ Ableton Live 12 MCP operates as a local Model Context Protocol server communicat
 
 ### 1. Loopback TCP IPC (`127.0.0.1`)
 - The internal TCP server in `src/live12_bridge/` binds exclusively to the local IPv4 loopback interface (`127.0.0.1`). It never binds to `0.0.0.0` or listens on external network interfaces.
-- Port discovery is stored in `/tmp/ableton_live12_bridge.json` with standard POSIX file permissions.
+- Port discovery metadata in `/tmp/ableton_live12_bridge.json` validates live PIDs (`os.kill(pid, 0)`) before trusting discovered endpoints, and `Live12Client` enforces total request deadlines, `MAX_RESPONSE_BYTES` (10 MiB), and strict JSON-RPC `id` type matching.
 
 ### 2. stdio JSON-RPC 2.0 Boundary
-- The external MCP interface operates exclusively over standard input/output (`stdio`) JSON-RPC 2.0 under the execution context of the invoking agent (e.g. Antigravity `agy`), preventing remote network exploitation.
+- The external MCP interface operates exclusively over standard input/output (`stdio`) using NDJSON or `Content-Length` JSON-RPC 2.0 framing under the execution context of the invoking agent, enforcing a 10 MiB buffer ceiling, JSON-RPC 2.0 envelope/ID validation, and Draft-07 schema checks (`additionalProperties: False`, finite numbers/strings).
 
 ### 3. Pointer Safety & Memory Protection
 - Ableton Live's internal Boost.Python objects can become dangling if tracks or clips are deleted in the GUI.
 - The dynamic reflection engine in `src/live12_bridge/reflection.py` strictly validates object pointers using `liveobj_valid(obj)` before invoking any attribute or method, preventing C++ access violations or application crashes.
 
 ### 4. AppleScript OS Automation (`dialogs.py`)
-- OS-level dialog interactions (`osascript` / System Events) are strictly scoped to the `Ableton Live 12 Suite` process name and standard Cocoa `NSSavePanel` file paths, preventing arbitrary shell command execution.
+- OS-level dialog interactions (`osascript` / System Events) verify macOS Accessibility permissions (`UI elements enabled`), target only the `com.ableton.live` bundle identifier, validate `.als`/`.wav` filesystem paths against null bytes/type mismatches, and pass arguments safely via `on run argv` rather than string interpolation.

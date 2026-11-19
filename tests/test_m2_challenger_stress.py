@@ -638,6 +638,8 @@ def test_take_lane_create_audio_clip_server_registration():
 
 def test_live_bridge_tcp_ping_and_lom_vector():
     """Pings the live running Ableton Live 12 instance on 127.0.0.1:11246 if available."""
+    if os.environ.get("ABLETON_TEST_MODE", "").lower() == "mock":
+        pytest.skip("ABLETON_TEST_MODE=mock: skipping live 127.0.0.1:11246 TCP probe")
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.settimeout(2.0)
     try:

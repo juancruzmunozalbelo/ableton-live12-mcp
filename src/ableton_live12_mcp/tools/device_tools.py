@@ -24,12 +24,17 @@ DEVICE_TOOLS: List[Dict[str, Any]] = [
                 },
                 "category": {
                     "type": "string",
-                    "enum": ["all", "instruments", "audio_effects", "midi_effects", "drums", "samples", "packs", "user_library", "plugins", "max"],
+                    "enum": [
+                        "all", "sounds", "instruments", "audio_effects", "midi_effects",
+                        "drums", "max_for_live", "max", "plugins", "clips",
+                        "samples", "packs", "user_library", "current_project"
+                    ],
                     "default": "all",
                     "description": "Optional category filter."
                 }
             },
-            "required": ["query"]
+            "required": ["query"],
+            "additionalProperties": False
         }
     },
     {
@@ -58,16 +63,18 @@ DEVICE_TOOLS: List[Dict[str, Any]] = [
                 },
                 "chain_index": {
                     "type": "integer",
-                    "default": -1,
-                    "description": "Optional chain index if inserting inside an existing Rack device (-1 for top-level track device chain)."
+                    "minimum": 0,
+                    "description": "Optional zero-based chain index if inserting inside an existing Rack device."
                 },
                 "drum_pad_index": {
                     "type": "integer",
-                    "default": -1,
-                    "description": "Optional drum pad index [0..127] if loading onto a Drum Rack pad (-1 for standard track insertion)."
+                    "minimum": 0,
+                    "maximum": 127,
+                    "description": "Optional zero-based drum pad index [0..127] if loading onto a Drum Rack pad."
                 }
             },
-            "required": ["track_index", "browser_item_uri"]
+            "required": ["track_index", "browser_item_uri"],
+            "additionalProperties": False
         }
     },
     {
@@ -90,7 +97,8 @@ DEVICE_TOOLS: List[Dict[str, Any]] = [
                     "description": "Target track category: 'regular', 'return', or 'master'."
                 }
             },
-            "required": ["track_index"]
+            "required": ["track_index"],
+            "additionalProperties": False
         }
     },
     {
@@ -118,7 +126,8 @@ DEVICE_TOOLS: List[Dict[str, Any]] = [
                     "description": "Target track category: 'regular', 'return', or 'master'."
                 }
             },
-            "required": ["track_index", "device_index"]
+            "required": ["track_index", "device_index"],
+            "additionalProperties": False
         }
     },
     {
@@ -176,7 +185,8 @@ DEVICE_TOOLS: List[Dict[str, Any]] = [
             "anyOf": [
                 {"required": ["parameter_identifier"]},
                 {"required": ["parameter_index"]}
-            ]
+            ],
+            "additionalProperties": False
         }
     },
     {
@@ -208,7 +218,8 @@ DEVICE_TOOLS: List[Dict[str, Any]] = [
                     "description": "Target track category: 'regular', 'return', or 'master'."
                 }
             },
-            "required": ["track_index", "device_index", "enabled"]
+            "required": ["track_index", "device_index", "enabled"],
+            "additionalProperties": False
         }
     },
     {
@@ -240,7 +251,8 @@ DEVICE_TOOLS: List[Dict[str, Any]] = [
                     "description": "Normalized macro knob position between 0.0 and 1.0."
                 }
             },
-            "required": ["track_index", "device_index", "macro_index", "value"]
+            "required": ["track_index", "device_index", "macro_index", "value"],
+            "additionalProperties": False
         }
     },
     {
@@ -261,8 +273,8 @@ DEVICE_TOOLS: List[Dict[str, Any]] = [
                 },
                 "action": {
                     "type": "string",
-                    "enum": ["store", "recall", "delete"],
-                    "description": "Action to perform: 'store' to snapshot current macros, 'recall' to load variation, 'delete' to remove variation."
+                    "enum": ["store", "recall", "delete", "randomize"],
+                    "description": "Action to perform: 'store' to snapshot current macros, 'recall' to load variation, 'delete' to remove variation, 'randomize' to randomize macros."
                 },
                 "variation_index": {
                     "type": "integer",
@@ -271,7 +283,8 @@ DEVICE_TOOLS: List[Dict[str, Any]] = [
                     "description": "Zero-based index of the variation to recall or delete."
                 }
             },
-            "required": ["track_index", "device_index", "action"]
+            "required": ["track_index", "device_index", "action"],
+            "additionalProperties": False
         }
     },
     {
@@ -313,7 +326,8 @@ DEVICE_TOOLS: List[Dict[str, Any]] = [
                     "description": "Modulation depth between -1.0 and 1.0."
                 }
             },
-            "required": ["track_index", "device_index", "action"]
+            "required": ["track_index", "device_index", "action"],
+            "additionalProperties": False
         }
     },
     {
@@ -355,7 +369,8 @@ DEVICE_TOOLS: List[Dict[str, Any]] = [
                     "description": "Action-specific parameters (e.g. {'sample_path': '/path/to/sample.wav', 'playback_mode': 'Slicing'})."
                 }
             },
-            "required": ["track_index", "device_index", "action"]
+            "required": ["track_index", "device_index", "action"],
+            "additionalProperties": False
         }
     },
     {
@@ -379,7 +394,8 @@ DEVICE_TOOLS: List[Dict[str, Any]] = [
                     "description": "Dictionary of Meld engine parameters to update (e.g. {'macro_a': 0.5, 'macro_b': 0.8})."
                 }
             },
-            "required": ["track_index", "device_index", "engine_params"]
+            "required": ["track_index", "device_index", "engine_params"],
+            "additionalProperties": False
         }
     },
     {
@@ -403,7 +419,8 @@ DEVICE_TOOLS: List[Dict[str, Any]] = [
                     "description": "Dictionary of Roar stage parameters (e.g. {'drive': 12.0, 'stage': 'single', 'bias': 0.2})."
                 }
             },
-            "required": ["track_index", "device_index", "stage_params"]
+            "required": ["track_index", "device_index", "stage_params"],
+            "additionalProperties": False
         }
     },
     {
@@ -427,7 +444,8 @@ DEVICE_TOOLS: List[Dict[str, Any]] = [
                     "description": "Dictionary of Drift voice parameters (e.g. {'voice_mode': 'poly', 'drift': 0.35, 'filter_freq': 2200})."
                 }
             },
-            "required": ["track_index", "device_index", "voice_params"]
+            "required": ["track_index", "device_index", "voice_params"],
+            "additionalProperties": False
         }
     },
     {
@@ -446,7 +464,8 @@ DEVICE_TOOLS: List[Dict[str, Any]] = [
                     "description": "Canonical URI of the item to audition (e.g. 'live:sample:kick01')."
                 }
             },
-            "required": ["action"]
+            "required": ["action"],
+            "additionalProperties": False
         }
     },
     {
@@ -477,7 +496,8 @@ DEVICE_TOOLS: List[Dict[str, Any]] = [
                     "description": "Target visible macro count [1..16] for set_count."
                 }
             },
-            "required": ["track_index", "device_index", "action"]
+            "required": ["track_index", "device_index", "action"],
+            "additionalProperties": False
         }
     },
     {
@@ -518,7 +538,8 @@ DEVICE_TOOLS: List[Dict[str, Any]] = [
                     "description": "Boolean state for mute_pad or solo_pad."
                 }
             },
-            "required": ["track_index", "device_index", "action"]
+            "required": ["track_index", "device_index", "action"],
+            "additionalProperties": False
         }
     },
     {
@@ -562,7 +583,8 @@ DEVICE_TOOLS: List[Dict[str, Any]] = [
                     "description": "Target MIDI channel [1..16]."
                 }
             },
-            "required": ["track_index", "device_index", "action"]
+            "required": ["track_index", "device_index", "action"],
+            "additionalProperties": False
         }
     }
 ]

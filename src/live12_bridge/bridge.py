@@ -18,6 +18,7 @@ import sys
 import threading
 import time
 import traceback
+import uuid
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 try:
@@ -69,7 +70,9 @@ from .handlers import BridgeHandlers, dispatch_tool_call
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 11246
 DISCOVERY_PATH = "/tmp/ableton_live12_bridge.json"
+MAX_REQUEST_QUEUE_SIZE = 256
 MAX_QUEUE_DRAIN_PER_TICK = 64
+MAX_DRAIN_SECONDS_PER_TICK = 0.012
 BRIDGE_TIMEOUT_SECONDS = 25.0
 # Live.Base.Timer interval (milliseconds). Live dispatches every tick to the main
 # thread, and a 5 ms tick burns ~60% of a whole CPU core inside Ableton Live 12,
@@ -86,10 +89,38 @@ class BridgeJob:
         self.req_id = req_id
         self.method = method
         self.params = params
+        self._lock = threading.Lock()
+        self.state: str = "pending"
         self.done_event = threading.Event()
         self.cancelled = threading.Event()
         self.result: Any = None
         self.error: Optional[Dict[str, Any]] = None
+
+    def try_start(self) -> bool:
+        """Atomically transitions pending -> running if not already cancelled."""
+        with self._lock:
+            if self.state != "pending" or self.cancelled.is_set():
+                if self.state == "pending":
+                    self.state = "cancelled"
+                return False
+            self.state = "running"
+            return True
+
+    def try_cancel(self) -> bool:
+        """Atomically transitions pending -> cancelled. Returns False if already running/done."""
+        with self._lock:
+            if self.state != "pending":
+                return False
+            self.state = "cancelled"
+            self.cancelled.set()
+            return True
+
+    def mark_done(self) -> None:
+        """Marks a running job as done and signals waiting callers."""
+        with self._lock:
+            if self.state != "cancelled":
+                self.state = "done"
+        self.done_event.set()
 
 
 class Live12ControlSurface(ControlSurface):
@@ -102,17 +133,22 @@ class Live12ControlSurface(ControlSurface):
         super().__init__(c_instance)
         self._c_instance = c_instance
         self._handlers = BridgeHandlers(self)
-        self._request_queue: queue.Queue[BridgeJob] = queue.Queue()
+        self._request_queue: queue.Queue[BridgeJob] = queue.Queue(maxsize=MAX_REQUEST_QUEUE_SIZE)
         self._running = True
         self._active_connections: Set[socket.socket] = set()
         self._conn_lock = threading.Lock()
+        self._drain_lock = threading.Lock()
         self._timer: Any = None
         self._server_socket: Optional[socket.socket] = None
         self._server_thread: Optional[threading.Thread] = None
         self._port: int = DEFAULT_PORT
 
-        self._start_server()
-        self._setup_timer()
+        try:
+            self._start_server()
+            self._setup_timer()
+        except Exception:
+            self.disconnect()
+            raise
 
         self.log_message(
             f"Live12Bridge: Control surface initialized successfully on {DEFAULT_HOST}:{self._port} (PID: {os.getpid()})"
@@ -125,21 +161,31 @@ class Live12ControlSurface(ControlSurface):
 
     def _start_server(self) -> None:
         """Binds TCP socket and starts background listener thread."""
-        self._server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self._server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-
         # Try default port, fallback dynamically if occupied
         bound = False
         target_ports = [DEFAULT_PORT, 11247, 11248, 11249, 0]
         for p in target_ports:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             try:
-                self._server_socket.bind((DEFAULT_HOST, p))
-                self._port = self._server_socket.getsockname()[1]
-                self._server_socket.listen(16)
+                sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                sock.bind((DEFAULT_HOST, p))
+                self._port = sock.getsockname()[1]
+                sock.listen(16)
+                self._server_socket = sock
                 bound = True
                 break
             except OSError:
+                try:
+                    sock.close()
+                except Exception:
+                    pass
                 continue
+            except Exception:
+                try:
+                    sock.close()
+                except Exception:
+                    pass
+                raise
 
         if not bound:
             raise RuntimeError("Live12Bridge: Failed to bind TCP listener on any candidate port")
@@ -188,7 +234,8 @@ class Live12ControlSurface(ControlSurface):
             "status": "ready",
             "started_at": time.time(),
         }
-        tmp_path = f"{DISCOVERY_PATH}.tmp.{os.getpid()}"
+        nonce = uuid.uuid4().hex[:8]
+        tmp_path = f"{DISCOVERY_PATH}.tmp.{os.getpid()}.{self._port}.{nonce}"
         try:
             fd = os.open(tmp_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
             with os.fdopen(fd, "w", encoding="utf-8") as f:
@@ -262,7 +309,12 @@ class Live12ControlSurface(ControlSurface):
 
     @staticmethod
     def _is_socket_closed(conn: socket.socket) -> bool:
-        """Non-blocking probe to detect if the peer disconnected or reset the TCP socket."""
+        """Non-blocking probe to detect if the peer reset or aborted the TCP socket.
+
+        Does NOT treat a peer SHUT_WR half-close (EOF b"") as dead so the bridge
+        still delivers the pending JSON-RPC reply to half-closed clients, and
+        forces non-blocking mode during MSG_PEEK so a 60s socket timeout never stalls.
+        """
         try:
             if conn.fileno() < 0:
                 return True
@@ -272,14 +324,24 @@ class Live12ControlSurface(ControlSurface):
             if xlist:
                 return True
             if rlist:
+                flags = socket.MSG_PEEK | getattr(socket, "MSG_DONTWAIT", 0)
+                prev_timeout = conn.gettimeout() if hasattr(conn, "gettimeout") else None
                 try:
-                    peek = conn.recv(1, socket.MSG_PEEK)
-                    if not peek:
-                        return True
-                except (BlockingIOError, InterruptedError, socket.timeout):
+                    if prev_timeout is not None and prev_timeout != 0.0 and hasattr(conn, "settimeout"):
+                        conn.settimeout(0.0)
+                    conn.recv(1, flags)
+                    # b"" indicates client write-side EOF (e.g. SHUT_WR); reply can still be sent.
+                    return False
+                except (BlockingIOError, InterruptedError):
                     return False
                 except (ConnectionResetError, BrokenPipeError, OSError):
                     return True
+                finally:
+                    if prev_timeout is not None and prev_timeout != 0.0 and hasattr(conn, "settimeout"):
+                        try:
+                            conn.settimeout(prev_timeout)
+                        except (OSError, ValueError):
+                            pass
         except (OSError, ValueError):
             return True
         return False
@@ -292,21 +354,23 @@ class Live12ControlSurface(ControlSurface):
         if not isinstance(conn, socket.socket):
             completed = job.done_event.wait(timeout=timeout)
             if not completed:
-                job.cancelled.set()
+                if not job.try_cancel() and job.done_event.is_set():
+                    return True, False
             return completed, False
 
         deadline = time.monotonic() + timeout
         while self._running:
             remaining = deadline - time.monotonic()
             if remaining <= 0.0:
-                job.cancelled.set()
+                if not job.try_cancel() and job.done_event.is_set():
+                    return True, False
                 return False, False
             if job.done_event.wait(timeout=min(0.25, remaining)):
                 return True, False
             if self._is_socket_closed(conn):
-                job.cancelled.set()
+                job.try_cancel()
                 return False, True
-        job.cancelled.set()
+        job.try_cancel()
         return False, True
 
     def _process_raw_frame(self, conn: socket.socket, line: bytes) -> bool:
@@ -331,7 +395,21 @@ class Live12ControlSurface(ControlSurface):
 
         req_id = req_json.get("id")
         method = req_json.get("method")
-        params = req_json.get("params") or {}
+        raw_params = req_json.get("params")
+        if raw_params is None:
+            params: Dict[str, Any] = {}
+        elif isinstance(raw_params, dict):
+            params = raw_params
+        else:
+            err_resp = {
+                "jsonrpc": "2.0",
+                "id": req_id,
+                "error": {
+                    "code": -32602,
+                    "message": f"Invalid params: expected object, got {type(raw_params).__name__}",
+                },
+            }
+            return self._send_response(conn, err_resp)
 
         if not method or not isinstance(method, str):
             err_resp = {
@@ -342,7 +420,18 @@ class Live12ControlSurface(ControlSurface):
             return self._send_response(conn, err_resp)
 
         job = BridgeJob(req_id=req_id, method=method, params=params)
-        self._request_queue.put(job)
+        try:
+            self._request_queue.put_nowait(job)
+        except queue.Full:
+            err_resp = {
+                "jsonrpc": "2.0",
+                "id": req_id,
+                "error": {
+                    "code": -32001,
+                    "message": "Server busy: request queue is full",
+                },
+            }
+            return self._send_response(conn, err_resp)
 
         # Wait for main-thread execution; cancel if timed out or client disconnected
         completed, sock_closed = self._wait_for_job(conn, job, timeout=BRIDGE_TIMEOUT_SECONDS)
@@ -433,47 +522,55 @@ class Live12ControlSurface(ControlSurface):
 
     def _drain_queue(self) -> None:
         """Drains and executes pending jobs from the request queue inside component_guard."""
-        drained = 0
-        steps = 0
-        max_steps = MAX_QUEUE_DRAIN_PER_TICK * 16
-        while drained < MAX_QUEUE_DRAIN_PER_TICK and steps < max_steps:
-            try:
-                job = self._request_queue.get_nowait()
-            except queue.Empty:
-                break
+        if not self._drain_lock.acquire(blocking=False):
+            return
+        try:
+            drained = 0
+            steps = 0
+            max_steps = MAX_QUEUE_DRAIN_PER_TICK * 16
+            deadline = time.monotonic() + MAX_DRAIN_SECONDS_PER_TICK
+            while drained < MAX_QUEUE_DRAIN_PER_TICK and steps < max_steps:
+                if steps > 0 and time.monotonic() >= deadline:
+                    break
+                try:
+                    job = self._request_queue.get_nowait()
+                except queue.Empty:
+                    break
 
-            steps += 1
-            if job.cancelled.is_set():
-                job.done_event.set()
-                continue
+                steps += 1
+                if not job.try_start():
+                    job.done_event.set()
+                    continue
 
-            drained += 1
-            try:
-                with self._guard():
-                    res = handlers_mod.dispatch_tool_call(self._handlers, job.method, job.params)
-                    job.result = res
-            except (IndexError, ValueError, KeyError, PermissionError) as e:
-                # Normal client validation/boundary error - return clean RPC error without dumping traceback to host Log.txt
-                job.error = {
-                    "code": -32603,
-                    "message": str(e),
-                    "data": {
-                        "exception_type": type(e).__name__,
-                    },
-                }
-            except Exception as e:
-                tb = traceback.format_exc()
-                self.log_message(f"Live12Bridge: Exception executing '{job.method}': {tb}")
-                job.error = {
-                    "code": -32603,
-                    "message": str(e),
-                    "data": {
-                        "exception_type": type(e).__name__,
-                        "traceback": tb,
-                    },
-                }
-            finally:
-                job.done_event.set()
+                drained += 1
+                try:
+                    with self._guard():
+                        res = handlers_mod.dispatch_tool_call(self._handlers, job.method, job.params)
+                        job.result = res
+                except (IndexError, ValueError, KeyError, PermissionError) as e:
+                    # Normal client validation/boundary error - return clean RPC error without dumping traceback to host Log.txt
+                    job.error = {
+                        "code": -32603,
+                        "message": str(e),
+                        "data": {
+                            "exception_type": type(e).__name__,
+                        },
+                    }
+                except Exception as e:
+                    tb = traceback.format_exc()
+                    self.log_message(f"Live12Bridge: Exception executing '{job.method}': {tb}")
+                    job.error = {
+                        "code": -32603,
+                        "message": str(e),
+                        "data": {
+                            "exception_type": type(e).__name__,
+                            "traceback": tb,
+                        },
+                    }
+                finally:
+                    job.mark_done()
+        finally:
+            self._drain_lock.release()
 
     @contextlib.contextmanager
     def _guard(self) -> Any:
@@ -519,6 +616,10 @@ class Live12ControlSurface(ControlSurface):
 
         if self._server_socket:
             try:
+                self._server_socket.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
+            try:
                 self._server_socket.close()
             except Exception:
                 pass
@@ -527,10 +628,31 @@ class Live12ControlSurface(ControlSurface):
         with self._conn_lock:
             for conn in list(self._active_connections):
                 try:
+                    conn.shutdown(socket.SHUT_RDWR)
+                except OSError:
+                    pass
+                try:
                     conn.close()
                 except Exception:
                     pass
             self._active_connections.clear()
+
+        while True:
+            try:
+                pending_job = self._request_queue.get_nowait()
+            except queue.Empty:
+                break
+            if pending_job.try_cancel():
+                pending_job.error = {
+                    "code": -32000,
+                    "message": "Bridge disconnected before request could execute",
+                }
+            pending_job.done_event.set()
+
+        if self._server_thread is not None and self._server_thread.is_alive():
+            if threading.current_thread() is not self._server_thread:
+                self._server_thread.join(timeout=1.0)
+        self._server_thread = None
 
         if self._handlers and hasattr(self._handlers, "close_open_undo_steps"):
             try:
@@ -542,7 +664,11 @@ class Live12ControlSurface(ControlSurface):
             try:
                 with open(DISCOVERY_PATH, "r", encoding="utf-8") as f:
                     meta = json.load(f)
-                if isinstance(meta, dict) and meta.get("pid") == os.getpid():
+                if (
+                    isinstance(meta, dict)
+                    and meta.get("pid") == os.getpid()
+                    and meta.get("port") == self._port
+                ):
                     os.remove(DISCOVERY_PATH)
             except Exception as e:
                 self.log_message(f"Live12Bridge: Failed to remove discovery file: {e}")

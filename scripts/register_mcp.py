@@ -26,9 +26,6 @@ from typing import Any, Dict, List, Optional, Tuple
 
 SERVER_KEY = "ableton-live12"
 DEFAULT_CONFIG_PATH = Path.home() / ".gemini" / "config" / "mcp_config.json"
-PREFERRED_PYTHON = Path(
-    "/Users/juancruz/.local/share/uv/python/cpython-3.11-macos-aarch64-none/bin/python3.11"
-)
 DEFAULT_MODULE = "ableton_live12_mcp"
 
 
@@ -39,15 +36,13 @@ def resolve_project_root() -> Path:
 
 
 def resolve_python_executable(explicit_path: Optional[str] = None) -> str:
-    """Selects python executable in order: CLI arg > PREFERRED_PYTHON > sys.executable."""
+    """Selects python executable in order: CLI arg > active sys.executable (without resolving venv symlinks)."""
     if explicit_path:
-        p = Path(explicit_path).resolve()
-        if not p.is_file():
+        abs_p = os.path.abspath(os.path.expanduser(explicit_path))
+        if not os.path.isfile(abs_p):
             raise FileNotFoundError(f"Specified Python binary not found: {explicit_path}")
-        return str(p)
-    if PREFERRED_PYTHON.is_file() and os.access(PREFERRED_PYTHON, os.X_OK):
-        return str(PREFERRED_PYTHON)
-    return sys.executable
+        return abs_p
+    return os.path.abspath(sys.executable) if sys.executable else sys.executable
 
 
 def build_server_config(
@@ -149,11 +144,15 @@ def check_registration(
         return False, f"Config file does not exist: {config_path}", None
 
     data, _, _ = load_config_file(config_path)
-    servers = data.get("mcpServers", {})
+    servers = data.get("mcpServers")
+    if not isinstance(servers, dict):
+        return False, "Key 'mcpServers' is missing or not a JSON object", None
     if SERVER_KEY not in servers:
         return False, f"Server key '{SERVER_KEY}' not found in mcpServers", None
 
     current = servers[SERVER_KEY]
+    if not isinstance(current, dict):
+        return False, f"Server entry '{SERVER_KEY}' is not a JSON object", current
     # Verify core fields
     if current.get("command") != expected_config.get("command"):
         return False, f"command mismatch: current={current.get('command')}, expected={expected_config.get('command')}", current
@@ -164,7 +163,9 @@ def check_registration(
 
     # Verify PYTHONPATH in env if expected
     if "env" in expected_config:
-        current_env = current.get("env", {})
+        current_env = current.get("env")
+        if not isinstance(current_env, dict):
+            return False, "env missing or not a JSON object", current
         expected_env = expected_config["env"]
         for k, v in expected_env.items():
             if current_env.get(k) != v:
@@ -218,8 +219,8 @@ def unregister(config_path: Path, dry_run: bool = False) -> Dict[str, Any]:
         return {"status": "not_found", "config_path": str(config_path)}
 
     data, indent, newline = load_config_file(config_path)
-    servers = data.get("mcpServers", {})
-    if SERVER_KEY not in servers:
+    servers = data.get("mcpServers")
+    if not isinstance(servers, dict) or SERVER_KEY not in servers:
         return {"status": "not_registered", "config_path": str(config_path)}
 
     if dry_run:

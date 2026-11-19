@@ -22,7 +22,8 @@ LOM_TOOLS: List[Dict[str, Any]] = [
                     "description": "Dotted path from LOM root (e.g. 'live_set', 'live_set.tracks.0', 'live_set.tracks.0.clip_slots.0.clip', 'live_app.view')."
                 }
             },
-            "required": ["target_path"]
+            "required": ["target_path"],
+            "additionalProperties": False
         }
     },
     {
@@ -42,7 +43,8 @@ LOM_TOOLS: List[Dict[str, Any]] = [
                     "description": "Name of the property to read (e.g. 'tempo', 'name', 'volume')."
                 }
             },
-            "required": ["target_path", "property_name"]
+            "required": ["target_path", "property_name"],
+            "additionalProperties": False
         }
     },
     {
@@ -65,7 +67,8 @@ LOM_TOOLS: List[Dict[str, Any]] = [
                     "description": "New value to assign. Can be string, number, boolean, array, or object."
                 }
             },
-            "required": ["target_path", "property_name", "value"]
+            "required": ["target_path", "property_name", "value"],
+            "additionalProperties": False
         }
     },
     {
@@ -95,7 +98,8 @@ LOM_TOOLS: List[Dict[str, Any]] = [
                     "description": "Keyword arguments dictionary to pass to the method."
                 }
             },
-            "required": ["target_path", "method_name"]
+            "required": ["target_path", "method_name"],
+            "additionalProperties": False
         }
     }
 ]

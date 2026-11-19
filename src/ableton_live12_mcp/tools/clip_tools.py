@@ -1,5 +1,5 @@
 """
-Domain 3: Clips, Extended MIDI & Warping Tools (16 tools)
+Domain 3: Clips, Extended MIDI & Warping Tools (17 tools)
 =========================================================
 Implements MCP schemas for Session clips, Live 12 extended MIDI notes
 (pitch, probability, velocity_deviation, release_velocity, mute), quantization,
@@ -39,7 +39,8 @@ CLIP_TOOLS: List[Dict[str, Any]] = [
                     "description": "Optional name for the created clip."
                 }
             },
-            "required": ["track_index", "slot_index"]
+            "required": ["track_index", "slot_index"],
+            "additionalProperties": False
         }
     },
     {
@@ -59,7 +60,8 @@ CLIP_TOOLS: List[Dict[str, Any]] = [
                     "description": "Zero-based clip slot index."
                 }
             },
-            "required": ["track_index", "slot_index"]
+            "required": ["track_index", "slot_index"],
+            "additionalProperties": False
         }
     },
     {
@@ -79,7 +81,8 @@ CLIP_TOOLS: List[Dict[str, Any]] = [
                     "description": "Zero-based index of the clip inside the track's arrangement_clips collection."
                 }
             },
-            "required": ["track_index", "clip_index"]
+            "required": ["track_index", "clip_index"],
+            "additionalProperties": False
         }
     },
     {
@@ -99,7 +102,8 @@ CLIP_TOOLS: List[Dict[str, Any]] = [
                     "description": "Zero-based clip slot index."
                 }
             },
-            "required": ["track_index", "slot_index"]
+            "required": ["track_index", "slot_index"],
+            "additionalProperties": False
         }
     },
     {
@@ -119,7 +123,8 @@ CLIP_TOOLS: List[Dict[str, Any]] = [
                     "description": "Zero-based clip slot index."
                 }
             },
-            "required": ["track_index", "slot_index"]
+            "required": ["track_index", "slot_index"],
+            "additionalProperties": False
         }
     },
     {
@@ -158,7 +163,8 @@ CLIP_TOOLS: List[Dict[str, Any]] = [
                     "description": "Playback start marker position in beats."
                 }
             },
-            "required": ["track_index", "slot_index"]
+            "required": ["track_index", "slot_index"],
+            "additionalProperties": False
         }
     },
     {
@@ -234,11 +240,13 @@ CLIP_TOOLS: List[Dict[str, Any]] = [
                                 "description": "Whether the note is muted / deactivated."
                             }
                         },
-                        "required": ["pitch", "start_time", "duration"]
+                        "required": ["pitch", "start_time", "duration"],
+                        "additionalProperties": False
                     }
                 }
             },
-            "required": ["track_index", "slot_index", "notes"]
+            "required": ["track_index", "slot_index", "notes"],
+            "additionalProperties": False
         }
     },
     {
@@ -270,7 +278,8 @@ CLIP_TOOLS: List[Dict[str, Any]] = [
                     "description": "Length of inspection window in beats."
                 }
             },
-            "required": ["track_index", "slot_index"]
+            "required": ["track_index", "slot_index"],
+            "additionalProperties": False
         }
     },
     {
@@ -304,20 +313,29 @@ CLIP_TOOLS: List[Dict[str, Any]] = [
                                 "type": "integer",
                                 "minimum": 0,
                                 "maximum": 127,
-                                "description": "Pitch number to match if note_id is omitted, or new pitch."
+                                "description": "Pitch number to match if note_id is omitted, or fallback new pitch."
+                            },
+                            "new_pitch": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 127,
+                                "description": "Explicit target MIDI pitch [0..127]."
                             },
                             "start_time": {"type": "number", "minimum": 0.0},
+                            "new_start_time": {"type": "number", "minimum": 0.0, "description": "Explicit target start time in beats."},
                             "duration": {"type": "number", "exclusiveMinimum": 0.0},
                             "velocity": {"type": "number", "minimum": 0.0, "maximum": 127.0},
                             "velocity_deviation": {"type": "number", "minimum": -127.0, "maximum": 127.0},
                             "release_velocity": {"type": "number", "minimum": 0.0, "maximum": 127.0},
                             "probability": {"type": "number", "minimum": 0.0, "maximum": 1.0},
                             "mute": {"type": "boolean"}
-                        }
+                        },
+                        "additionalProperties": False
                     }
                 }
             },
-            "required": ["track_index", "slot_index", "note_modifications"]
+            "required": ["track_index", "slot_index", "note_modifications"],
+            "additionalProperties": False
         }
     },
     {
@@ -350,7 +368,8 @@ CLIP_TOOLS: List[Dict[str, Any]] = [
                     "description": "Quantization strength from 0.0 (0%) to 1.0 (100% snap to grid)."
                 }
             },
-            "required": ["track_index", "slot_index"]
+            "required": ["track_index", "slot_index"],
+            "additionalProperties": False
         }
     },
     {
@@ -376,8 +395,8 @@ CLIP_TOOLS: List[Dict[str, Any]] = [
                 "warp_mode": {
                     "type": "string",
                     "enum": [
-                        "Beats", "Tones", "Texture", "Re-Pitch", "Complex", "Complex Pro",
-                        "beats", "tones", "texture", "repitch", "complex", "complex_pro"
+                        "Beats", "Tones", "Texture", "Re-Pitch", "Complex", "Complex Pro", "Rex",
+                        "beats", "tones", "texture", "re-pitch", "repitch", "complex", "rex", "complex pro", "complex_pro"
                     ],
                     "description": "Warping algorithm."
                 },
@@ -389,10 +408,13 @@ CLIP_TOOLS: List[Dict[str, Any]] = [
                 },
                 "gain": {
                     "type": "number",
-                    "description": "Audio clip gain factor or dB value."
+                    "minimum": -70.0,
+                    "maximum": 24.0,
+                    "description": "Audio clip gain: [0.0..1.0] linear Live LOM gain factor, or dB value in [-70.0..24.0]."
                 }
             },
-            "required": ["track_index", "slot_index"]
+            "required": ["track_index", "slot_index"],
+            "additionalProperties": False
         }
     },
     {
@@ -422,7 +444,8 @@ CLIP_TOOLS: List[Dict[str, Any]] = [
                     "description": "Corresponding sample audio time in seconds."
                 }
             },
-            "required": ["track_index", "slot_index", "beat_time", "sample_time"]
+            "required": ["track_index", "slot_index", "beat_time", "sample_time"],
+            "additionalProperties": False
         }
     },
     {
@@ -447,7 +470,8 @@ CLIP_TOOLS: List[Dict[str, Any]] = [
                     "description": "Target arrangement timeline beat position where the clip will be placed."
                 }
             },
-            "required": ["track_index", "slot_index", "arrangement_time"]
+            "required": ["track_index", "slot_index", "arrangement_time"],
+            "additionalProperties": False
         }
     },
     {
@@ -494,7 +518,8 @@ CLIP_TOOLS: List[Dict[str, Any]] = [
                     "description": "Pitch range span [1..128]."
                 }
             },
-            "required": ["track_index", "slot_index"]
+            "required": ["track_index", "slot_index"],
+            "additionalProperties": False
         }
     },
     {
@@ -523,7 +548,8 @@ CLIP_TOOLS: List[Dict[str, Any]] = [
                     "description": "Parameters for the chosen transformation (e.g. {'timing_jitter': 0.02, 'velocity_jitter': 8.0} for humanize; {'start_velocity': 30, 'end_velocity': 110} for velocity_ramp; {'steps': 16, 'pulses': 5, 'pitch': 60} for euclidean; {'scale_name': 'Minor', 'root_note': 0} for fit_to_scale)."
                 }
             },
-            "required": ["track_index", "slot_index", "transformation"]
+            "required": ["track_index", "slot_index", "transformation"],
+            "additionalProperties": False
         }
     },
     {
@@ -587,7 +613,8 @@ CLIP_TOOLS: List[Dict[str, Any]] = [
                     "description": "If true, 'value' is interpreted as a normalized float between 0.0 (min) and 1.0 (max)."
                 }
             },
-            "required": ["track_index", "slot_index", "action"]
+            "required": ["track_index", "slot_index", "action"],
+            "additionalProperties": False
         }
     },
     {
@@ -623,7 +650,8 @@ CLIP_TOOLS: List[Dict[str, Any]] = [
                     "description": "Zero-based clip slot index for clip assignment."
                 }
             },
-            "required": ["action"]
+            "required": ["action"],
+            "additionalProperties": False
         }
     }
 ]

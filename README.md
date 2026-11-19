@@ -237,7 +237,10 @@ Register `ableton-live12` in your Antigravity MCP configuration (`scripts/regist
     "ableton-live12": {
       "command": "python3",
       "args": ["-m", "ableton_live12_mcp"],
-      "cwd": "/path/to/ableton-live12-mcp"
+      "cwd": "/path/to/ableton-live12-mcp",
+      "env": {
+        "PYTHONPATH": "/path/to/ableton-live12-mcp/src"
+      }
     }
   }
 }
@@ -252,11 +255,11 @@ python3 scripts/register_mcp.py
 
 ## 🧪 Testing & Verification
 
-The test harness (`tests/harness.py`) provides automated testing against both offline mock bridges and live Ableton Live 12 instances:
+The test harness (`tests/harness.py`) defaults safely to mock mode unless `ABLETON_TEST_MODE=live` or `--live` is explicitly enabled:
 
-### Run Offline Mock Test Suite (311+ Tests)
+### Run Offline Mock Test Suite
 ```bash
-PYTHONPATH=src pytest tests/ -v
+ABLETON_TEST_MODE=mock PYTHONPATH=src pytest tests/ -v
 ```
 
 ### Run Live Ableton Instance Tests

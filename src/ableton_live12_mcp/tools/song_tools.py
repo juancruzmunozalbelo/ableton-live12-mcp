@@ -37,7 +37,8 @@ SONG_TOOLS: List[Dict[str, Any]] = [
                     "description": "If true, restarts playback from 1.1.1. If false, continues from current playhead position."
                 }
             },
-            "required": []
+            "required": [],
+            "additionalProperties": False
         }
     },
     {
@@ -46,7 +47,8 @@ SONG_TOOLS: List[Dict[str, Any]] = [
         "inputSchema": {
             "type": "object",
             "properties": {},
-            "required": []
+            "required": [],
+            "additionalProperties": False
         }
     },
     {
@@ -62,7 +64,8 @@ SONG_TOOLS: List[Dict[str, Any]] = [
                     "description": "Recording target: 'arrangement' for timeline recording, 'session' for Session view clip overdub/launch."
                 }
             },
-            "required": []
+            "required": [],
+            "additionalProperties": False
         }
     },
     {
@@ -78,7 +81,8 @@ SONG_TOOLS: List[Dict[str, Any]] = [
                     "description": "Target tempo in BPM. Must be between 20.0 and 999.0."
                 }
             },
-            "required": ["tempo"]
+            "required": ["tempo"],
+            "additionalProperties": False
         }
     },
     {
@@ -99,7 +103,8 @@ SONG_TOOLS: List[Dict[str, Any]] = [
                     "description": "Time signature denominator (note value division). Must be 1, 2, 4, 8, or 16."
                 }
             },
-            "required": ["numerator", "denominator"]
+            "required": ["numerator", "denominator"],
+            "additionalProperties": False
         }
     },
     {
@@ -123,7 +128,8 @@ SONG_TOOLS: List[Dict[str, Any]] = [
                     "description": "Loop length in beats. Must be positive."
                 }
             },
-            "required": ["enabled", "start", "length"]
+            "required": ["enabled", "start", "length"],
+            "additionalProperties": False
         }
     },
     {
@@ -141,7 +147,8 @@ SONG_TOOLS: List[Dict[str, Any]] = [
                     "description": "Enable punch-out recording at loop end."
                 }
             },
-            "required": ["punch_in", "punch_out"]
+            "required": ["punch_in", "punch_out"],
+            "additionalProperties": False
         }
     },
     {
@@ -155,7 +162,8 @@ SONG_TOOLS: List[Dict[str, Any]] = [
                     "description": "Whether arrangement overdub is enabled."
                 }
             },
-            "required": ["overdub"]
+            "required": ["overdub"],
+            "additionalProperties": False
         }
     },
     {
@@ -169,7 +177,8 @@ SONG_TOOLS: List[Dict[str, Any]] = [
                     "description": "Metronome audible state."
                 }
             },
-            "required": ["enabled"]
+            "required": ["enabled"],
+            "additionalProperties": False
         }
     },
     {
@@ -178,7 +187,8 @@ SONG_TOOLS: List[Dict[str, Any]] = [
         "inputSchema": {
             "type": "object",
             "properties": {},
-            "required": []
+            "required": [],
+            "additionalProperties": False
         }
     },
     {
@@ -187,7 +197,8 @@ SONG_TOOLS: List[Dict[str, Any]] = [
         "inputSchema": {
             "type": "object",
             "properties": {},
-            "required": []
+            "required": [],
+            "additionalProperties": False
         }
     },
     {
@@ -208,7 +219,8 @@ SONG_TOOLS: List[Dict[str, Any]] = [
                     "description": "Name of the musical scale."
                 }
             },
-            "required": ["root_note", "scale_name"]
+            "required": ["root_note", "scale_name"],
+            "additionalProperties": False
         }
     },
     {
@@ -223,7 +235,8 @@ SONG_TOOLS: List[Dict[str, Any]] = [
                     "description": "Name or identifier of the tuning system (e.g. 'Werckmeister III', '19-EDO', 'Equal Temperament')."
                 }
             },
-            "required": ["tuning_name"]
+            "required": ["tuning_name"],
+            "additionalProperties": False
         }
     },
     {
@@ -252,7 +265,8 @@ SONG_TOOLS: List[Dict[str, Any]] = [
                     "description": "Zero-based index of cue point for delete or jump actions."
                 }
             },
-            "required": ["action"]
+            "required": ["action"],
+            "additionalProperties": False
         }
     },
     {
@@ -269,9 +283,14 @@ SONG_TOOLS: List[Dict[str, Any]] = [
                 "enabled": {
                     "type": "boolean",
                     "description": "Target state for set_link or set_follower."
+                },
+                "active": {
+                    "type": "boolean",
+                    "description": "Target hold/release state for nudge_up or nudge_down."
                 }
             },
-            "required": ["action"]
+            "required": ["action"],
+            "additionalProperties": False
         }
     }
 ]

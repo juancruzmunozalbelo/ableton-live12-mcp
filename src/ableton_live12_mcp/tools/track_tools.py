@@ -28,7 +28,8 @@ TRACK_TOOLS: List[Dict[str, Any]] = [
                     "description": "Zero-based track index position where the new track will be inserted. Pass -1 to append to end of tracks."
                 }
             },
-            "required": []
+            "required": [],
+            "additionalProperties": False
         }
     },
     {
@@ -49,7 +50,8 @@ TRACK_TOOLS: List[Dict[str, Any]] = [
                     "description": "Target track category: 'regular', 'return', or 'master'."
                 }
             },
-            "required": ["track_index"]
+            "required": ["track_index"],
+            "additionalProperties": False
         }
     },
     {
@@ -64,7 +66,8 @@ TRACK_TOOLS: List[Dict[str, Any]] = [
                     "description": "Zero-based index of the source track to duplicate."
                 }
             },
-            "required": ["track_index"]
+            "required": ["track_index"],
+            "additionalProperties": False
         }
     },
     {
@@ -92,6 +95,8 @@ TRACK_TOOLS: List[Dict[str, Any]] = [
                 },
                 "color": {
                     "type": "integer",
+                    "minimum": 0,
+                    "maximum": 16777215,
                     "description": "Track color. Values 0-69 set the Live 12 palette slot (color_index); values > 69 are treated as a packed RGB integer (e.g. 65280 green, 16711680 red). Prefer color_index/color_rgb for clarity."
                 },
                 "color_index": {
@@ -120,7 +125,8 @@ TRACK_TOOLS: List[Dict[str, Any]] = [
                     "description": "Record arm state of the track."
                 }
             },
-            "required": ["track_index"]
+            "required": ["track_index"],
+            "additionalProperties": False
         }
     },
     {
@@ -136,7 +142,8 @@ TRACK_TOOLS: List[Dict[str, Any]] = [
                     "description": "List of zero-based track indices to include in the group."
                 }
             },
-            "required": ["track_indices"]
+            "required": ["track_indices"],
+            "additionalProperties": False
         }
     },
     {
@@ -151,7 +158,8 @@ TRACK_TOOLS: List[Dict[str, Any]] = [
                     "description": "Zero-based index of the group track to dissolve."
                 }
             },
-            "required": ["group_track_index"]
+            "required": ["group_track_index"],
+            "additionalProperties": False
         }
     },
     {
@@ -166,7 +174,8 @@ TRACK_TOOLS: List[Dict[str, Any]] = [
                     "description": "Zero-based track index."
                 }
             },
-            "required": ["track_index"]
+            "required": ["track_index"],
+            "additionalProperties": False
         }
     },
     {
@@ -181,7 +190,8 @@ TRACK_TOOLS: List[Dict[str, Any]] = [
                     "description": "Zero-based track index."
                 }
             },
-            "required": ["track_index"]
+            "required": ["track_index"],
+            "additionalProperties": False
         }
     },
     {
@@ -211,7 +221,8 @@ TRACK_TOOLS: List[Dict[str, Any]] = [
                     "description": "Region length in beats."
                 }
             },
-            "required": ["track_index", "lane_index", "start", "length"]
+            "required": ["track_index", "lane_index", "start", "length"],
+            "additionalProperties": False
         }
     },
     {
@@ -226,7 +237,8 @@ TRACK_TOOLS: List[Dict[str, Any]] = [
                     "description": "Zero-based index at which to insert the scene, or -1 to append at the end."
                 }
             },
-            "required": []
+            "required": [],
+            "additionalProperties": False
         }
     },
     {
@@ -241,7 +253,8 @@ TRACK_TOOLS: List[Dict[str, Any]] = [
                     "description": "Zero-based scene index to launch."
                 }
             },
-            "required": ["index"]
+            "required": ["index"],
+            "additionalProperties": False
         }
     },
     {
@@ -285,7 +298,8 @@ TRACK_TOOLS: List[Dict[str, Any]] = [
                     "description": "Monitoring state: 'In' (listen to input), 'Auto' (monitor on record arm), or 'Off'."
                 }
             },
-            "required": ["track_index"]
+            "required": ["track_index"],
+            "additionalProperties": False
         }
     },
     {
@@ -353,7 +367,8 @@ TRACK_TOOLS: List[Dict[str, Any]] = [
                     "description": "Crossfader assignment: 'A', 'B', or 'None'."
                 }
             },
-            "required": ["track_index"]
+            "required": ["track_index"],
+            "additionalProperties": False
         }
     },
     {
@@ -373,6 +388,8 @@ TRACK_TOOLS: List[Dict[str, Any]] = [
                 },
                 "color": {
                     "type": "integer",
+                    "minimum": 0,
+                    "maximum": 16777215,
                     "description": "Scene color. Values 0-69 set the Live 12 palette slot (color_index); values > 69 are treated as a packed RGB integer. Prefer color_index/color_rgb for clarity."
                 },
                 "color_index": {
@@ -414,7 +431,8 @@ TRACK_TOOLS: List[Dict[str, Any]] = [
                     "description": "Whether scene time signature trigger is active."
                 }
             },
-            "required": ["scene_index"]
+            "required": ["scene_index"],
+            "additionalProperties": False
         }
     },
     {
@@ -437,7 +455,8 @@ TRACK_TOOLS: List[Dict[str, Any]] = [
                     "description": "Target track category: 'regular', 'return', or 'master'."
                 }
             },
-            "required": ["track_index"]
+            "required": ["track_index"],
+            "additionalProperties": False
         }
     }
 ]

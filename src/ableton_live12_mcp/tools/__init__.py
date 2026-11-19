@@ -38,9 +38,14 @@ EXTRA_TOOLS: List[Dict[str, Any]] = list(TAKE_LANE_TOOLS)
 TOOL_MAP: Dict[str, Dict[str, Any]] = {tool["name"]: tool for tool in ALL_TOOLS}
 
 
+_EXTENSION_TOOL_NAMES = {tool["name"] for tool in TAKE_LANE_TOOLS}
+
+
 def get_tool_catalog(include_extensions: bool = True) -> List[Dict[str, Any]]:
-    """Returns the MCP catalog with Draft-07 schemas (all 77 tools)."""
-    return list(ALL_TOOLS)
+    """Returns the MCP catalog with Draft-07 schemas (77 tools total, 76 without extensions)."""
+    if include_extensions:
+        return list(ALL_TOOLS)
+    return [tool for tool in ALL_TOOLS if tool["name"] not in _EXTENSION_TOOL_NAMES]
 
 
 def get_tool_by_name(name: str) -> Optional[Dict[str, Any]]:

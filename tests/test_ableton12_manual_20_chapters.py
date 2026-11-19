@@ -2,7 +2,7 @@
 Ableton Live 12 Manual - 20 Chapters Comprehensive End-to-End Verification Suite
 =================================================================================
 Validates full operational compliance across all 20 functional domains of the
-Ableton Live 12 Suite Manual, exercising 100% of the 75 MCP tools in both
+Ableton Live 12 Suite Manual, exercising 100% of the 77 MCP tools in both
 Offline Mock Mode and Real Live Ableton Live 12 Suite on macOS.
 
 Chapters covered:
@@ -1059,7 +1059,7 @@ class TestChapter20ApplicationViewsDialogsUndoExport:
 
 
 class TestAll75ToolsExercisedVerification:
-    """Meta-test ensuring 100% of the 75 MCP tools are exercised across the 20 chapters."""
+    """Meta-test ensuring 100% of the 77 MCP tools are exercised across the 20 chapters."""
 
     def test_every_mcp_tool_in_catalog_is_tested(self):
         # Read the test file source to discover called tool names

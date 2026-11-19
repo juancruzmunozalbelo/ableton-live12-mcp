@@ -41,6 +41,10 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --tier)
+      if [[ $# -lt 2 || -z "${2:-}" ]]; then
+        echo "Error: --tier requires an argument (tier1|tier2|tier3|tier4|tier5|manual)" >&2
+        exit 1
+      fi
       TARGET_TIER="$2"
       shift 2
       ;;
@@ -82,8 +86,7 @@ else
   exit 1
 fi
 
-# Build test target argument
-TEST_TARGETS="tests/test_tier1_feature_isolation.py tests/test_tier2_boundaries_corners.py tests/test_tier3_pairwise_combos.py tests/test_tier4_production_flow.py tests/test_tier5_adversarial_hardening.py tests/test_tier5_domain_boundaries.py tests/test_ableton12_manual_20_chapters.py"
+# Build test target argument (dynamically discover tests/test_*.py by default)
 if [[ -n "${TARGET_TIER}" ]]; then
   case "${TARGET_TIER}" in
     tier1) TEST_TARGETS="tests/test_tier1_feature_isolation.py" ;;
@@ -97,6 +100,8 @@ if [[ -n "${TARGET_TIER}" ]]; then
       exit 1
       ;;
   esac
+else
+  TEST_TARGETS=$(find tests -maxdepth 1 -name 'test_*.py' | sort | tr '\n' ' ')
 fi
 
 echo ""

@@ -59,21 +59,22 @@ def clean_session_reset(
     # 2. Delete All User Tracks in Reverse Order
     while True:
         state = client.call_tool("live12_song_get_state")
+        if getattr(state, "is_error", False):
+            raise RuntimeError(f"clean_session_reset failed reading song state: {state.data}")
         tracks_count = state.get("tracks_count", 0)
         if tracks_count <= 0:
             break
         if tracks_count == 1:
-            try:
-                client.call_tool("live12_track_delete", {"track_index": 0})
-            except Exception:
+            del_res = client.call_tool("live12_track_delete", {"track_index": 0})
+            if getattr(del_res, "is_error", False):
                 # If Live protects the last track, create a temporary track and delete track 0
-                try:
-                    client.call_tool("live12_track_create", {"type": "midi", "index": -1})
+                tmp_res = client.call_tool("live12_track_create", {"type": "midi", "index": -1})
+                if not getattr(tmp_res, "is_error", False):
                     client.call_tool("live12_track_delete", {"track_index": 0})
-                except Exception:
-                    pass
             break
-        client.call_tool("live12_track_delete", {"track_index": tracks_count - 1})
+        del_res = client.call_tool("live12_track_delete", {"track_index": tracks_count - 1})
+        if getattr(del_res, "is_error", False):
+            raise RuntimeError(f"clean_session_reset failed deleting track {tracks_count - 1}: {del_res.data}")
 
     # 3. Delete All Return Tracks in Reverse Order
     try:
@@ -127,8 +128,8 @@ def clean_session_reset(
 
     # 7. Reset View
     try:
-        client.call_tool("live12_view_switch", {"view": "Arranger"})
-        client.call_tool("live12_view_switch", {"view": "Detail/DeviceChain"})
+        client.call_tool("live12_view_switch", {"view_name": "Arranger"})
+        client.call_tool("live12_view_switch", {"view_name": "Detail/DeviceChain"})
     except Exception:
         pass
 
@@ -205,13 +206,17 @@ def save_live_set(client: Live12Client, destination_als_path: str, timeout_sec: 
         return "done"
     end run
     '''
-    subprocess.run(
+    prev_mtime_ns: Optional[int] = os.stat(abs_path).st_mtime_ns if os.path.exists(abs_path) else None
+    osa_res = subprocess.run(
         ["osascript", "-", folder_path, base_name],
         input=script,
         capture_output=True,
         text=True,
         timeout=timeout_sec,
     )
+    if osa_res.returncode != 0:
+        err_msg = (osa_res.stderr or osa_res.stdout or "").strip()
+        raise RuntimeError(f"osascript failed during save_live_set (rc={osa_res.returncode}): {err_msg}")
 
     # Poll for file creation either directly at abs_path or within any Project directory
     start_time = time.time()
@@ -221,10 +226,12 @@ def save_live_set(client: Live12Client, destination_als_path: str, timeout_sec: 
 
     while time.time() - start_time < timeout_sec:
         if os.path.exists(abs_path) and os.path.getsize(abs_path) > 1024:
-            found_als = abs_path
-            break
+            if prev_mtime_ns is None or os.stat(abs_path).st_mtime_ns > prev_mtime_ns:
+                found_als = abs_path
+                break
         if os.path.exists(project_als) and os.path.getsize(project_als) > 1024:
-            shutil.copy2(project_als, abs_path)
+            if not (os.path.exists(abs_path) and os.path.samefile(project_als, abs_path)):
+                shutil.copy2(project_als, abs_path)
             found_als = abs_path
             break
 
@@ -234,7 +241,15 @@ def save_live_set(client: Live12Client, destination_als_path: str, timeout_sec: 
                 if f.endswith(".als") and base_name in f:
                     candidate = os.path.join(root_dir, f)
                     if os.path.getsize(candidate) > 1024:
-                        shutil.copy2(candidate, abs_path)
+                        try:
+                            same = os.path.exists(abs_path) and os.path.samefile(candidate, abs_path)
+                        except OSError:
+                            same = False
+                        if same:
+                            if prev_mtime_ns is not None and os.stat(candidate).st_mtime_ns <= prev_mtime_ns:
+                                continue
+                        else:
+                            shutil.copy2(candidate, abs_path)
                         found_als = abs_path
                         break
             if found_als:
@@ -343,33 +358,42 @@ def export_audio_bounce(
         return "done"
     end run
     '''
-    subprocess.run(
+    osa_res = subprocess.run(
         ["osascript", "-", folder_path, base_name],
         input=script,
         capture_output=True,
         text=True,
         timeout=timeout_sec,
     )
+    if osa_res.returncode != 0:
+        err_msg = (osa_res.stderr or osa_res.stdout or "").strip()
+        raise RuntimeError(f"osascript failed during export_audio_bounce (rc={osa_res.returncode}): {err_msg}")
 
     # 4. Wait for audio rendering to stabilize on disk
     logger.info("Waiting for audio bounce completion and file stabilization...")
     start_time = time.time()
     candidate_audio: Optional[str] = None
-    last_size = -1
-    stable_count = 0
+    size_history: Dict[str, Tuple[int, int]] = {}
+
+    def _record_stable(cand_path: str) -> bool:
+        key = os.path.realpath(cand_path)
+        curr_size = os.path.getsize(cand_path)
+        prev_size, prev_count = size_history.get(key, (-1, 0))
+        if curr_size == prev_size:
+            new_count = prev_count + 1
+        else:
+            new_count = 0
+        size_history[key] = (curr_size, new_count)
+        return new_count >= 3
 
     while time.time() - start_time < timeout_sec:
         # Check all possible candidate files Live may write (.wav, .aif, .wav.aif, or any audio in folder)
+        seen_real: set = set()
         for cand in [abs_path, aif_path, wav_aif_path]:
             if os.path.exists(cand) and os.path.getsize(cand) > 65536:
-                curr_size = os.path.getsize(cand)
-                if curr_size == last_size:
-                    stable_count += 1
-                else:
-                    stable_count = 0
-                    last_size = curr_size
-
-                if stable_count >= 3:
+                real = os.path.realpath(cand)
+                seen_real.add(real)
+                if _record_stable(cand):
                     candidate_audio = cand
                     break
         if candidate_audio:
@@ -377,16 +401,14 @@ def export_audio_bounce(
 
         # Also search folder for any audio starting with base_name
         for f in os.listdir(folder_path):
-            if (f.endswith(".wav") or f.endswith(".aif") or f.endswith(".aiff")) and base_name in f:
+            if f.lower().endswith((".wav", ".wave", ".aif", ".aiff")) and base_name in f:
                 cand = os.path.join(folder_path, f)
+                real = os.path.realpath(cand)
+                if real in seen_real:
+                    continue
                 if os.path.getsize(cand) > 65536:
-                    curr_size = os.path.getsize(cand)
-                    if curr_size == last_size:
-                        stable_count += 1
-                    else:
-                        stable_count = 0
-                        last_size = curr_size
-                    if stable_count >= 3:
+                    seen_real.add(real)
+                    if _record_stable(cand):
                         candidate_audio = cand
                         break
         if candidate_audio:
@@ -397,13 +419,23 @@ def export_audio_bounce(
         raise TimeoutError(f"Audio export failed: no stabilized audio file found at '{abs_path}' within {timeout_sec}s")
 
     # 5. Convert to standardized 24-bit PCM WAV if needed
-    if candidate_audio != abs_path or not candidate_audio.endswith(".wav"):
+    already_target_file = False
+    try:
+        already_target_file = os.path.exists(abs_path) and os.path.samefile(candidate_audio, abs_path)
+    except OSError:
+        already_target_file = os.path.abspath(candidate_audio) == os.path.abspath(abs_path)
+    is_wav_ext = candidate_audio.lower().endswith((".wav", ".wave"))
+
+    if not (already_target_file and is_wav_ext):
         logger.info("Standardizing exported audio %s -> %s via ffmpeg...", candidate_audio, abs_path)
+        tmp_out = abs_path + ".tmp_pcm24.wav" if already_target_file else abs_path
         subprocess.run(
-            ["ffmpeg", "-y", "-i", candidate_audio, "-c:a", "pcm_s24le", abs_path],
+            ["ffmpeg", "-y", "-i", candidate_audio, "-c:a", "pcm_s24le", tmp_out],
             check=True,
             capture_output=True,
         )
+        if tmp_out != abs_path:
+            os.replace(tmp_out, abs_path)
 
     file_size = os.path.getsize(abs_path)
     logger.info("Audio bounce successfully generated at %s (%d bytes)", abs_path, file_size)
@@ -513,7 +545,13 @@ def verify_pcm_wav_energy(
                 break
             n_samples = len(raw) // sampwidth
             total_samples += n_samples
-            if sampwidth == 2:  # 16-bit PCM
+            if sampwidth == 1:  # 8-bit unsigned PCM
+                import struct
+                samples = struct.unpack(f"<{n_samples}B", raw)
+                for s in samples:
+                    norm = (s - 128) / 128.0
+                    sum_sq += norm * norm
+            elif sampwidth == 2:  # 16-bit PCM
                 import struct
                 shorts = struct.unpack(f"<{n_samples}h", raw)
                 for s in shorts:
@@ -524,11 +562,14 @@ def verify_pcm_wav_energy(
                     val = int.from_bytes(raw[i:i+3], byteorder="little", signed=True)
                     norm = val / 8388608.0
                     sum_sq += norm * norm
-            elif sampwidth == 4:  # 32-bit float or PCM
+            elif sampwidth == 4:  # 32-bit signed integer PCM
                 import struct
-                floats = struct.unpack(f"<{n_samples}f", raw)
-                for f in floats:
-                    sum_sq += f * f
+                ints = struct.unpack(f"<{n_samples}i", raw)
+                for s in ints:
+                    norm = s / 2147483648.0
+                    sum_sq += norm * norm
+            else:
+                raise ValueError(f"Unsupported WAV sample width: {sampwidth} bytes")
 
         mean_sq = sum_sq / max(1, total_samples)
         rms = math.sqrt(mean_sq)
@@ -803,7 +844,7 @@ class MasterclassBuilder:
             return
 
         lane_res = self.client.call_tool("live12_take_lane_create", {"track_index": track_index})
-        lane_idx = int(lane_res.get("take_lane_index", 0))
+        lane_idx = int(lane_res.get("lane_index", lane_res.get("take_lane_index", 0)))
 
         self.client.call_tool("live12_take_lane_create_audio_clip", {
             "track_index": track_index,
@@ -815,8 +856,8 @@ class MasterclassBuilder:
         if length_beats:
             self.client.call_tool("live12_take_lane_comp_region", {
                 "track_index": track_index,
-                "take_lane_index": lane_idx,
-                "time": float(start_beat),
+                "lane_index": lane_idx,
+                "start": float(start_beat),
                 "length": float(length_beats),
             })
 

@@ -12,6 +12,7 @@ Handles OS-level UI automation outside the Live Object Model:
 from __future__ import annotations
 
 import logging
+import math
 import os
 import platform
 import subprocess
@@ -151,11 +152,11 @@ def is_macos() -> bool:
 
 
 def get_accessibility_permission_status() -> Tuple[bool, Optional[str]]:
-    """Probes macOS System Events authorization without crashing."""
+    """Probes macOS System Events UI scripting authorization without crashing."""
     if not is_macos():
         return False, f"macOS (Darwin) required; current OS is '{platform.system()}'."
 
-    script = 'tell application "System Events" to get name of current user'
+    script = 'tell application "System Events" to get UI elements enabled'
     try:
         proc = subprocess.run(
             ["osascript", "-"],
@@ -165,7 +166,16 @@ def get_accessibility_permission_status() -> Tuple[bool, Optional[str]]:
             timeout=3.0,
         )
         if proc.returncode == 0:
-            return True, None
+            out = proc.stdout.strip().lower()
+            if out == "true":
+                return True, None
+            if out == "false":
+                return False, (
+                    "macOS Accessibility UI scripting is disabled ('UI elements enabled' returned false). "
+                    "Please enable Accessibility for Terminal/Python/Antigravity in "
+                    "System Settings > Privacy & Security > Accessibility."
+                )
+            return False, f"Unexpected Accessibility check output: {proc.stdout.strip()!r}"
 
         err = proc.stderr.strip()
         if "-1743" in err or "not authorized" in err.lower() or "assistive" in err.lower():
@@ -193,7 +203,7 @@ def get_live_running_status() -> Tuple[bool, Optional[str]]:
         return False, "macOS (Darwin) required."
 
     try:
-        proc = subprocess.run(["pgrep", "-ix", "Live"], capture_output=True, text=True, timeout=2.0)
+        proc = subprocess.run(["pgrep", "-x", "Live"], capture_output=True, text=True, timeout=2.0)
         if proc.returncode == 0:
             return True, None
     except Exception:
@@ -220,7 +230,7 @@ def get_live_running_status() -> Tuple[bool, Optional[str]]:
                     return True, None
                 return False, f"Ableton Live 12 ('{BUNDLE_ID}') is not running."
             except ValueError:
-                return True, None
+                return False, f"Unexpected process count output from System Events: {out!r}"
         return False, f"Failed to query running processes: {proc.stderr.strip()}"
     except Exception as e:
         return False, f"Process query error: {str(e)}"
@@ -275,7 +285,7 @@ def run_applescript(
             )
         if "-2741" in err or "syntax error" in err.lower():
             raise DialogError(f"AppleScript syntax error (-2741): {err}")
-        if "not running" in err.lower():
+        if "-1719" in err or "can't get process" in err.lower() or "not running" in err.lower():
             raise ApplicationNotRunningError(f"Ableton Live process not running: {err}")
         raise DialogError(f"AppleScript execution error: {err}")
 
@@ -285,6 +295,213 @@ def run_applescript(
 # ==============================================================================
 # Core OS Automation Operations
 # ==============================================================================
+
+_APPLESCRIPT_SAVE_PANEL_HELPERS = '''
+    on hasSaveButton(containerObj)
+        tell application "System Events"
+            try
+                return (exists button "Save" of containerObj) or (exists button "Guardar" of containerObj) or (exists button "Enregistrer" of containerObj) or (exists button "Sichern" of containerObj)
+            end try
+        end tell
+        return false
+    end hasSaveButton
+
+    on findSaveDialog(liveProc)
+        tell application "System Events"
+            tell liveProc
+                repeat with w in windows
+                    try
+                        repeat with s in sheets of w
+                            if my hasSaveButton(s) then
+                                return s
+                            end if
+                        end repeat
+                    end try
+                    try
+                        set wSubrole to ""
+                        try
+                            set wSubrole to (value of attribute "AXSubrole" of w as string)
+                        end try
+                        if wSubrole is "AXDialog" then
+                            if my hasSaveButton(w) then
+                                return w
+                            end if
+                        end if
+                    end try
+                end repeat
+            end tell
+        end tell
+        return missing value
+    end findSaveDialog
+
+    on findTextInput(containerObj)
+        tell application "System Events"
+            try
+                if exists text field 1 of containerObj then return text field 1 of containerObj
+            end try
+            try
+                if exists combo box 1 of containerObj then return combo box 1 of containerObj
+            end try
+            try
+                repeat with g in groups of containerObj
+                    try
+                        if exists text field 1 of g then return text field 1 of g
+                    end try
+                    try
+                        if exists combo box 1 of g then return combo box 1 of g
+                    end try
+                end repeat
+            end try
+            try
+                repeat with sa in scroll areas of containerObj
+                    try
+                        if exists text field 1 of sa then return text field 1 of sa
+                    end try
+                end repeat
+            end try
+        end tell
+        return missing value
+    end findTextInput
+
+    on confirmGotoContainer(gotoContainer)
+        tell application "System Events"
+            repeat with goName in {"Go", "Ir", "Aller", "Öffnen"}
+                try
+                    if exists button (contents of goName) of gotoContainer then
+                        click button (contents of goName) of gotoContainer
+                        return true
+                    end if
+                end try
+            end repeat
+            keystroke return
+            return true
+        end tell
+    end confirmGotoContainer
+
+    on setGotoFolderPath(liveProc, saveWindow, targetFolder)
+        tell application "System Events"
+            tell liveProc
+                repeat 15 times
+                    try
+                        if (count of sheets of saveWindow) > 0 then
+                            set cand to sheet 1 of saveWindow
+                            if not my hasSaveButton(cand) then
+                                set fld to my findTextInput(cand)
+                                if fld is not missing value then
+                                    set value of fld to targetFolder
+                                    delay 0.1
+                                    my confirmGotoContainer(cand)
+                                    delay 0.3
+                                    return true
+                                end if
+                            end if
+                        end if
+                    end try
+
+                    try
+                        if (count of windows) > 0 and (count of sheets of window 1) > 0 then
+                            set cand to sheet 1 of window 1
+                            if not my hasSaveButton(cand) then
+                                set fld to my findTextInput(cand)
+                                if fld is not missing value then
+                                    set value of fld to targetFolder
+                                    delay 0.1
+                                    my confirmGotoContainer(cand)
+                                    delay 0.3
+                                    return true
+                                end if
+                            end if
+                        end if
+                    end try
+
+                    try
+                        repeat with p in popovers of saveWindow
+                            set fld to my findTextInput(p)
+                            if fld is not missing value then
+                                set value of fld to targetFolder
+                                delay 0.1
+                                my confirmGotoContainer(p)
+                                delay 0.3
+                                return true
+                            end if
+                        end repeat
+                    end try
+
+                    try
+                        if (count of windows) > 0 then
+                            repeat with p in popovers of window 1
+                                set fld to my findTextInput(p)
+                                if fld is not missing value then
+                                    set value of fld to targetFolder
+                                    delay 0.1
+                                    my confirmGotoContainer(p)
+                                    delay 0.3
+                                    return true
+                                end if
+                            end repeat
+                        end if
+                    end try
+
+                    try
+                        repeat with w in windows
+                            set wSub to ""
+                            try
+                                set wSub to (value of attribute "AXSubrole" of w as string)
+                            end try
+                            if wSub is "AXDialog" or wSub is "AXPopover" or wSub is "AXFloatingWindow" then
+                                if not my hasSaveButton(w) then
+                                    set fld to my findTextInput(w)
+                                    if fld is not missing value then
+                                        set value of fld to targetFolder
+                                        delay 0.1
+                                        my confirmGotoContainer(w)
+                                        delay 0.3
+                                        return true
+                                    end if
+                                    try
+                                        repeat with p in popovers of w
+                                            set fld2 to my findTextInput(p)
+                                            if fld2 is not missing value then
+                                                set value of fld2 to targetFolder
+                                                delay 0.1
+                                                my confirmGotoContainer(p)
+                                                delay 0.3
+                                                return true
+                                            end if
+                                        end repeat
+                                    end try
+                                end if
+                            end if
+                        end repeat
+                    end try
+
+                    delay 0.1
+                end repeat
+            end tell
+        end tell
+        error "Go To Folder dialog or path field could not be targeted after Cmd+Shift+G."
+    end setGotoFolderPath
+
+    on clickSaveInDialog(saveWindow)
+        tell application "System Events"
+            repeat with saveBtnName in {"Save", "Guardar", "Enregistrer", "Sichern"}
+                try
+                    click button (contents of saveBtnName) of saveWindow
+                    return true
+                end try
+            end repeat
+            try
+                set defaultBtn to value of attribute "AXDefaultButton" of saveWindow
+                if defaultBtn is not missing value then
+                    click defaultBtn
+                    return true
+                end if
+            end try
+        end tell
+        return false
+    end clickSaveInDialog
+'''
+
 
 def save_set(
     destination_path: str,
@@ -314,37 +531,7 @@ def save_set(
 
     os.makedirs(folder_path, exist_ok=True)
 
-    applescript = '''
-    on findSaveDialog(liveProc)
-        tell application "System Events"
-            tell liveProc
-                repeat with w in windows
-                    try
-                        repeat with s in sheets of w
-                            try
-                                if (exists button "Save" of s) or (exists button "Guardar" of s) or (exists button "Enregistrer" of s) or (exists button "Sichern" of s) or (exists text field 1 of s) then
-                                    return s
-                                end if
-                            end try
-                        end repeat
-                    end try
-                    try
-                        set wSubrole to ""
-                        try
-                            set wSubrole to (value of attribute "AXSubrole" of w as string)
-                        end try
-                        if wSubrole is "AXDialog" then
-                            if (exists button "Save" of w) or (exists button "Guardar" of w) or (exists button "Enregistrer" of w) or (exists button "Sichern" of w) then
-                                return w
-                            end if
-                        end if
-                    end try
-                end repeat
-            end tell
-        end tell
-        return missing value
-    end findSaveDialog
-
+    applescript = _APPLESCRIPT_SAVE_PANEL_HELPERS + '''
     on triggerSaveAsMenu(liveProc)
         tell application "System Events"
             tell liveProc
@@ -407,59 +594,29 @@ def save_set(
                     error "Save Live Set As dialog did not open."
                 end if
 
-                -- Open Go To Folder sheet via Cmd+Shift+G
+                -- Open Go To Folder sheet/popover via Cmd+Shift+G and set targetFolder explicitly
                 keystroke "g" using {command down, shift down}
-                delay 0.4
+                delay 0.3
+                my setGotoFolderPath(liveProc, saveWindow, targetFolder)
 
-                -- Populate Go To folder inside the sheet
-                if (count of sheets of saveWindow) > 0 then
-                    set gotoSheet to sheet 1 of saveWindow
-                    set value of text field 1 of gotoSheet to targetFolder
-                    delay 0.1
-                    try
-                        click button "Go" of gotoSheet
-                    on error
-                        try
-                            click button "Ir" of gotoSheet
-                        on error
-                            try
-                                click button "Aller" of gotoSheet
-                            on error
-                                keystroke return
-                            end try
-                        end try
-                    end try
-                    delay 0.3
-                end if
-
-                -- Set filename in verified Save As dialog
-                try
-                    set value of text field 1 of saveWindow to targetFile
-                end try
+                -- Set filename in verified Save As dialog (never swallow failure)
+                set value of text field 1 of saveWindow to targetFile
                 delay 0.2
 
-                -- Click Save button explicitly (no blind keystroke return on Live main window)
-                set clickedSave to false
-                repeat with saveBtnName in {"Save", "Guardar", "Enregistrer", "Sichern"}
-                    try
-                        click button (contents of saveBtnName) of saveWindow
-                        set clickedSave to true
-                        exit repeat
-                    end try
-                end repeat
-                if not clickedSave then
-                    try
-                        click (first button of saveWindow whose value of attribute "AXDefault" is true)
-                        set clickedSave to true
-                    end try
-                end if
-                if not clickedSave then
+                -- Click Save button explicitly
+                if not my clickSaveInDialog(saveWindow) then
                     error "Could not locate Save button in Cocoa Save dialog."
                 end if
                 delay 0.4
 
                 -- Handle overwrite confirmation sheet if file exists
-                if (count of sheets of saveWindow) > 0 then
+                set hasOverwriteSheet to false
+                try
+                    if (count of sheets of saveWindow) > 0 then
+                        set hasOverwriteSheet to true
+                    end if
+                end try
+                if hasOverwriteSheet then
                     if allowOverwrite is "0" then
                         try
                             click button "Cancel" of sheet 1 of saveWindow
@@ -482,7 +639,11 @@ def save_set(
                     end repeat
                     if not clickedReplace then
                         try
-                            click (first button of (sheet 1 of saveWindow) whose value of attribute "AXDefault" is true)
+                            set repSheet to sheet 1 of saveWindow
+                            set defaultRepBtn to value of attribute "AXDefaultButton" of repSheet
+                            if defaultRepBtn is not missing value then
+                                click defaultRepBtn
+                            end if
                         end try
                     end if
                 end if
@@ -503,20 +664,22 @@ def save_set(
     initial_mtime_ns = _get_mtime_ns(abs_path)
     initial_proj_mtime_ns = _get_mtime_ns(project_als_path)
 
+    op_start = time.monotonic()
+    deadline = op_start + max(0.0, float(timeout_sec))
+
     run_applescript(
         applescript,
         [folder_path, file_name, "1" if overwrite else "0"],
-        timeout_sec=timeout_sec,
+        timeout_sec=max(0.05, deadline - time.monotonic()),
     )
 
     # Poll for file creation at abs_path OR <Parent>/<Stem> Project/<Stem>.als
-    start_time = time.time()
     verified_path: Optional[str] = None
     candidates = [
         (abs_path, initial_mtime_ns),
         (project_als_path, initial_proj_mtime_ns),
     ]
-    while time.time() - start_time < timeout_sec:
+    while True:
         for cand_path, init_ns in candidates:
             if os.path.exists(cand_path) and os.path.isfile(cand_path):
                 try:
@@ -528,9 +691,12 @@ def save_set(
                     pass
         if verified_path is not None:
             break
-        time.sleep(DEFAULT_POLL_INTERVAL)
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            break
+        time.sleep(min(DEFAULT_POLL_INTERVAL, remaining))
 
-    elapsed = time.time() - start_time
+    elapsed = time.monotonic() - op_start
     if not verified_path:
         raise TimeoutExpiredError(
             f"Save command dispatched but file '{abs_path}' was not verified after {timeout_sec}s."
@@ -563,6 +729,9 @@ def open_set(
             f"macOS UI Automation requires Darwin; current system is '{platform.system()}'."
         )
 
+    op_start = time.monotonic()
+    deadline = op_start + max(0.0, float(timeout_sec))
+
     def _check_and_handle_unsaved_prompt() -> None:
         prompt_script = '''
         on findUnsavedButtons(containerObj)
@@ -586,7 +755,7 @@ def open_set(
                 end if
                 set liveProc to (first process whose bundle identifier is "com.ableton.live" or name is "Live")
                 tell liveProc
-                    repeat 5 times
+                    repeat 20 times
                         repeat with w in windows
                             repeat with s in sheets of w
                                 set dontSaveBtn to my findUnsavedButtons(s)
@@ -615,17 +784,18 @@ def open_set(
                                 end if
                             end try
                         end repeat
-                        delay 0.05
+                        delay 0.1
                     end repeat
                 end tell
             end tell
             return "ok"
         end run
         '''
+        rem = max(0.1, min(5.0, deadline - time.monotonic()))
         ok, stdout, _ = run_applescript(
             prompt_script,
             ["1" if discard_unsaved else "0"],
-            timeout_sec=min(timeout_sec, 5.0),
+            timeout_sec=rem,
         )
         if ok and stdout == "blocked_unsaved":
             raise DialogError(
@@ -638,7 +808,7 @@ def open_set(
     flag = "-a" if os.path.exists(DEFAULT_APP_PATH) else "-b"
     cmd = ["/usr/bin/open", flag, app_target, abs_path]
     try:
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_sec)
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=max(0.05, deadline - time.monotonic()))
         if proc.returncode == 0:
             _check_and_handle_unsaved_prompt()
             return {
@@ -662,7 +832,7 @@ def open_set(
             ["/usr/bin/open", "-a", DEFAULT_APP_NAME, abs_path],
             capture_output=True,
             text=True,
-            timeout=timeout_sec,
+            timeout=max(0.05, deadline - time.monotonic()),
         )
         if proc_app.returncode == 0:
             _check_and_handle_unsaved_prompt()
@@ -685,17 +855,17 @@ def open_set(
     except Exception as e:
         logger.warning(f"open -a fallback failed: {e}")
 
-    # Final fallback: AppleScript
+    # Final fallback: AppleScript using bundle id
     script = '''
     on run argv
         set targetAls to item 1 of argv
-        tell application "Ableton Live 12 Suite"
+        tell application id "com.ableton.live"
             open POSIX file targetAls
             activate
         end tell
     end run
     '''
-    run_applescript(script, [abs_path], timeout_sec=timeout_sec)
+    run_applescript(script, [abs_path], timeout_sec=max(0.05, deadline - time.monotonic()))
     _check_and_handle_unsaved_prompt()
 
     return {
@@ -719,6 +889,17 @@ _SUPPORTED_RENDER_KEYS = {
     "normalize",
     "rendered_track",
 }
+_UI_INACCESSIBLE_RENDER_KEYS = frozenset({
+    "sample_rate",
+    "bit_depth",
+    "dither_type",
+    "normalize",
+    "rendered_track",
+})
+_UI_ATTEMPTED_RENDER_KEYS = frozenset({
+    "render_start",
+    "render_length",
+})
 
 
 def _validate_render_settings(render_settings: Optional[dict]) -> Dict[str, Any]:
@@ -738,7 +919,13 @@ def _validate_render_settings(render_settings: Optional[dict]) -> Dict[str, Any]
     validated: Dict[str, Any] = {}
     if "sample_rate" in render_settings:
         sr = render_settings["sample_rate"]
-        if isinstance(sr, bool) or not isinstance(sr, (int, float)) or int(sr) != sr or int(sr) not in _VALID_RENDER_SAMPLE_RATES:
+        if (
+            isinstance(sr, bool)
+            or not isinstance(sr, (int, float))
+            or not math.isfinite(float(sr))
+            or int(sr) != sr
+            or int(sr) not in _VALID_RENDER_SAMPLE_RATES
+        ):
             raise ValidationError(f"Invalid sample_rate {sr!r}; expected one of {sorted(_VALID_RENDER_SAMPLE_RATES)}")
         validated["sample_rate"] = int(sr)
     if "bit_depth" in render_settings:
@@ -748,17 +935,27 @@ def _validate_render_settings(render_settings: Optional[dict]) -> Dict[str, Any]
         validated["bit_depth"] = bd
     if "render_start" in render_settings:
         rs = render_settings["render_start"]
-        if isinstance(rs, bool) or not isinstance(rs, (int, float)) or float(rs) < 0.0:
-            raise ValidationError(f"Invalid render_start {rs!r}; must be non-negative number")
+        if (
+            isinstance(rs, bool)
+            or not isinstance(rs, (int, float))
+            or not math.isfinite(float(rs))
+            or float(rs) < 0.0
+        ):
+            raise ValidationError(f"Invalid render_start {rs!r}; must be non-negative finite number")
         validated["render_start"] = float(rs)
     if "render_length" in render_settings:
         rl = render_settings["render_length"]
-        if isinstance(rl, bool) or not isinstance(rl, (int, float)) or float(rl) <= 0.0:
-            raise ValidationError(f"Invalid render_length {rl!r}; must be positive number")
+        if (
+            isinstance(rl, bool)
+            or not isinstance(rl, (int, float))
+            or not math.isfinite(float(rl))
+            or float(rl) <= 0.0
+        ):
+            raise ValidationError(f"Invalid render_length {rl!r}; must be positive finite number")
         validated["render_length"] = float(rl)
     if "dither_type" in render_settings:
         dt = render_settings["dither_type"]
-        if not isinstance(dt, str) or not dt.strip():
+        if not isinstance(dt, str) or not dt.strip() or "\x00" in dt:
             raise ValidationError("dither_type must be a non-empty string")
         validated["dither_type"] = dt
     if "normalize" in render_settings:
@@ -768,7 +965,7 @@ def _validate_render_settings(render_settings: Optional[dict]) -> Dict[str, Any]
         validated["normalize"] = nm
     if "rendered_track" in render_settings:
         rt = render_settings["rendered_track"]
-        if not isinstance(rt, str) or not rt.strip():
+        if not isinstance(rt, str) or not rt.strip() or "\x00" in rt:
             raise ValidationError("rendered_track must be a non-empty string")
         validated["rendered_track"] = rt
     return validated
@@ -807,51 +1004,56 @@ def export_audio(
 
     os.makedirs(folder_path, exist_ok=True)
 
-    applescript = '''
-    on findSaveDialog(liveProc)
+    applescript = _APPLESCRIPT_SAVE_PANEL_HELPERS + '''
+    on isExportTitle(titleStr)
+        if titleStr is missing value then return false
+        set t to (titleStr as string)
+        return (t contains "Export") or (t contains "Render") or (t contains "Progress") or (t contains "Exportar") or (t contains "Exporter") or (t contains "Exportieren") or (t contains "Rendering")
+    end isExportTitle
+
+    on hasExportButtons(containerObj)
         tell application "System Events"
-            tell liveProc
-                repeat with w in windows
-                    try
-                        repeat with s in sheets of w
-                            try
-                                if (exists button "Save" of s) or (exists button "Guardar" of s) or (exists button "Enregistrer" of s) or (exists button "Sichern" of s) then
-                                    return s
-                                end if
-                            end try
-                        end repeat
-                    end try
-                    try
-                        if (value of attribute "AXSubrole" of w as string) is "AXDialog" then
-                            if (exists button "Save" of w) or (exists button "Guardar" of w) then
-                                return w
-                            end if
-                        end if
-                    end try
-                end repeat
-            end tell
+            repeat with bName in {"Export", "Exportar", "Exporter", "Exportieren"}
+                try
+                    if exists button (contents of bName) of containerObj then return true
+                end try
+            end repeat
         end tell
-        return missing value
-    end findSaveDialog
+        return false
+    end hasExportButtons
 
     on hasExportDialogOrProgress(liveProc)
         tell application "System Events"
             tell liveProc
                 repeat with w in windows
                     try
-                        if (count of sheets of w) > 0 then
-                            return true
-                        end if
+                        repeat with s in sheets of w
+                            if my hasSaveButton(s) or my hasExportButtons(s) then return true
+                            try
+                                if exists progress indicator 1 of s then return true
+                            end try
+                            try
+                                set sTitle to title of s
+                                if my isExportTitle(sTitle) then return true
+                            end try
+                        end repeat
                     end try
+                    set wName to ""
                     try
-                        set wName to (name of w as string)
-                        if wName contains "Export" or wName contains "Render" or wName contains "Progress" or wName contains "Exportar" then
-                            return true
-                        end if
+                        set rawName to name of w
+                        if rawName is not missing value then set wName to (rawName as string)
                     end try
+                    if my isExportTitle(wName) then
+                        return true
+                    end if
                     try
                         if (value of attribute "AXSubrole" of w as string) is "AXDialog" then
-                            return true
+                            if my hasExportButtons(w) or my hasSaveButton(w) then
+                                return true
+                            end if
+                            try
+                                if exists progress indicator 1 of w then return true
+                            end try
                         end if
                     end try
                 end repeat
@@ -866,6 +1068,8 @@ def export_audio(
         set renderStartArg to item 3 of argv
         set renderLengthArg to item 4 of argv
         set maxProgressPolls to (item 5 of argv) as integer
+
+        set appliedList to {}
 
         tell application "System Events"
             set liveProc to (first process whose bundle identifier is "com.ableton.live" or name is "Live")
@@ -885,19 +1089,32 @@ def export_audio(
 
                 -- Apply optional render_start / render_length fields when available
                 if renderStartArg is not "" or renderLengthArg is not "" then
-                    try
-                        set frontWin to window 1
+                    set exportWin to missing value
+                    repeat with w in windows
+                        if my hasExportButtons(w) then
+                            set exportWin to w
+                            exit repeat
+                        end if
+                    end repeat
+                    if exportWin is missing value then
+                        try
+                            set exportWin to window 1
+                        end try
+                    end if
+                    if exportWin is not missing value then
                         if renderStartArg is not "" then
                             try
-                                set value of text field 1 of frontWin to renderStartArg
+                                set value of text field 1 of exportWin to renderStartArg
+                                set end of appliedList to "render_start"
                             end try
                         end if
                         if renderLengthArg is not "" then
                             try
-                                set value of text field 2 of frontWin to renderLengthArg
+                                set value of text field 2 of exportWin to renderLengthArg
+                                set end of appliedList to "render_length"
                             end try
                         end if
-                    end try
+                    end if
                 end if
 
                 -- Trigger Export button in settings dialog
@@ -929,56 +1146,46 @@ def export_audio(
                     error "Export NSSavePanel dialog did not open."
                 end if
 
-                -- Open Go To Folder sheet via Cmd+Shift+G
+                -- Open Go To Folder sheet/popover via Cmd+Shift+G and set targetFolder explicitly
                 keystroke "g" using {command down, shift down}
-                delay 0.4
+                delay 0.3
+                my setGotoFolderPath(liveProc, saveWindow, targetFolder)
 
-                if (count of sheets of saveWindow) > 0 then
-                    set gotoSheet to sheet 1 of saveWindow
-                    set value of text field 1 of gotoSheet to targetFolder
-                    delay 0.1
-                    try
-                        click button "Go" of gotoSheet
-                    on error
-                        try
-                            click button "Ir" of gotoSheet
-                        on error
-                            keystroke return
-                        end try
-                    end try
-                    delay 0.3
-                end if
-
-                -- Set filename in Save dialog
-                try
-                    set value of text field 1 of saveWindow to targetFile
-                end try
+                -- Set filename in Save dialog (never swallow failure)
+                set value of text field 1 of saveWindow to targetFile
                 delay 0.2
 
                 -- Click Save
-                set clickedSave to false
-                repeat with saveBtnName in {"Save", "Guardar", "Enregistrer", "Sichern"}
-                    try
-                        click button (contents of saveBtnName) of saveWindow
-                        set clickedSave to true
-                        exit repeat
-                    end try
-                end repeat
-                if not clickedSave then
-                    try
-                        click (first button of saveWindow whose value of attribute "AXDefault" is true)
-                    end try
+                if not my clickSaveInDialog(saveWindow) then
+                    error "Could not locate Save button in Export NSSavePanel dialog."
                 end if
                 delay 0.4
 
                 -- Handle overwrite confirmation if exists
-                if (count of sheets of saveWindow) > 0 then
+                set hasOverwriteSheet to false
+                try
+                    if (count of sheets of saveWindow) > 0 then
+                        set hasOverwriteSheet to true
+                    end if
+                end try
+                if hasOverwriteSheet then
+                    set clickedReplace to false
                     repeat with repBtnName in {"Replace", "Reemplazar", "Remplacer", "Ersetzen"}
                         try
                             click button (contents of repBtnName) of sheet 1 of saveWindow
+                            set clickedReplace to true
                             exit repeat
                         end try
                     end repeat
+                    if not clickedReplace then
+                        try
+                            set repSheet to sheet 1 of saveWindow
+                            set defaultRepBtn to value of attribute "AXDefaultButton" of repSheet
+                            if defaultRepBtn is not missing value then
+                                click defaultRepBtn
+                            end if
+                        end try
+                    end if
                 end if
 
                 -- Wait for Ableton Export progress dialog/sheet to close before returning
@@ -988,7 +1195,8 @@ def export_audio(
                 end repeat
             end tell
         end tell
-        return "triggered"
+        set AppleScript's text item delimiters to ","
+        return "triggered|applied=" & (appliedList as text)
     end run
     '''
 
@@ -999,28 +1207,35 @@ def export_audio(
         except OSError:
             initial_mtime_ns = None
 
+    op_start = time.monotonic()
+    deadline = op_start + max(0.0, float(timeout_sec))
+
+    remaining_for_script = max(0.05, deadline - time.monotonic())
+    post_poll_reserve = min(2.0, remaining_for_script * 0.35)
+    script_setup_budget = min(2.5, remaining_for_script * 0.4)
+    progress_budget = max(0.0, remaining_for_script - post_poll_reserve - script_setup_budget)
+    max_progress_polls = str(max(0, int(progress_budget / 0.2)))
+
     render_start_str = str(validated_settings["render_start"]) if "render_start" in validated_settings else ""
     render_length_str = str(validated_settings["render_length"]) if "render_length" in validated_settings else ""
-    max_progress_polls = str(max(1, int(max(1.0, timeout_sec - 2.0) / 0.2)))
 
-    run_applescript(
+    _, script_stdout, _ = run_applescript(
         applescript,
         [folder_path, file_name, render_start_str, render_length_str, max_progress_polls],
-        timeout_sec=timeout_sec,
+        timeout_sec=remaining_for_script,
     )
 
     # Poll for rendered WAV/AIFF file: require valid RIFF/WAVE (or FORM/AIFF) header (size >= 44)
-    # AND file stability ((size, mtime_ns) unchanged across 3 consecutive polls over >= 0.5s window).
-    start_time = time.time()
-    poll_interval = min(0.18, max(0.05, timeout_sec / 12.0))
-    min_stable_window = min(0.5, max(0.2, timeout_sec * 0.2))
+    # AND file stability ((size, mtime_ns) unchanged across 3 consecutive polls over >= min_stable_window).
+    min_stable_window = min(0.5, max(0.0, float(timeout_sec) * 0.25))
+    poll_interval = min(0.18, max(0.005, min(float(timeout_sec) / 12.0, max(0.005, min_stable_window / 3.0))))
     last_fingerprint: Optional[Tuple[int, int]] = None
     stable_polls = 0
     stable_since: Optional[float] = None
     valid_header_kind = ""
     verified_size = 0
 
-    while time.time() - start_time < timeout_sec:
+    while True:
         if os.path.exists(abs_path) and os.path.isfile(abs_path):
             try:
                 st = os.stat(abs_path)
@@ -1050,9 +1265,12 @@ def export_audio(
                 last_fingerprint = None
                 stable_polls = 0
                 stable_since = None
-        time.sleep(poll_interval)
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            break
+        time.sleep(min(poll_interval, remaining))
 
-    elapsed = time.time() - start_time
+    elapsed = time.monotonic() - op_start
     if not valid_header_kind:
         raise TimeoutExpiredError(
             f"Export triggered but valid stabilized WAV/AIFF file '{abs_path}' was not detected within {timeout_sec}s."
@@ -1069,7 +1287,32 @@ def export_audio(
         "duration_sec": round(elapsed, 3),
     }
     if validated_settings:
-        result["render_settings"] = validated_settings
+        applied_render_settings: Dict[str, Any] = {}
+        unapplied_render_settings: Dict[str, Any] = {}
+
+        if "|applied=" in script_stdout:
+            applied_raw = script_stdout.split("|applied=", 1)[1].strip()
+            confirmed_ui_keys = {k.strip() for k in applied_raw.split(",") if k.strip()}
+        else:
+            confirmed_ui_keys = set(_UI_ATTEMPTED_RENDER_KEYS)
+
+        for k, v in validated_settings.items():
+            if k in _UI_INACCESSIBLE_RENDER_KEYS:
+                unapplied_render_settings[k] = v
+            elif k in confirmed_ui_keys:
+                applied_render_settings[k] = v
+            else:
+                unapplied_render_settings[k] = v
+
+        result["applied_render_settings"] = applied_render_settings
+        result["unapplied_render_settings"] = unapplied_render_settings
+        if unapplied_render_settings:
+            result["warning"] = (
+                "Ableton Live's Export Audio/Video dialog uses a custom UI that does not expose "
+                "Cocoa Accessibility controls for sample_rate, bit_depth, dither_type, normalize, "
+                "or rendered_track. Unapplied settings: "
+                f"{sorted(unapplied_render_settings.keys())}; Live used its current dialog settings."
+            )
     return result
 
 
@@ -1096,14 +1339,46 @@ def inspect_os_dialogs() -> Dict[str, Any]:
     tell application "System Events"
         set liveProc to (first process whose bundle identifier is "com.ableton.live" or name is "Live")
         tell liveProc
+            set sheetCount to 0
             set sheetList to {}
             repeat with w in windows
-                repeat with s in sheets of w
-                    set end of sheetList to (title of s as string)
-                end repeat
+                try
+                    repeat with s in sheets of w
+                        set sheetCount to sheetCount + 1
+                        set sTitle to ""
+                        try
+                            set rawST to title of s
+                            if rawST is not missing value then set sTitle to (rawST as string)
+                        end try
+                        if sTitle is "" then
+                            try
+                                set rawSN to name of s
+                                if rawSN is not missing value then set sTitle to (rawSN as string)
+                            end try
+                        end if
+                        if sTitle is not "" then set end of sheetList to sTitle
+                    end repeat
+                end try
+                try
+                    if (value of attribute "AXSubrole" of w as string) is "AXDialog" then
+                        set sheetCount to sheetCount + 1
+                        set wTitle to ""
+                        try
+                            set rawWT to title of w
+                            if rawWT is not missing value then set wTitle to (rawWT as string)
+                        end try
+                        if wTitle is "" then
+                            try
+                                set rawWN to name of w
+                                if rawWN is not missing value then set wTitle to (rawWN as string)
+                            end try
+                        end if
+                        if wTitle is not "" then set end of sheetList to wTitle
+                    end if
+                end try
             end repeat
             set AppleScript's text item delimiters to linefeed
-            return sheetList as text
+            return (sheetCount as string) & linefeed & (sheetList as text)
         end tell
     end tell
     '''
@@ -1112,9 +1387,19 @@ def inspect_os_dialogs() -> Dict[str, Any]:
     except Exception as e:
         return {"open_sheet_count": 0, "dialog_titles": [], "error": str(e)}
 
-    titles = split_dialog_titles(stdout) if stdout else []
+    if not stdout:
+        return {"open_sheet_count": 0, "dialog_titles": []}
+
+    parts = stdout.split("\n", 1)
+    if parts[0].strip().isdigit():
+        open_sheet_count = int(parts[0].strip())
+        titles = split_dialog_titles(parts[1]) if len(parts) > 1 else []
+    else:
+        titles = split_dialog_titles(stdout)
+        open_sheet_count = len(titles)
+
     return {
-        "open_sheet_count": len(titles),
+        "open_sheet_count": open_sheet_count,
         "dialog_titles": titles,
     }
 
@@ -1173,6 +1458,8 @@ def dismiss_os_dialog(
                     end try
                 end repeat
                 if hadDialog then
+                    set frontmost to true
+                    delay 0.1
                     key code 53
                     return "pressed_escape"
                 end if
